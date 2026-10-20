@@ -1,0 +1,18 @@
+name: debug stack limit under buildprof
+on: workflow_dispatch
+permissions:
+  contents: read
+jobs:
+  limits:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout: .buildprof
+          persist-credentials: false
+      - run: |
+          cp .buildprof/buildprof-x86_64 "$RUNNER_TEMP/bp" && chmod +x "$RUNNER_TEMP/bp"
+          sudo setcap cap_sys_ptrace,cap_sys_admin+ep "$RUNNER_TEMP/bp"
+          echo "step shell: soft $(ulimit -S -s) hard $(ulimit -H -s)"; grep 'Max stack' /proc/$$/limits
+          "$RUNNER_TEMP/bp" --no-open -o "$RUNNER_TEMP/t.buildprof" -- sh -c 'echo "under buildprof: soft $(ulimit -S -s) hard $(ulimit -H -s)"; grep "Max stack" /proc/self/limits' 2>&1 | grep -v '^$'
+          sh -c 'echo "sh child: soft $(ulimit -S -s)"; grep "Max stack" /proc/$PPID/limits'
