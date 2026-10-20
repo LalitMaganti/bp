@@ -45,7 +45,7 @@ jobs:
         fetch-depth: 0
         persist-credentials: false
         repository: astral-sh/uv
-        ref: aaac466c9696a4c12cbf56dc3afa6520da0207ce
+        ref: 2e78d9a3205d20e95f047b9ac3683e10f4572612
     - name: Wrap upstream composite actions
       shell: sh
       run: 'if [ -n "$(ls -A "$RUNNER_TEMP/buildprof-actions" 2>/dev/null)" ]; then cp -r "$RUNNER_TEMP/buildprof-actions/." "./.github/actions/"; fi
@@ -97,7 +97,7 @@ jobs:
 
         bp_rc=0
 
-        "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open --detach-after-exit 10 -o "$bp_dir/$bp_id-Prepare-review-configuration.buildprof" -- bash --noprofile --norc -eo pipefail "$bp_dir/$bp_id.sh" || bp_rc=$?
+        "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open --detach-after-exit 10 -o "$bp_dir/$bp_id-Prepare-review-configuration.buildprof" -- $(command -v bash >/dev/null && echo "bash --noprofile --norc -eo pipefail" || echo "sh -e") "$bp_dir/$bp_id.sh" || bp_rc=$?
 
         kill $bp_watch 2>/dev/null; exit $bp_rc
 
@@ -116,7 +116,7 @@ jobs:
 
         bp_rc=0
 
-        "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open --detach-after-exit 10 -o "$bp_dir/$bp_id-Collect-pull-request-context.buildprof" -- bash --noprofile --norc -eo pipefail "$bp_dir/$bp_id.sh" || bp_rc=$?
+        "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open --detach-after-exit 10 -o "$bp_dir/$bp_id-Collect-pull-request-context.buildprof" -- $(command -v bash >/dev/null && echo "bash --noprofile --norc -eo pipefail" || echo "sh -e") "$bp_dir/$bp_id.sh" || bp_rc=$?
 
         kill $bp_watch 2>/dev/null; exit $bp_rc
 
@@ -128,7 +128,7 @@ jobs:
         HEAD_SHA: ${{ github.event.pull_request.head.sha }}
       shell: sh
     - name: Enable Linux user namespaces for bubblewrap
-      run: "bp_dir=\"$RUNNER_TEMP/buildprof\"; mkdir -p \"$bp_dir\"; bp_id=$(date +%s)-$$-$(od -An -N4 -tu4 /dev/urandom | tr -d \" \")\ncat > \"$bp_dir/$bp_id.sh\" <<'BUILDPROF_SCRIPT_EOF'\ncurrent_userns=\"$(sysctl -n kernel.unprivileged_userns_clone 2>/dev/null || true)\"\nif [ -n \"$current_userns\" ] && [ \"$current_userns\" != \"1\" ]; then\n  sudo sysctl -w kernel.unprivileged_userns_clone=1\nfi\n\ncurrent_apparmor=\"$(sysctl -n kernel.apparmor_restrict_unprivileged_userns 2>/dev/null || true)\"\nif [ -n \"$current_apparmor\" ] && [ \"$current_apparmor\" != \"0\" ]; then\n  sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0\nfi\nBUILDPROF_SCRIPT_EOF\n( sleep 2700; while true; do echo \"=== buildprof survey watchdog: step still running\"; ps -eo pid,ppid,stat,etime,wchan:32,args --forest 2>/dev/null | cut -c1-250 || ps; sleep 600; done ) & bp_watch=$!\nbp_rc=0\n\"$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)\" --no-open --detach-after-exit 10 -o \"$bp_dir/$bp_id-Enable-Linux-user-namespaces-for-bubblew.buildprof\" -- bash --noprofile --norc -eo pipefail \"$bp_dir/$bp_id.sh\" || bp_rc=$?\nkill $bp_watch 2>/dev/null; exit $bp_rc\n"
+      run: "bp_dir=\"$RUNNER_TEMP/buildprof\"; mkdir -p \"$bp_dir\"; bp_id=$(date +%s)-$$-$(od -An -N4 -tu4 /dev/urandom | tr -d \" \")\ncat > \"$bp_dir/$bp_id.sh\" <<'BUILDPROF_SCRIPT_EOF'\ncurrent_userns=\"$(sysctl -n kernel.unprivileged_userns_clone 2>/dev/null || true)\"\nif [ -n \"$current_userns\" ] && [ \"$current_userns\" != \"1\" ]; then\n  sudo sysctl -w kernel.unprivileged_userns_clone=1\nfi\n\ncurrent_apparmor=\"$(sysctl -n kernel.apparmor_restrict_unprivileged_userns 2>/dev/null || true)\"\nif [ -n \"$current_apparmor\" ] && [ \"$current_apparmor\" != \"0\" ]; then\n  sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0\nfi\nBUILDPROF_SCRIPT_EOF\n( sleep 2700; while true; do echo \"=== buildprof survey watchdog: step still running\"; ps -eo pid,ppid,stat,etime,wchan:32,args --forest 2>/dev/null | cut -c1-250 || ps; sleep 600; done ) & bp_watch=$!\nbp_rc=0\n\"$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)\" --no-open --detach-after-exit 10 -o \"$bp_dir/$bp_id-Enable-Linux-user-namespaces-for-bubblew.buildprof\" -- $(command -v bash >/dev/null && echo \"bash --noprofile --norc -eo pipefail\" || echo \"sh -e\") \"$bp_dir/$bp_id.sh\" || bp_rc=$?\nkill $bp_watch 2>/dev/null; exit $bp_rc\n"
       shell: sh
     - name: Review pull request
       id: review
@@ -151,7 +151,7 @@ jobs:
     - name: Check reviewed checkout
       env:
         HEAD_SHA: ${{ github.event.pull_request.head.sha }}
-      run: "bp_dir=\"$RUNNER_TEMP/buildprof\"; mkdir -p \"$bp_dir\"; bp_id=$(date +%s)-$$-$(od -An -N4 -tu4 /dev/urandom | tr -d \" \")\ncat > \"$bp_dir/$bp_id.sh\" <<'BUILDPROF_SCRIPT_EOF'\nif [ \"$(git rev-parse HEAD)\" != \"$HEAD_SHA\" ]; then\n  echo \"The review changed the checked-out revision.\" >&2\n  exit 1\nfi\ngit diff --no-ext-diff --no-textconv --exit-code HEAD --\nBUILDPROF_SCRIPT_EOF\n( sleep 2700; while true; do echo \"=== buildprof survey watchdog: step still running\"; ps -eo pid,ppid,stat,etime,wchan:32,args --forest 2>/dev/null | cut -c1-250 || ps; sleep 600; done ) & bp_watch=$!\nbp_rc=0\n\"$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)\" --no-open --detach-after-exit 10 -o \"$bp_dir/$bp_id-Check-reviewed-checkout.buildprof\" -- bash --noprofile --norc -eo pipefail \"$bp_dir/$bp_id.sh\" || bp_rc=$?\nkill $bp_watch 2>/dev/null; exit $bp_rc\n"
+      run: "bp_dir=\"$RUNNER_TEMP/buildprof\"; mkdir -p \"$bp_dir\"; bp_id=$(date +%s)-$$-$(od -An -N4 -tu4 /dev/urandom | tr -d \" \")\ncat > \"$bp_dir/$bp_id.sh\" <<'BUILDPROF_SCRIPT_EOF'\nif [ \"$(git rev-parse HEAD)\" != \"$HEAD_SHA\" ]; then\n  echo \"The review changed the checked-out revision.\" >&2\n  exit 1\nfi\ngit diff --no-ext-diff --no-textconv --exit-code HEAD --\nBUILDPROF_SCRIPT_EOF\n( sleep 2700; while true; do echo \"=== buildprof survey watchdog: step still running\"; ps -eo pid,ppid,stat,etime,wchan:32,args --forest 2>/dev/null | cut -c1-250 || ps; sleep 600; done ) & bp_watch=$!\nbp_rc=0\n\"$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)\" --no-open --detach-after-exit 10 -o \"$bp_dir/$bp_id-Check-reviewed-checkout.buildprof\" -- $(command -v bash >/dev/null && echo \"bash --noprofile --norc -eo pipefail\" || echo \"sh -e\") \"$bp_dir/$bp_id.sh\" || bp_rc=$?\nkill $bp_watch 2>/dev/null; exit $bp_rc\n"
       shell: sh
     - name: Upload Codex thread
       if: always()
@@ -226,7 +226,7 @@ jobs:
 
         bp_rc=0
 
-        "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open --detach-after-exit 10 -o "$bp_dir/$bp_id-Prepare-review-findings.buildprof" -- bash --noprofile --norc -eo pipefail "$bp_dir/$bp_id.sh" || bp_rc=$?
+        "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open --detach-after-exit 10 -o "$bp_dir/$bp_id-Prepare-review-findings.buildprof" -- $(command -v bash >/dev/null && echo "bash --noprofile --norc -eo pipefail" || echo "sh -e") "$bp_dir/$bp_id.sh" || bp_rc=$?
 
         kill $bp_watch 2>/dev/null; exit $bp_rc
 
@@ -305,7 +305,7 @@ jobs:
 
         bp_rc=0
 
-        "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open --detach-after-exit 10 -o "$bp_dir/$bp_id-Publish-review-findings.buildprof" -- bash --noprofile --norc -eo pipefail "$bp_dir/$bp_id.sh" || bp_rc=$?
+        "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open --detach-after-exit 10 -o "$bp_dir/$bp_id-Publish-review-findings.buildprof" -- $(command -v bash >/dev/null && echo "bash --noprofile --norc -eo pipefail" || echo "sh -e") "$bp_dir/$bp_id.sh" || bp_rc=$?
 
         kill $bp_watch 2>/dev/null; exit $bp_rc
 

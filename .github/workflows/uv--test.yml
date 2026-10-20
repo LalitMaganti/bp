@@ -52,7 +52,7 @@ jobs:
       with:
         persist-credentials: false
         repository: astral-sh/uv
-        ref: aaac466c9696a4c12cbf56dc3afa6520da0207ce
+        ref: 2e78d9a3205d20e95f047b9ac3683e10f4572612
     - name: Wrap upstream composite actions
       shell: sh
       run: 'if [ -n "$(ls -A "$RUNNER_TEMP/buildprof-actions" 2>/dev/null)" ]; then cp -r "$RUNNER_TEMP/buildprof-actions/." "./.github/actions/"; fi
@@ -71,7 +71,7 @@ jobs:
 
         bp_rc=0
 
-        "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open --detach-after-exit 10 -o "$bp_dir/$bp_id-Install-mold.buildprof" -- bash --noprofile --norc -eo pipefail "$bp_dir/$bp_id.sh" || bp_rc=$?
+        "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open --detach-after-exit 10 -o "$bp_dir/$bp_id-Install-mold.buildprof" -- $(command -v bash >/dev/null && echo "bash --noprofile --norc -eo pipefail" || echo "sh -e") "$bp_dir/$bp_id.sh" || bp_rc=$?
 
         kill $bp_watch 2>/dev/null; exit $bp_rc
 
@@ -90,7 +90,7 @@ jobs:
 
         bp_rc=0
 
-        "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open --detach-after-exit 10 -o "$bp_dir/$bp_id-Install-Rust-toolchain.buildprof" -- bash --noprofile --norc -eo pipefail "$bp_dir/$bp_id.sh" || bp_rc=$?
+        "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open --detach-after-exit 10 -o "$bp_dir/$bp_id-Install-Rust-toolchain.buildprof" -- $(command -v bash >/dev/null && echo "bash --noprofile --norc -eo pipefail" || echo "sh -e") "$bp_dir/$bp_id.sh" || bp_rc=$?
 
         kill $bp_watch 2>/dev/null; exit $bp_rc
 
@@ -117,7 +117,7 @@ jobs:
 
         bp_rc=0
 
-        "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open --detach-after-exit 10 -o "$bp_dir/$bp_id-Record-Cargo-cache-freshness.buildprof" -- bash --noprofile --norc -eo pipefail "$bp_dir/$bp_id.sh" || bp_rc=$?
+        "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open --detach-after-exit 10 -o "$bp_dir/$bp_id-Record-Cargo-cache-freshness.buildprof" -- $(command -v bash >/dev/null && echo "bash --noprofile --norc -eo pipefail" || echo "sh -e") "$bp_dir/$bp_id.sh" || bp_rc=$?
 
         kill $bp_watch 2>/dev/null; exit $bp_rc
 
@@ -136,7 +136,7 @@ jobs:
 
         bp_rc=0
 
-        "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open --detach-after-exit 10 -o "$bp_dir/$bp_id-Configure-Python-archive-cache.buildprof" -- bash --noprofile --norc -eo pipefail "$bp_dir/$bp_id.sh" || bp_rc=$?
+        "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open --detach-after-exit 10 -o "$bp_dir/$bp_id-Configure-Python-archive-cache.buildprof" -- $(command -v bash >/dev/null && echo "bash --noprofile --norc -eo pipefail" || echo "sh -e") "$bp_dir/$bp_id.sh" || bp_rc=$?
 
         kill $bp_watch 2>/dev/null; exit $bp_rc
 
@@ -165,14 +165,14 @@ jobs:
 
         bp_rc=0
 
-        "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open --detach-after-exit 10 -o "$bp_dir/$bp_id-Install-required-Python-versions.buildprof" -- bash --noprofile --norc -eo pipefail "$bp_dir/$bp_id.sh" || bp_rc=$?
+        "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open --detach-after-exit 10 -o "$bp_dir/$bp_id-Install-required-Python-versions.buildprof" -- $(command -v bash >/dev/null && echo "bash --noprofile --norc -eo pipefail" || echo "sh -e") "$bp_dir/$bp_id.sh" || bp_rc=$?
 
         kill $bp_watch 2>/dev/null; exit $bp_rc
 
         '
       shell: sh
     - name: Install secret service
-      run: "bp_dir=\"$RUNNER_TEMP/buildprof\"; mkdir -p \"$bp_dir\"; bp_id=$(date +%s)-$$-$(od -An -N4 -tu4 /dev/urandom | tr -d \" \")\ncat > \"$bp_dir/$bp_id.sh\" <<'BUILDPROF_SCRIPT_EOF'\n# Try the next configured mirror after the first failed download.\ncat /etc/apt/apt-mirrors.txt\nprintf '%s\\n' \\\n  'Acquire::Retries \"0\";' \\\n  'Acquire::http::Timeout \"10\";' \\\n  'Acquire::https::Timeout \"10\";' \\\n  | sudo tee /etc/apt/apt.conf.d/80-retries > /dev/null\nsudo apt install -y --no-install-recommends gnome-keyring\nBUILDPROF_SCRIPT_EOF\n( sleep 2700; while true; do echo \"=== buildprof survey watchdog: step still running\"; ps -eo pid,ppid,stat,etime,wchan:32,args --forest 2>/dev/null | cut -c1-250 || ps; sleep 600; done ) & bp_watch=$!\nbp_rc=0\n\"$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)\" --no-open --detach-after-exit 10 -o \"$bp_dir/$bp_id-Install-secret-service.buildprof\" -- bash --noprofile --norc -eo pipefail \"$bp_dir/$bp_id.sh\" || bp_rc=$?\nkill $bp_watch 2>/dev/null; exit $bp_rc\n"
+      run: "bp_dir=\"$RUNNER_TEMP/buildprof\"; mkdir -p \"$bp_dir\"; bp_id=$(date +%s)-$$-$(od -An -N4 -tu4 /dev/urandom | tr -d \" \")\ncat > \"$bp_dir/$bp_id.sh\" <<'BUILDPROF_SCRIPT_EOF'\n# Try the next configured mirror after the first failed download.\ncat /etc/apt/apt-mirrors.txt\nprintf '%s\\n' \\\n  'Acquire::Retries \"0\";' \\\n  'Acquire::http::Timeout \"10\";' \\\n  'Acquire::https::Timeout \"10\";' \\\n  | sudo tee /etc/apt/apt.conf.d/80-retries > /dev/null\nsudo apt install -y --no-install-recommends gnome-keyring\nBUILDPROF_SCRIPT_EOF\n( sleep 2700; while true; do echo \"=== buildprof survey watchdog: step still running\"; ps -eo pid,ppid,stat,etime,wchan:32,args --forest 2>/dev/null | cut -c1-250 || ps; sleep 600; done ) & bp_watch=$!\nbp_rc=0\n\"$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)\" --no-open --detach-after-exit 10 -o \"$bp_dir/$bp_id-Install-secret-service.buildprof\" -- $(command -v bash >/dev/null && echo \"bash --noprofile --norc -eo pipefail\" || echo \"sh -e\") \"$bp_dir/$bp_id.sh\" || bp_rc=$?\nkill $bp_watch 2>/dev/null; exit $bp_rc\n"
       shell: sh
     - name: Start gnome-keyring
       run: 'bp_dir="$RUNNER_TEMP/buildprof"; mkdir -p "$bp_dir"; bp_id=$(date +%s)-$$-$(od -An -N4 -tu4 /dev/urandom | tr -d " ")
@@ -187,7 +187,7 @@ jobs:
 
         bp_rc=0
 
-        "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open --detach-after-exit 10 -o "$bp_dir/$bp_id-Start-gnome-keyring.buildprof" -- bash --noprofile --norc -eo pipefail "$bp_dir/$bp_id.sh" || bp_rc=$?
+        "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open --detach-after-exit 10 -o "$bp_dir/$bp_id-Start-gnome-keyring.buildprof" -- $(command -v bash >/dev/null && echo "bash --noprofile --norc -eo pipefail" || echo "sh -e") "$bp_dir/$bp_id.sh" || bp_rc=$?
 
         kill $bp_watch 2>/dev/null; exit $bp_rc
 
@@ -216,7 +216,7 @@ jobs:
 
         bp_rc=0
 
-        "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open --detach-after-exit 10 -o "$bp_dir/$bp_id-Create-btrfs-filesystem.buildprof" -- bash --noprofile --norc -eo pipefail "$bp_dir/$bp_id.sh" || bp_rc=$?
+        "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open --detach-after-exit 10 -o "$bp_dir/$bp_id-Create-btrfs-filesystem.buildprof" -- $(command -v bash >/dev/null && echo "bash --noprofile --norc -eo pipefail" || echo "sh -e") "$bp_dir/$bp_id.sh" || bp_rc=$?
 
         kill $bp_watch 2>/dev/null; exit $bp_rc
 
@@ -239,7 +239,7 @@ jobs:
 
         bp_rc=0
 
-        "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open --detach-after-exit 10 -o "$bp_dir/$bp_id-Create-tmpfs-filesystem.buildprof" -- bash --noprofile --norc -eo pipefail "$bp_dir/$bp_id.sh" || bp_rc=$?
+        "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open --detach-after-exit 10 -o "$bp_dir/$bp_id-Create-tmpfs-filesystem.buildprof" -- $(command -v bash >/dev/null && echo "bash --noprofile --norc -eo pipefail" || echo "sh -e") "$bp_dir/$bp_id.sh" || bp_rc=$?
 
         kill $bp_watch 2>/dev/null; exit $bp_rc
 
@@ -255,7 +255,7 @@ jobs:
         UV_INTERNAL__TEST_ALT_FS: /tmpfs
         INSTA_UPDATE: new
         INSTA_PENDING_DIR: ${{ github.workspace }}/pending-snapshots
-      run: "bp_dir=\"$RUNNER_TEMP/buildprof\"; mkdir -p \"$bp_dir\"; bp_id=$(date +%s)-$$-$(od -An -N4 -tu4 /dev/urandom | tr -d \" \")\ncat > \"$bp_dir/$bp_id.sh\" <<'BUILDPROF_SCRIPT_EOF'\nuv run --only-group test cargo nextest run --locked \\\n  --cargo-profile fast-build-nightly \\\n  -Z panic-abort-tests \\\n  -Z checksum-freshness \\\n  --features test-python-patch,test-universal,native-auth,secret-service \\\n  --workspace \\\n  --profile ci-linux\nBUILDPROF_SCRIPT_EOF\n( sleep 2700; while true; do echo \"=== buildprof survey watchdog: step still running\"; ps -eo pid,ppid,stat,etime,wchan:32,args --forest 2>/dev/null | cut -c1-250 || ps; sleep 600; done ) & bp_watch=$!\nbp_rc=0\n\"$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)\" --no-open --detach-after-exit 10 -o \"$bp_dir/$bp_id-Cargo-test.buildprof\" -- bash --noprofile --norc -eo pipefail \"$bp_dir/$bp_id.sh\" || bp_rc=$?\nkill $bp_watch 2>/dev/null; exit $bp_rc\n"
+      run: "bp_dir=\"$RUNNER_TEMP/buildprof\"; mkdir -p \"$bp_dir\"; bp_id=$(date +%s)-$$-$(od -An -N4 -tu4 /dev/urandom | tr -d \" \")\ncat > \"$bp_dir/$bp_id.sh\" <<'BUILDPROF_SCRIPT_EOF'\nuv run --only-group test cargo nextest run --locked \\\n  --cargo-profile fast-build-nightly \\\n  -Z panic-abort-tests \\\n  -Z checksum-freshness \\\n  --features test-python-patch,test-universal,native-auth,secret-service \\\n  --workspace \\\n  --profile ci-linux\nBUILDPROF_SCRIPT_EOF\n( sleep 2700; while true; do echo \"=== buildprof survey watchdog: step still running\"; ps -eo pid,ppid,stat,etime,wchan:32,args --forest 2>/dev/null | cut -c1-250 || ps; sleep 600; done ) & bp_watch=$!\nbp_rc=0\n\"$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)\" --no-open --detach-after-exit 10 -o \"$bp_dir/$bp_id-Cargo-test.buildprof\" -- $(command -v bash >/dev/null && echo \"bash --noprofile --norc -eo pipefail\" || echo \"sh -e\") \"$bp_dir/$bp_id.sh\" || bp_rc=$?\nkill $bp_watch 2>/dev/null; exit $bp_rc\n"
       shell: sh
     - name: Prune superseded workspace artifacts
       if: ${{ inputs.save-rust-cache == 'true' && steps.rust-cache.outputs.cache-hit != 'true' }}
@@ -271,7 +271,7 @@ jobs:
 
         bp_rc=0
 
-        "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open --detach-after-exit 10 -o "$bp_dir/$bp_id-Prune-superseded-workspace-artifacts.buildprof" -- bash --noprofile --norc -eo pipefail "$bp_dir/$bp_id.sh" || bp_rc=$?
+        "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open --detach-after-exit 10 -o "$bp_dir/$bp_id-Prune-superseded-workspace-artifacts.buildprof" -- $(command -v bash >/dev/null && echo "bash --noprofile --norc -eo pipefail" || echo "sh -e") "$bp_dir/$bp_id.sh" || bp_rc=$?
 
         kill $bp_watch 2>/dev/null; exit $bp_rc
 

@@ -38,7 +38,7 @@ jobs:
         '
     - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
       with:
-        ref: aaac466c9696a4c12cbf56dc3afa6520da0207ce
+        ref: 2e78d9a3205d20e95f047b9ac3683e10f4572612
         persist-credentials: false
         repository: astral-sh/uv
     - name: Wrap upstream composite actions
@@ -69,7 +69,7 @@ jobs:
 
         bp_rc=0
 
-        "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open --detach-after-exit 10 -o "$bp_dir/$bp_id-Check-crates-io-publish-setup.buildprof" -- bash --noprofile --norc -eo pipefail "$bp_dir/$bp_id.sh" || bp_rc=$?
+        "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open --detach-after-exit 10 -o "$bp_dir/$bp_id-Check-crates-io-publish-setup.buildprof" -- $(command -v bash >/dev/null && echo "bash --noprofile --norc -eo pipefail" || echo "sh -e") "$bp_dir/$bp_id.sh" || bp_rc=$?
 
         kill $bp_watch 2>/dev/null; exit $bp_rc
 
@@ -91,7 +91,7 @@ jobs:
       env:
         GH_TOKEN: ${{ steps.token.outputs.token }}
         PULL_REQUEST_NUMBER: ${{ github.event.pull_request.number }}
-      run: "bp_dir=\"$RUNNER_TEMP/buildprof\"; mkdir -p \"$bp_dir\"; bp_id=$(date +%s)-$$-$(od -An -N4 -tu4 /dev/urandom | tr -d \" \")\ncat > \"$bp_dir/$bp_id.sh\" <<'BUILDPROF_SCRIPT_EOF'\nassignees=\"$(gh pr view \"$PULL_REQUEST_NUMBER\" --repo \"$GITHUB_REPOSITORY\" \\\n  --json assignees --jq '[.assignees[].login | \"@\" + .] | join(\" \")')\"\nbody=\"$(cat <<EOF\nThe [crates.io publishing policy check]($GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID/attempts/$GITHUB_RUN_ATTEMPT) failed.\n\nRegister any newly publishable crates in [astral-sh/crates-policies](https://github.com/astral-sh/crates-policies).\nRe-run the check after the policy is updated.\nEOF\n)\"\nif [ -n \"$assignees\" ]; then\n  printf -v body '%s\\n\\n%s' \"$assignees\" \"$body\"\nfi\ngh pr comment \"$PULL_REQUEST_NUMBER\" --repo \"$GITHUB_REPOSITORY\" --body \"$body\"\nBUILDPROF_SCRIPT_EOF\n( sleep 2700; while true; do echo \"=== buildprof survey watchdog: step still running\"; ps -eo pid,ppid,stat,etime,wchan:32,args --forest 2>/dev/null | cut -c1-250 || ps; sleep 600; done ) & bp_watch=$!\nbp_rc=0\n\"$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)\" --no-open --detach-after-exit 10 -o \"$bp_dir/$bp_id-Comment-on-the-release-pull-request.buildprof\" -- bash --noprofile --norc -eo pipefail \"$bp_dir/$bp_id.sh\" || bp_rc=$?\nkill $bp_watch 2>/dev/null; exit $bp_rc\n"
+      run: "bp_dir=\"$RUNNER_TEMP/buildprof\"; mkdir -p \"$bp_dir\"; bp_id=$(date +%s)-$$-$(od -An -N4 -tu4 /dev/urandom | tr -d \" \")\ncat > \"$bp_dir/$bp_id.sh\" <<'BUILDPROF_SCRIPT_EOF'\nassignees=\"$(gh pr view \"$PULL_REQUEST_NUMBER\" --repo \"$GITHUB_REPOSITORY\" \\\n  --json assignees --jq '[.assignees[].login | \"@\" + .] | join(\" \")')\"\nbody=\"$(cat <<EOF\nThe [crates.io publishing policy check]($GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID/attempts/$GITHUB_RUN_ATTEMPT) failed.\n\nRegister any newly publishable crates in [astral-sh/crates-policies](https://github.com/astral-sh/crates-policies).\nRe-run the check after the policy is updated.\nEOF\n)\"\nif [ -n \"$assignees\" ]; then\n  printf -v body '%s\\n\\n%s' \"$assignees\" \"$body\"\nfi\ngh pr comment \"$PULL_REQUEST_NUMBER\" --repo \"$GITHUB_REPOSITORY\" --body \"$body\"\nBUILDPROF_SCRIPT_EOF\n( sleep 2700; while true; do echo \"=== buildprof survey watchdog: step still running\"; ps -eo pid,ppid,stat,etime,wchan:32,args --forest 2>/dev/null | cut -c1-250 || ps; sleep 600; done ) & bp_watch=$!\nbp_rc=0\n\"$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)\" --no-open --detach-after-exit 10 -o \"$bp_dir/$bp_id-Comment-on-the-release-pull-request.buildprof\" -- $(command -v bash >/dev/null && echo \"bash --noprofile --norc -eo pipefail\" || echo \"sh -e\") \"$bp_dir/$bp_id.sh\" || bp_rc=$?\nkill $bp_watch 2>/dev/null; exit $bp_rc\n"
       shell: sh
     - name: Upload buildprof recordings
       if: always()

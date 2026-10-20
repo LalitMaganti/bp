@@ -1,4 +1,4 @@
 php-src php/php-src b9ea38ef639f5b9bbb67d27834be9c52b922520b test.yml
 monero monero-project/monero 8340be5e920d881edc006e0896d6074cd06dfb2e build.yml
-uv astral-sh/uv aaac466c9696a4c12cbf56dc3afa6520da0207ce ci.yml
-ruff astral-sh/ruff 2c6359372bb5893bd01aa34f78950055803cafac ci.yaml
+uv astral-sh/uv 2e78d9a3205d20e95f047b9ac3683e10f4572612 ci.yml
+ruff astral-sh/ruff 63b423619c301f9f91ca4fa93ef65361959ea2ee ci.yaml

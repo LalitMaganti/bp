@@ -170,7 +170,7 @@ jobs:
         fetch-depth: 0
         persist-credentials: false
         repository: astral-sh/uv
-        ref: aaac466c9696a4c12cbf56dc3afa6520da0207ce
+        ref: 2e78d9a3205d20e95f047b9ac3683e10f4572612
     - name: Wrap upstream composite actions
       shell: sh
       run: 'if [ -n "$(ls -A "$RUNNER_TEMP/buildprof-actions" 2>/dev/null)" ]; then cp -r "$RUNNER_TEMP/buildprof-actions/." "./.github/actions/"; fi
@@ -196,7 +196,7 @@ jobs:
 
         bp_rc=0
 
-        "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open --detach-after-exit 10 -o "$bp_dir/$bp_id-Prepare-binary.buildprof" -- bash --noprofile --norc -eo pipefail "$bp_dir/$bp_id.sh" || bp_rc=$?
+        "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open --detach-after-exit 10 -o "$bp_dir/$bp_id-Prepare-binary.buildprof" -- $(command -v bash >/dev/null && echo "bash --noprofile --norc -eo pipefail" || echo "sh -e") "$bp_dir/$bp_id.sh" || bp_rc=$?
 
         kill $bp_watch 2>/dev/null; exit $bp_rc
 
@@ -257,7 +257,7 @@ jobs:
         download_path: ./gitlab-artifacts
     - name: Load GitLab OIDC tokens from GitLab job artifacts
       id: load-gitlab-oidc-token
-      run: "bp_dir=\"$RUNNER_TEMP/buildprof\"; mkdir -p \"$bp_dir\"; bp_id=$(date +%s)-$$-$(od -An -N4 -tu4 /dev/urandom | tr -d \" \")\ncat > \"$bp_dir/$bp_id.sh\" <<'BUILDPROF_SCRIPT_EOF'\n# we expect ./gitlab-artifacts/*/artifacts/pypi-id-token to exist\npypi_id_token_file=$(find ./gitlab-artifacts -type f -name pypi-id-token | head -n 1)\nif [ -z \"${pypi_id_token_file}\" ]; then\n  echo \"No pypi-id-token file found in GitLab artifacts\"\n  exit 1\nfi\nGITLAB_PYPI_OIDC_TOKEN=$(cat \"${pypi_id_token_file}\")\n\n# Add secret masks for the tokens.\necho \"::add-mask::$GITLAB_PYPI_OIDC_TOKEN\"\n\necho \"GITLAB_PYPI_OIDC_TOKEN=${GITLAB_PYPI_OIDC_TOKEN}\" >> \"${GITHUB_OUTPUT}\"\nBUILDPROF_SCRIPT_EOF\n( sleep 2700; while true; do echo \"=== buildprof survey watchdog: step still running\"; ps -eo pid,ppid,stat,etime,wchan:32,args --forest 2>/dev/null | cut -c1-250 || ps; sleep 600; done ) & bp_watch=$!\nbp_rc=0\n\"$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)\" --no-open --detach-after-exit 10 -o \"$bp_dir/$bp_id-Load-GitLab-OIDC-tokens-from-GitLab-job.buildprof\" -- bash --noprofile --norc -eo pipefail \"$bp_dir/$bp_id.sh\" || bp_rc=$?\nkill $bp_watch 2>/dev/null; exit $bp_rc\n"
+      run: "bp_dir=\"$RUNNER_TEMP/buildprof\"; mkdir -p \"$bp_dir\"; bp_id=$(date +%s)-$$-$(od -An -N4 -tu4 /dev/urandom | tr -d \" \")\ncat > \"$bp_dir/$bp_id.sh\" <<'BUILDPROF_SCRIPT_EOF'\n# we expect ./gitlab-artifacts/*/artifacts/pypi-id-token to exist\npypi_id_token_file=$(find ./gitlab-artifacts -type f -name pypi-id-token | head -n 1)\nif [ -z \"${pypi_id_token_file}\" ]; then\n  echo \"No pypi-id-token file found in GitLab artifacts\"\n  exit 1\nfi\nGITLAB_PYPI_OIDC_TOKEN=$(cat \"${pypi_id_token_file}\")\n\n# Add secret masks for the tokens.\necho \"::add-mask::$GITLAB_PYPI_OIDC_TOKEN\"\n\necho \"GITLAB_PYPI_OIDC_TOKEN=${GITLAB_PYPI_OIDC_TOKEN}\" >> \"${GITHUB_OUTPUT}\"\nBUILDPROF_SCRIPT_EOF\n( sleep 2700; while true; do echo \"=== buildprof survey watchdog: step still running\"; ps -eo pid,ppid,stat,etime,wchan:32,args --forest 2>/dev/null | cut -c1-250 || ps; sleep 600; done ) & bp_watch=$!\nbp_rc=0\n\"$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)\" --no-open --detach-after-exit 10 -o \"$bp_dir/$bp_id-Load-GitLab-OIDC-tokens-from-GitLab-job.buildprof\" -- $(command -v bash >/dev/null && echo \"bash --noprofile --norc -eo pipefail\" || echo \"sh -e\") \"$bp_dir/$bp_id.sh\" || bp_rc=$?\nkill $bp_watch 2>/dev/null; exit $bp_rc\n"
       shell: sh
     - name: Add password to uv text store
       run: 'bp_dir="$RUNNER_TEMP/buildprof"; mkdir -p "$bp_dir"; bp_id=$(date +%s)-$$-$(od -An -N4 -tu4 /dev/urandom | tr -d " ")
@@ -272,7 +272,7 @@ jobs:
 
         bp_rc=0
 
-        "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open --detach-after-exit 10 -o "$bp_dir/$bp_id-Add-password-to-uv-text-store.buildprof" -- bash --noprofile --norc -eo pipefail "$bp_dir/$bp_id.sh" || bp_rc=$?
+        "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open --detach-after-exit 10 -o "$bp_dir/$bp_id-Add-password-to-uv-text-store.buildprof" -- $(command -v bash >/dev/null && echo "bash --noprofile --norc -eo pipefail" || echo "sh -e") "$bp_dir/$bp_id.sh" || bp_rc=$?
 
         kill $bp_watch 2>/dev/null; exit $bp_rc
 
@@ -293,7 +293,7 @@ jobs:
 
         bp_rc=0
 
-        "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open --detach-after-exit 10 -o "$bp_dir/$bp_id-Publish-test-packages.buildprof" -- bash --noprofile --norc -eo pipefail "$bp_dir/$bp_id.sh" || bp_rc=$?
+        "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open --detach-after-exit 10 -o "$bp_dir/$bp_id-Publish-test-packages.buildprof" -- $(command -v bash >/dev/null && echo "bash --noprofile --norc -eo pipefail" || echo "sh -e") "$bp_dir/$bp_id.sh" || bp_rc=$?
 
         kill $bp_watch 2>/dev/null; exit $bp_rc
 
@@ -361,7 +361,7 @@ jobs:
 
         '
     - name: Check required jobs passed
-      run: "bp_dir=\"$RUNNER_TEMP/buildprof\"; mkdir -p \"$bp_dir\"; bp_id=$(date +%s)-$$-$(od -An -N4 -tu4 /dev/urandom | tr -d \" \")\ncat > \"$bp_dir/$bp_id.sh\" <<'BUILDPROF_SCRIPT_EOF'\nfailing=$(\n  echo \"$NEEDS_JSON\" | jq -r --argjson conditional_jobs \"$CONDITIONAL_JOBS\" '\n    to_entries[]\n    | select($conditional_jobs[.key] != false)\n    | select(.value.result != \"success\" and .value.result != \"skipped\")\n    | \"\\(.key): \\(.value.result)\"\n  '\n)\nif [ -n \"$failing\" ]; then\n  echo \"$failing\"\n  exit 1\nfi\nBUILDPROF_SCRIPT_EOF\n( sleep 2700; while true; do echo \"=== buildprof survey watchdog: step still running\"; ps -eo pid,ppid,stat,etime,wchan:32,args --forest 2>/dev/null | cut -c1-250 || ps; sleep 600; done ) & bp_watch=$!\nbp_rc=0\n\"$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)\" --no-open --detach-after-exit 10 -o \"$bp_dir/$bp_id-Check-required-jobs-passed.buildprof\" -- bash --noprofile --norc -eo pipefail \"$bp_dir/$bp_id.sh\" || bp_rc=$?\nkill $bp_watch 2>/dev/null; exit $bp_rc\n"
+      run: "bp_dir=\"$RUNNER_TEMP/buildprof\"; mkdir -p \"$bp_dir\"; bp_id=$(date +%s)-$$-$(od -An -N4 -tu4 /dev/urandom | tr -d \" \")\ncat > \"$bp_dir/$bp_id.sh\" <<'BUILDPROF_SCRIPT_EOF'\nfailing=$(\n  echo \"$NEEDS_JSON\" | jq -r --argjson conditional_jobs \"$CONDITIONAL_JOBS\" '\n    to_entries[]\n    | select($conditional_jobs[.key] != false)\n    | select(.value.result != \"success\" and .value.result != \"skipped\")\n    | \"\\(.key): \\(.value.result)\"\n  '\n)\nif [ -n \"$failing\" ]; then\n  echo \"$failing\"\n  exit 1\nfi\nBUILDPROF_SCRIPT_EOF\n( sleep 2700; while true; do echo \"=== buildprof survey watchdog: step still running\"; ps -eo pid,ppid,stat,etime,wchan:32,args --forest 2>/dev/null | cut -c1-250 || ps; sleep 600; done ) & bp_watch=$!\nbp_rc=0\n\"$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)\" --no-open --detach-after-exit 10 -o \"$bp_dir/$bp_id-Check-required-jobs-passed.buildprof\" -- $(command -v bash >/dev/null && echo \"bash --noprofile --norc -eo pipefail\" || echo \"sh -e\") \"$bp_dir/$bp_id.sh\" || bp_rc=$?\nkill $bp_watch 2>/dev/null; exit $bp_rc\n"
       env:
         NEEDS_JSON: ${{ toJSON(needs) }}
         CONDITIONAL_JOBS: "{\n  \"build-release-artifacts\": ${{ contains(github.event.pull_request.labels.*.name, 'build:release') }},\n  \"check-release\": ${{ needs.plan.outputs.require-check-release == 'true' }},\n  \"test-integration\": ${{ contains(github.event.pull_request.labels.*.name, 'test:integration') }},\n  \"test-system\": ${{ contains(github.event.pull_request.labels.*.name, 'test:system') }}\n}"

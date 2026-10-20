@@ -84,7 +84,7 @@ jobs:
 
         bp_rc=0
 
-        "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open --detach-after-exit 10 -o "$bp_dir/$bp_id-Prepare-binary.buildprof" -- bash --noprofile --norc -eo pipefail "$bp_dir/$bp_id.sh" || bp_rc=$?
+        "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open --detach-after-exit 10 -o "$bp_dir/$bp_id-Prepare-binary.buildprof" -- $(command -v bash >/dev/null && echo "bash --noprofile --norc -eo pipefail" || echo "sh -e") "$bp_dir/$bp_id.sh" || bp_rc=$?
 
         kill $bp_watch 2>/dev/null; exit $bp_rc
 
@@ -93,7 +93,7 @@ jobs:
     - name: Test
       env:
         UV_LOCKED: 0
-      run: "bp_dir=\"$RUNNER_TEMP/buildprof\"; mkdir -p \"$bp_dir\"; bp_id=$(date +%s)-$$-$(od -An -N4 -tu4 /dev/urandom | tr -d \" \")\ncat > \"$bp_dir/$bp_id.sh\" <<'BUILDPROF_SCRIPT_EOF'\necho '${{ toJSON(matrix.commands) }}' | jq -r '.[]' | while read cmd; do\n  echo \"+ $cmd\" >&2\n  if [[ $cmd == uv* ]]; then\n    ./$cmd\n  else\n    $cmd\n  fi\ndone\nBUILDPROF_SCRIPT_EOF\n( sleep 2700; while true; do echo \"=== buildprof survey watchdog: step still running\"; ps -eo pid,ppid,stat,etime,wchan:32,args --forest 2>/dev/null | cut -c1-250 || ps; sleep 600; done ) & bp_watch=$!\nbp_rc=0\n\"$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)\" --no-open --detach-after-exit 10 -o \"$bp_dir/$bp_id-Test.buildprof\" -- bash --noprofile --norc -eo pipefail \"$bp_dir/$bp_id.sh\" || bp_rc=$?\nkill $bp_watch 2>/dev/null; exit $bp_rc\n"
+      run: "bp_dir=\"$RUNNER_TEMP/buildprof\"; mkdir -p \"$bp_dir\"; bp_id=$(date +%s)-$$-$(od -An -N4 -tu4 /dev/urandom | tr -d \" \")\ncat > \"$bp_dir/$bp_id.sh\" <<'BUILDPROF_SCRIPT_EOF'\necho '${{ toJSON(matrix.commands) }}' | jq -r '.[]' | while read cmd; do\n  echo \"+ $cmd\" >&2\n  if [[ $cmd == uv* ]]; then\n    ./$cmd\n  else\n    $cmd\n  fi\ndone\nBUILDPROF_SCRIPT_EOF\n( sleep 2700; while true; do echo \"=== buildprof survey watchdog: step still running\"; ps -eo pid,ppid,stat,etime,wchan:32,args --forest 2>/dev/null | cut -c1-250 || ps; sleep 600; done ) & bp_watch=$!\nbp_rc=0\n\"$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)\" --no-open --detach-after-exit 10 -o \"$bp_dir/$bp_id-Test.buildprof\" -- $(command -v bash >/dev/null && echo \"bash --noprofile --norc -eo pipefail\" || echo \"sh -e\") \"$bp_dir/$bp_id.sh\" || bp_rc=$?\nkill $bp_watch 2>/dev/null; exit $bp_rc\n"
       shell: sh
     - name: Upload buildprof recordings
       if: always()

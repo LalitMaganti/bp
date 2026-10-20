@@ -120,7 +120,7 @@ jobs:
         '
     - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
       with:
-        ref: aaac466c9696a4c12cbf56dc3afa6520da0207ce
+        ref: 2e78d9a3205d20e95f047b9ac3683e10f4572612
         fetch-depth: 0
         persist-credentials: false
         repository: astral-sh/uv
