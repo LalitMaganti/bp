@@ -1,0 +1,31 @@
+name: "ruff: cargo fuzz build, 1 vs 16 codegen units"
+on: workflow_dispatch
+permissions:
+  contents: read
+jobs:
+  fuzz-build:
+    strategy:
+      fail-fast: false
+      matrix:
+        codegen-units: ["default", "16"]
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          repository: astral-sh/ruff
+          ref: 2c6359372bb5893bd01aa34f78950055803cafac
+          persist-credentials: false
+      - run: rustup show
+      - uses: rui314/setup-mold@9c9c13bf4c3f1adef0cc596abc155580bcb04444
+      - uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884
+        with:
+          version: "0.13.4"
+      - name: Full build
+        run: |
+          flag=""; [ "${{ matrix.codegen-units }}" = 16 ] && flag="--codegen-units 16"
+          s=$SECONDS; uv run --only-dev cargo fuzz build -s none $flag; echo "full build: $((SECONDS - s))s" | tee -a "$GITHUB_STEP_SUMMARY"
+      - name: Workspace rebuild, as with a warm cache
+        run: |
+          flag=""; [ "${{ matrix.codegen-units }}" = 16 ] && flag="--codegen-units 16"
+          for f in crates/*/src/lib.rs; do touch "$f"; done
+          s=$SECONDS; uv run --only-dev cargo fuzz build -s none $flag; echo "workspace rebuild: $((SECONDS - s))s" | tee -a "$GITHUB_STEP_SUMMARY"
