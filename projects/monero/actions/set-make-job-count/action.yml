@@ -5,7 +5,7 @@ runs:
   steps:
   - name: set-jobs-macOS
     if: runner.os == 'macOS'
-    run: 'bp_dir="$RUNNER_TEMP/buildprof"; mkdir -p "$bp_dir"; bp_id=$(date +%s%N)
+    run: 'bp_dir="$RUNNER_TEMP/buildprof"; mkdir -p "$bp_dir"; bp_id=$(date +%s)-$$-$(od -An -N4 -tu4 /dev/urandom | tr -d " ")
 
       cat > "$bp_dir/$bp_id.sh" <<''BUILDPROF_SCRIPT_EOF''
 
@@ -13,7 +13,7 @@ runs:
 
       BUILDPROF_SCRIPT_EOF
 
-      "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open -o "$bp_dir/$bp_id-set-jobs-macOS.buildprof" -- bash --noprofile --norc -eo pipefail "$bp_dir/$bp_id.sh"
+      ASAN_OPTIONS="${ASAN_OPTIONS:+$ASAN_OPTIONS:}detect_leaks=0" "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open -o "$bp_dir/$bp_id-set-jobs-macOS.buildprof" -- bash --noprofile --norc -eo pipefail "$bp_dir/$bp_id.sh"
 
       '
     shell: sh
@@ -25,7 +25,7 @@ runs:
     shell: msys2 {0}
   - name: set-jobs-linux
     if: runner.os == 'Linux'
-    run: 'bp_dir="$RUNNER_TEMP/buildprof"; mkdir -p "$bp_dir"; bp_id=$(date +%s%N)
+    run: 'bp_dir="$RUNNER_TEMP/buildprof"; mkdir -p "$bp_dir"; bp_id=$(date +%s)-$$-$(od -An -N4 -tu4 /dev/urandom | tr -d " ")
 
       cat > "$bp_dir/$bp_id.sh" <<''BUILDPROF_SCRIPT_EOF''
 
@@ -33,7 +33,7 @@ runs:
 
       BUILDPROF_SCRIPT_EOF
 
-      "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open -o "$bp_dir/$bp_id-set-jobs-linux.buildprof" -- bash --noprofile --norc -eo pipefail "$bp_dir/$bp_id.sh"
+      ASAN_OPTIONS="${ASAN_OPTIONS:+$ASAN_OPTIONS:}detect_leaks=0" "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open -o "$bp_dir/$bp_id-set-jobs-linux.buildprof" -- bash --noprofile --norc -eo pipefail "$bp_dir/$bp_id.sh"
 
       '
     shell: sh

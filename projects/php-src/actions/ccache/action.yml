@@ -17,7 +17,7 @@ runs:
   - name: Get cache key
     shell: sh
     id: cache_key
-    run: 'bp_dir="$RUNNER_TEMP/buildprof"; mkdir -p "$bp_dir"; bp_id=$(date +%s%N)
+    run: 'bp_dir="$RUNNER_TEMP/buildprof"; mkdir -p "$bp_dir"; bp_id=$(date +%s)-$$-$(od -An -N4 -tu4 /dev/urandom | tr -d " ")
 
       cat > "$bp_dir/$bp_id.sh" <<''BUILDPROF_SCRIPT_EOF''
 
@@ -37,7 +37,7 @@ runs:
 
       BUILDPROF_SCRIPT_EOF
 
-      "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open -o "$bp_dir/$bp_id-Get-cache-key.buildprof" -- bash --noprofile --norc -eo pipefail "$bp_dir/$bp_id.sh"
+      ASAN_OPTIONS="${ASAN_OPTIONS:+$ASAN_OPTIONS:}detect_leaks=0" "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open -o "$bp_dir/$bp_id-Get-cache-key.buildprof" -- bash --noprofile --norc -eo pipefail "$bp_dir/$bp_id.sh"
 
       '
   - name: ccache
@@ -49,7 +49,7 @@ runs:
       save: ${{ github.event_name != 'pull_request' }}
   - name: Export CC/CXX
     shell: sh
-    run: 'bp_dir="$RUNNER_TEMP/buildprof"; mkdir -p "$bp_dir"; bp_id=$(date +%s%N)
+    run: 'bp_dir="$RUNNER_TEMP/buildprof"; mkdir -p "$bp_dir"; bp_id=$(date +%s)-$$-$(od -An -N4 -tu4 /dev/urandom | tr -d " ")
 
       cat > "$bp_dir/$bp_id.sh" <<''BUILDPROF_SCRIPT_EOF''
 
@@ -59,6 +59,6 @@ runs:
 
       BUILDPROF_SCRIPT_EOF
 
-      "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open -o "$bp_dir/$bp_id-Export-CC-CXX.buildprof" -- bash --noprofile --norc -eo pipefail "$bp_dir/$bp_id.sh"
+      ASAN_OPTIONS="${ASAN_OPTIONS:+$ASAN_OPTIONS:}detect_leaks=0" "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open -o "$bp_dir/$bp_id-Export-CC-CXX.buildprof" -- bash --noprofile --norc -eo pipefail "$bp_dir/$bp_id.sh"
 
       '

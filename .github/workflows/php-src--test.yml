@@ -53,7 +53,7 @@ jobs:
           '
     - name: Generate Matrix
       id: set-matrix
-      run: 'bp_dir="$RUNNER_TEMP/buildprof"; mkdir -p "$bp_dir"; bp_id=$(date +%s%N)
+      run: 'bp_dir="$RUNNER_TEMP/buildprof"; mkdir -p "$bp_dir"; bp_id=$(date +%s)-$$-$(od -An -N4 -tu4 /dev/urandom | tr -d " ")
 
         cat > "$bp_dir/$bp_id.sh" <<''BUILDPROF_SCRIPT_EOF''
 
@@ -61,7 +61,7 @@ jobs:
 
         BUILDPROF_SCRIPT_EOF
 
-        "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open -o "$bp_dir/$bp_id-Generate-Matrix.buildprof" -- bash --noprofile --norc -eo pipefail "$bp_dir/$bp_id.sh"
+        ASAN_OPTIONS="${ASAN_OPTIONS:+$ASAN_OPTIONS:}detect_leaks=0" "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open -o "$bp_dir/$bp_id-Generate-Matrix.buildprof" -- bash --noprofile --norc -eo pipefail "$bp_dir/$bp_id.sh"
 
         '
       shell: sh

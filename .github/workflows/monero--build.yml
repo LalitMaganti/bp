@@ -66,7 +66,7 @@ jobs:
 
         '
     - name: install dependencies
-      run: 'bp_dir="$RUNNER_TEMP/buildprof"; mkdir -p "$bp_dir"; bp_id=$(date +%s%N)
+      run: 'bp_dir="$RUNNER_TEMP/buildprof"; mkdir -p "$bp_dir"; bp_id=$(date +%s)-$$-$(od -An -N4 -tu4 /dev/urandom | tr -d " ")
 
         cat > "$bp_dir/$bp_id.sh" <<''BUILDPROF_SCRIPT_EOF''
 
@@ -74,12 +74,12 @@ jobs:
 
         BUILDPROF_SCRIPT_EOF
 
-        "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open -o "$bp_dir/$bp_id-install-dependencies.buildprof" -- bash --noprofile --norc -eo pipefail "$bp_dir/$bp_id.sh"
+        ASAN_OPTIONS="${ASAN_OPTIONS:+$ASAN_OPTIONS:}detect_leaks=0" "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open -o "$bp_dir/$bp_id-install-dependencies.buildprof" -- bash --noprofile --norc -eo pipefail "$bp_dir/$bp_id.sh"
 
         '
       shell: sh
     - name: configure git
-      run: 'bp_dir="$RUNNER_TEMP/buildprof"; mkdir -p "$bp_dir"; bp_id=$(date +%s%N)
+      run: 'bp_dir="$RUNNER_TEMP/buildprof"; mkdir -p "$bp_dir"; bp_id=$(date +%s)-$$-$(od -An -N4 -tu4 /dev/urandom | tr -d " ")
 
         cat > "$bp_dir/$bp_id.sh" <<''BUILDPROF_SCRIPT_EOF''
 
@@ -87,7 +87,7 @@ jobs:
 
         BUILDPROF_SCRIPT_EOF
 
-        "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open -o "$bp_dir/$bp_id-configure-git.buildprof" -- bash --noprofile --norc -eo pipefail "$bp_dir/$bp_id.sh"
+        ASAN_OPTIONS="${ASAN_OPTIONS:+$ASAN_OPTIONS:}detect_leaks=0" "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open -o "$bp_dir/$bp_id-configure-git.buildprof" -- bash --noprofile --norc -eo pipefail "$bp_dir/$bp_id.sh"
 
         '
       shell: sh
@@ -112,7 +112,7 @@ jobs:
     - name: build
       env:
         CMAKE_BUILD_PARALLEL_LEVEL: ${{env.MAKE_JOB_COUNT}}
-      run: 'bp_dir="$RUNNER_TEMP/buildprof"; mkdir -p "$bp_dir"; bp_id=$(date +%s%N)
+      run: 'bp_dir="$RUNNER_TEMP/buildprof"; mkdir -p "$bp_dir"; bp_id=$(date +%s)-$$-$(od -An -N4 -tu4 /dev/urandom | tr -d " ")
 
         cat > "$bp_dir/$bp_id.sh" <<''BUILDPROF_SCRIPT_EOF''
 
@@ -122,7 +122,7 @@ jobs:
 
         BUILDPROF_SCRIPT_EOF
 
-        "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open -o "$bp_dir/$bp_id-build.buildprof" -- bash --noprofile --norc -eo pipefail "$bp_dir/$bp_id.sh"
+        ASAN_OPTIONS="${ASAN_OPTIONS:+$ASAN_OPTIONS:}detect_leaks=0" "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open -o "$bp_dir/$bp_id-build.buildprof" -- bash --noprofile --norc -eo pipefail "$bp_dir/$bp_id.sh"
 
         '
       shell: sh
@@ -180,7 +180,7 @@ jobs:
 
         '
     - name: set apt conf
-      run: 'bp_dir="$RUNNER_TEMP/buildprof"; mkdir -p "$bp_dir"; bp_id=$(date +%s%N)
+      run: 'bp_dir="$RUNNER_TEMP/buildprof"; mkdir -p "$bp_dir"; bp_id=$(date +%s)-$$-$(od -An -N4 -tu4 /dev/urandom | tr -d " ")
 
         cat > "$bp_dir/$bp_id.sh" <<''BUILDPROF_SCRIPT_EOF''
 
@@ -188,12 +188,12 @@ jobs:
 
         BUILDPROF_SCRIPT_EOF
 
-        "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open -o "$bp_dir/$bp_id-set-apt-conf.buildprof" -- bash --noprofile --norc -eo pipefail "$bp_dir/$bp_id.sh"
+        ASAN_OPTIONS="${ASAN_OPTIONS:+$ASAN_OPTIONS:}detect_leaks=0" "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open -o "$bp_dir/$bp_id-set-apt-conf.buildprof" -- bash --noprofile --norc -eo pipefail "$bp_dir/$bp_id.sh"
 
         '
       shell: sh
     - name: update apt
-      run: 'bp_dir="$RUNNER_TEMP/buildprof"; mkdir -p "$bp_dir"; bp_id=$(date +%s%N)
+      run: 'bp_dir="$RUNNER_TEMP/buildprof"; mkdir -p "$bp_dir"; bp_id=$(date +%s)-$$-$(od -An -N4 -tu4 /dev/urandom | tr -d " ")
 
         cat > "$bp_dir/$bp_id.sh" <<''BUILDPROF_SCRIPT_EOF''
 
@@ -201,12 +201,12 @@ jobs:
 
         BUILDPROF_SCRIPT_EOF
 
-        "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open -o "$bp_dir/$bp_id-update-apt.buildprof" -- bash --noprofile --norc -eo pipefail "$bp_dir/$bp_id.sh"
+        ASAN_OPTIONS="${ASAN_OPTIONS:+$ASAN_OPTIONS:}detect_leaks=0" "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open -o "$bp_dir/$bp_id-update-apt.buildprof" -- bash --noprofile --norc -eo pipefail "$bp_dir/$bp_id.sh"
 
         '
       shell: sh
     - name: install monero dependencies
-      run: 'bp_dir="$RUNNER_TEMP/buildprof"; mkdir -p "$bp_dir"; bp_id=$(date +%s%N)
+      run: 'bp_dir="$RUNNER_TEMP/buildprof"; mkdir -p "$bp_dir"; bp_id=$(date +%s)-$$-$(od -An -N4 -tu4 /dev/urandom | tr -d " ")
 
         cat > "$bp_dir/$bp_id.sh" <<''BUILDPROF_SCRIPT_EOF''
 
@@ -214,12 +214,12 @@ jobs:
 
         BUILDPROF_SCRIPT_EOF
 
-        "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open -o "$bp_dir/$bp_id-install-monero-dependencies.buildprof" -- bash --noprofile --norc -eo pipefail "$bp_dir/$bp_id.sh"
+        ASAN_OPTIONS="${ASAN_OPTIONS:+$ASAN_OPTIONS:}detect_leaks=0" "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open -o "$bp_dir/$bp_id-install-monero-dependencies.buildprof" -- bash --noprofile --norc -eo pipefail "$bp_dir/$bp_id.sh"
 
         '
       shell: sh
     - name: install rust
-      run: 'bp_dir="$RUNNER_TEMP/buildprof"; mkdir -p "$bp_dir"; bp_id=$(date +%s%N)
+      run: 'bp_dir="$RUNNER_TEMP/buildprof"; mkdir -p "$bp_dir"; bp_id=$(date +%s)-$$-$(od -An -N4 -tu4 /dev/urandom | tr -d " ")
 
         cat > "$bp_dir/$bp_id.sh" <<''BUILDPROF_SCRIPT_EOF''
 
@@ -227,12 +227,12 @@ jobs:
 
         BUILDPROF_SCRIPT_EOF
 
-        "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open -o "$bp_dir/$bp_id-install-rust.buildprof" -- bash --noprofile --norc -eo pipefail "$bp_dir/$bp_id.sh"
+        ASAN_OPTIONS="${ASAN_OPTIONS:+$ASAN_OPTIONS:}detect_leaks=0" "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open -o "$bp_dir/$bp_id-install-rust.buildprof" -- bash --noprofile --norc -eo pipefail "$bp_dir/$bp_id.sh"
 
         '
       shell: sh
     - name: configure git
-      run: 'bp_dir="$RUNNER_TEMP/buildprof"; mkdir -p "$bp_dir"; bp_id=$(date +%s%N)
+      run: 'bp_dir="$RUNNER_TEMP/buildprof"; mkdir -p "$bp_dir"; bp_id=$(date +%s)-$$-$(od -An -N4 -tu4 /dev/urandom | tr -d " ")
 
         cat > "$bp_dir/$bp_id.sh" <<''BUILDPROF_SCRIPT_EOF''
 
@@ -240,7 +240,7 @@ jobs:
 
         BUILDPROF_SCRIPT_EOF
 
-        "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open -o "$bp_dir/$bp_id-configure-git.buildprof" -- bash --noprofile --norc -eo pipefail "$bp_dir/$bp_id.sh"
+        ASAN_OPTIONS="${ASAN_OPTIONS:+$ASAN_OPTIONS:}detect_leaks=0" "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open -o "$bp_dir/$bp_id-configure-git.buildprof" -- bash --noprofile --norc -eo pipefail "$bp_dir/$bp_id.sh"
 
         '
       shell: sh
@@ -265,7 +265,7 @@ jobs:
     - name: build
       env:
         CMAKE_BUILD_PARALLEL_LEVEL: ${{env.MAKE_JOB_COUNT}}
-      run: 'bp_dir="$RUNNER_TEMP/buildprof"; mkdir -p "$bp_dir"; bp_id=$(date +%s%N)
+      run: 'bp_dir="$RUNNER_TEMP/buildprof"; mkdir -p "$bp_dir"; bp_id=$(date +%s)-$$-$(od -An -N4 -tu4 /dev/urandom | tr -d " ")
 
         cat > "$bp_dir/$bp_id.sh" <<''BUILDPROF_SCRIPT_EOF''
 
@@ -275,7 +275,7 @@ jobs:
 
         BUILDPROF_SCRIPT_EOF
 
-        "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open -o "$bp_dir/$bp_id-build.buildprof" -- bash --noprofile --norc -eo pipefail "$bp_dir/$bp_id.sh"
+        ASAN_OPTIONS="${ASAN_OPTIONS:+$ASAN_OPTIONS:}detect_leaks=0" "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open -o "$bp_dir/$bp_id-build.buildprof" -- bash --noprofile --norc -eo pipefail "$bp_dir/$bp_id.sh"
 
         '
       shell: sh
@@ -331,7 +331,7 @@ jobs:
 
         '
     - name: set apt conf
-      run: 'bp_dir="$RUNNER_TEMP/buildprof"; mkdir -p "$bp_dir"; bp_id=$(date +%s%N)
+      run: 'bp_dir="$RUNNER_TEMP/buildprof"; mkdir -p "$bp_dir"; bp_id=$(date +%s)-$$-$(od -An -N4 -tu4 /dev/urandom | tr -d " ")
 
         cat > "$bp_dir/$bp_id.sh" <<''BUILDPROF_SCRIPT_EOF''
 
@@ -339,12 +339,12 @@ jobs:
 
         BUILDPROF_SCRIPT_EOF
 
-        "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open -o "$bp_dir/$bp_id-set-apt-conf.buildprof" -- bash --noprofile --norc -eo pipefail "$bp_dir/$bp_id.sh"
+        ASAN_OPTIONS="${ASAN_OPTIONS:+$ASAN_OPTIONS:}detect_leaks=0" "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open -o "$bp_dir/$bp_id-set-apt-conf.buildprof" -- bash --noprofile --norc -eo pipefail "$bp_dir/$bp_id.sh"
 
         '
       shell: sh
     - name: update apt
-      run: 'bp_dir="$RUNNER_TEMP/buildprof"; mkdir -p "$bp_dir"; bp_id=$(date +%s%N)
+      run: 'bp_dir="$RUNNER_TEMP/buildprof"; mkdir -p "$bp_dir"; bp_id=$(date +%s)-$$-$(od -An -N4 -tu4 /dev/urandom | tr -d " ")
 
         cat > "$bp_dir/$bp_id.sh" <<''BUILDPROF_SCRIPT_EOF''
 
@@ -352,12 +352,12 @@ jobs:
 
         BUILDPROF_SCRIPT_EOF
 
-        "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open -o "$bp_dir/$bp_id-update-apt.buildprof" -- bash --noprofile --norc -eo pipefail "$bp_dir/$bp_id.sh"
+        ASAN_OPTIONS="${ASAN_OPTIONS:+$ASAN_OPTIONS:}detect_leaks=0" "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open -o "$bp_dir/$bp_id-update-apt.buildprof" -- bash --noprofile --norc -eo pipefail "$bp_dir/$bp_id.sh"
 
         '
       shell: sh
     - name: install monero dependencies
-      run: 'bp_dir="$RUNNER_TEMP/buildprof"; mkdir -p "$bp_dir"; bp_id=$(date +%s%N)
+      run: 'bp_dir="$RUNNER_TEMP/buildprof"; mkdir -p "$bp_dir"; bp_id=$(date +%s)-$$-$(od -An -N4 -tu4 /dev/urandom | tr -d " ")
 
         cat > "$bp_dir/$bp_id.sh" <<''BUILDPROF_SCRIPT_EOF''
 
@@ -365,12 +365,12 @@ jobs:
 
         BUILDPROF_SCRIPT_EOF
 
-        "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open -o "$bp_dir/$bp_id-install-monero-dependencies.buildprof" -- bash --noprofile --norc -eo pipefail "$bp_dir/$bp_id.sh"
+        ASAN_OPTIONS="${ASAN_OPTIONS:+$ASAN_OPTIONS:}detect_leaks=0" "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open -o "$bp_dir/$bp_id-install-monero-dependencies.buildprof" -- bash --noprofile --norc -eo pipefail "$bp_dir/$bp_id.sh"
 
         '
       shell: sh
     - name: install rust
-      run: 'bp_dir="$RUNNER_TEMP/buildprof"; mkdir -p "$bp_dir"; bp_id=$(date +%s%N)
+      run: 'bp_dir="$RUNNER_TEMP/buildprof"; mkdir -p "$bp_dir"; bp_id=$(date +%s)-$$-$(od -An -N4 -tu4 /dev/urandom | tr -d " ")
 
         cat > "$bp_dir/$bp_id.sh" <<''BUILDPROF_SCRIPT_EOF''
 
@@ -378,12 +378,12 @@ jobs:
 
         BUILDPROF_SCRIPT_EOF
 
-        "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open -o "$bp_dir/$bp_id-install-rust.buildprof" -- bash --noprofile --norc -eo pipefail "$bp_dir/$bp_id.sh"
+        ASAN_OPTIONS="${ASAN_OPTIONS:+$ASAN_OPTIONS:}detect_leaks=0" "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open -o "$bp_dir/$bp_id-install-rust.buildprof" -- bash --noprofile --norc -eo pipefail "$bp_dir/$bp_id.sh"
 
         '
       shell: sh
     - name: install pip
-      run: 'bp_dir="$RUNNER_TEMP/buildprof"; mkdir -p "$bp_dir"; bp_id=$(date +%s%N)
+      run: 'bp_dir="$RUNNER_TEMP/buildprof"; mkdir -p "$bp_dir"; bp_id=$(date +%s)-$$-$(od -An -N4 -tu4 /dev/urandom | tr -d " ")
 
         cat > "$bp_dir/$bp_id.sh" <<''BUILDPROF_SCRIPT_EOF''
 
@@ -391,12 +391,12 @@ jobs:
 
         BUILDPROF_SCRIPT_EOF
 
-        "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open -o "$bp_dir/$bp_id-install-pip.buildprof" -- bash --noprofile --norc -eo pipefail "$bp_dir/$bp_id.sh"
+        ASAN_OPTIONS="${ASAN_OPTIONS:+$ASAN_OPTIONS:}detect_leaks=0" "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open -o "$bp_dir/$bp_id-install-pip.buildprof" -- bash --noprofile --norc -eo pipefail "$bp_dir/$bp_id.sh"
 
         '
       shell: sh
     - name: install Python dependencies
-      run: 'bp_dir="$RUNNER_TEMP/buildprof"; mkdir -p "$bp_dir"; bp_id=$(date +%s%N)
+      run: 'bp_dir="$RUNNER_TEMP/buildprof"; mkdir -p "$bp_dir"; bp_id=$(date +%s)-$$-$(od -An -N4 -tu4 /dev/urandom | tr -d " ")
 
         cat > "$bp_dir/$bp_id.sh" <<''BUILDPROF_SCRIPT_EOF''
 
@@ -404,12 +404,12 @@ jobs:
 
         BUILDPROF_SCRIPT_EOF
 
-        "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open -o "$bp_dir/$bp_id-install-Python-dependencies.buildprof" -- bash --noprofile --norc -eo pipefail "$bp_dir/$bp_id.sh"
+        ASAN_OPTIONS="${ASAN_OPTIONS:+$ASAN_OPTIONS:}detect_leaks=0" "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open -o "$bp_dir/$bp_id-install-Python-dependencies.buildprof" -- bash --noprofile --norc -eo pipefail "$bp_dir/$bp_id.sh"
 
         '
       shell: sh
     - name: configure git
-      run: 'bp_dir="$RUNNER_TEMP/buildprof"; mkdir -p "$bp_dir"; bp_id=$(date +%s%N)
+      run: 'bp_dir="$RUNNER_TEMP/buildprof"; mkdir -p "$bp_dir"; bp_id=$(date +%s)-$$-$(od -An -N4 -tu4 /dev/urandom | tr -d " ")
 
         cat > "$bp_dir/$bp_id.sh" <<''BUILDPROF_SCRIPT_EOF''
 
@@ -417,7 +417,7 @@ jobs:
 
         BUILDPROF_SCRIPT_EOF
 
-        "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open -o "$bp_dir/$bp_id-configure-git.buildprof" -- bash --noprofile --norc -eo pipefail "$bp_dir/$bp_id.sh"
+        ASAN_OPTIONS="${ASAN_OPTIONS:+$ASAN_OPTIONS:}detect_leaks=0" "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open -o "$bp_dir/$bp_id-configure-git.buildprof" -- bash --noprofile --norc -eo pipefail "$bp_dir/$bp_id.sh"
 
         '
       shell: sh
@@ -439,7 +439,7 @@ jobs:
         key: ccache-${{ matrix.container }}-build-${{ github.sha }}
         restore-keys: ccache-${{ matrix.container }}-build-
     - name: create dummy disk drives for testing
-      run: 'bp_dir="$RUNNER_TEMP/buildprof"; mkdir -p "$bp_dir"; bp_id=$(date +%s%N)
+      run: 'bp_dir="$RUNNER_TEMP/buildprof"; mkdir -p "$bp_dir"; bp_id=$(date +%s)-$$-$(od -An -N4 -tu4 /dev/urandom | tr -d " ")
 
         cat > "$bp_dir/$bp_id.sh" <<''BUILDPROF_SCRIPT_EOF''
 
@@ -447,7 +447,7 @@ jobs:
 
         BUILDPROF_SCRIPT_EOF
 
-        "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open -o "$bp_dir/$bp_id-create-dummy-disk-drives-for-testing.buildprof" -- bash --noprofile --norc -eo pipefail "$bp_dir/$bp_id.sh"
+        ASAN_OPTIONS="${ASAN_OPTIONS:+$ASAN_OPTIONS:}detect_leaks=0" "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open -o "$bp_dir/$bp_id-create-dummy-disk-drives-for-testing.buildprof" -- bash --noprofile --norc -eo pipefail "$bp_dir/$bp_id.sh"
 
         '
       shell: sh
@@ -455,7 +455,7 @@ jobs:
     - name: build
       env:
         CMAKE_BUILD_PARALLEL_LEVEL: ${{env.MAKE_JOB_COUNT}}
-      run: 'bp_dir="$RUNNER_TEMP/buildprof"; mkdir -p "$bp_dir"; bp_id=$(date +%s%N)
+      run: 'bp_dir="$RUNNER_TEMP/buildprof"; mkdir -p "$bp_dir"; bp_id=$(date +%s)-$$-$(od -An -N4 -tu4 /dev/urandom | tr -d " ")
 
         cat > "$bp_dir/$bp_id.sh" <<''BUILDPROF_SCRIPT_EOF''
 
@@ -465,14 +465,14 @@ jobs:
 
         BUILDPROF_SCRIPT_EOF
 
-        "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open -o "$bp_dir/$bp_id-build.buildprof" -- bash --noprofile --norc -eo pipefail "$bp_dir/$bp_id.sh"
+        ASAN_OPTIONS="${ASAN_OPTIONS:+$ASAN_OPTIONS:}detect_leaks=0" "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open -o "$bp_dir/$bp_id-build.buildprof" -- bash --noprofile --norc -eo pipefail "$bp_dir/$bp_id.sh"
 
         '
       shell: sh
     - name: run tests except core_tests
       env:
         DNS_PUBLIC: tcp
-      run: 'bp_dir="$RUNNER_TEMP/buildprof"; mkdir -p "$bp_dir"; bp_id=$(date +%s%N)
+      run: 'bp_dir="$RUNNER_TEMP/buildprof"; mkdir -p "$bp_dir"; bp_id=$(date +%s)-$$-$(od -An -N4 -tu4 /dev/urandom | tr -d " ")
 
         cat > "$bp_dir/$bp_id.sh" <<''BUILDPROF_SCRIPT_EOF''
 
@@ -480,7 +480,7 @@ jobs:
 
         BUILDPROF_SCRIPT_EOF
 
-        "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open -o "$bp_dir/$bp_id-run-tests-except-core-tests.buildprof" -- bash --noprofile --norc -eo pipefail "$bp_dir/$bp_id.sh"
+        ASAN_OPTIONS="${ASAN_OPTIONS:+$ASAN_OPTIONS:}detect_leaks=0" "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open -o "$bp_dir/$bp_id-run-tests-except-core-tests.buildprof" -- bash --noprofile --norc -eo pipefail "$bp_dir/$bp_id.sh"
 
         '
       shell: sh
@@ -489,7 +489,7 @@ jobs:
       env:
         CFLAGS: -DMONERO_CRYPTO_SLOW_HASH_ITER=20
         CMAKE_BUILD_PARALLEL_LEVEL: ${{env.MAKE_JOB_COUNT}}
-      run: 'bp_dir="$RUNNER_TEMP/buildprof"; mkdir -p "$bp_dir"; bp_id=$(date +%s%N)
+      run: 'bp_dir="$RUNNER_TEMP/buildprof"; mkdir -p "$bp_dir"; bp_id=$(date +%s)-$$-$(od -An -N4 -tu4 /dev/urandom | tr -d " ")
 
         cat > "$bp_dir/$bp_id.sh" <<''BUILDPROF_SCRIPT_EOF''
 
@@ -499,12 +499,12 @@ jobs:
 
         BUILDPROF_SCRIPT_EOF
 
-        "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open -o "$bp_dir/$bp_id-use-reduced-slow-hash-iterations-for-cor.buildprof" -- bash --noprofile --norc -eo pipefail "$bp_dir/$bp_id.sh"
+        ASAN_OPTIONS="${ASAN_OPTIONS:+$ASAN_OPTIONS:}detect_leaks=0" "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open -o "$bp_dir/$bp_id-use-reduced-slow-hash-iterations-for-cor.buildprof" -- bash --noprofile --norc -eo pipefail "$bp_dir/$bp_id.sh"
 
         '
       shell: sh
     - name: run core_tests
-      run: 'bp_dir="$RUNNER_TEMP/buildprof"; mkdir -p "$bp_dir"; bp_id=$(date +%s%N)
+      run: 'bp_dir="$RUNNER_TEMP/buildprof"; mkdir -p "$bp_dir"; bp_id=$(date +%s)-$$-$(od -An -N4 -tu4 /dev/urandom | tr -d " ")
 
         cat > "$bp_dir/$bp_id.sh" <<''BUILDPROF_SCRIPT_EOF''
 
@@ -512,7 +512,7 @@ jobs:
 
         BUILDPROF_SCRIPT_EOF
 
-        "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open -o "$bp_dir/$bp_id-run-core-tests.buildprof" -- bash --noprofile --norc -eo pipefail "$bp_dir/$bp_id.sh"
+        ASAN_OPTIONS="${ASAN_OPTIONS:+$ASAN_OPTIONS:}detect_leaks=0" "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open -o "$bp_dir/$bp_id-run-core-tests.buildprof" -- bash --noprofile --norc -eo pipefail "$bp_dir/$bp_id.sh"
 
         '
       shell: sh
@@ -568,7 +568,7 @@ jobs:
 
         '
     - name: build image
-      run: 'bp_dir="$RUNNER_TEMP/buildprof"; mkdir -p "$bp_dir"; bp_id=$(date +%s%N)
+      run: 'bp_dir="$RUNNER_TEMP/buildprof"; mkdir -p "$bp_dir"; bp_id=$(date +%s)-$$-$(od -An -N4 -tu4 /dev/urandom | tr -d " ")
 
         cat > "$bp_dir/$bp_id.sh" <<''BUILDPROF_SCRIPT_EOF''
 
@@ -576,7 +576,7 @@ jobs:
 
         BUILDPROF_SCRIPT_EOF
 
-        "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open -o "$bp_dir/$bp_id-build-image.buildprof" -- bash --noprofile --norc -eo pipefail "$bp_dir/$bp_id.sh"
+        ASAN_OPTIONS="${ASAN_OPTIONS:+$ASAN_OPTIONS:}detect_leaks=0" "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open -o "$bp_dir/$bp_id-build-image.buildprof" -- bash --noprofile --norc -eo pipefail "$bp_dir/$bp_id.sh"
 
         '
       shell: sh
@@ -620,7 +620,7 @@ jobs:
 
         '
     - name: set apt conf
-      run: 'bp_dir="$RUNNER_TEMP/buildprof"; mkdir -p "$bp_dir"; bp_id=$(date +%s%N)
+      run: 'bp_dir="$RUNNER_TEMP/buildprof"; mkdir -p "$bp_dir"; bp_id=$(date +%s)-$$-$(od -An -N4 -tu4 /dev/urandom | tr -d " ")
 
         cat > "$bp_dir/$bp_id.sh" <<''BUILDPROF_SCRIPT_EOF''
 
@@ -628,12 +628,12 @@ jobs:
 
         BUILDPROF_SCRIPT_EOF
 
-        "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open -o "$bp_dir/$bp_id-set-apt-conf.buildprof" -- bash --noprofile --norc -eo pipefail "$bp_dir/$bp_id.sh"
+        ASAN_OPTIONS="${ASAN_OPTIONS:+$ASAN_OPTIONS:}detect_leaks=0" "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open -o "$bp_dir/$bp_id-set-apt-conf.buildprof" -- bash --noprofile --norc -eo pipefail "$bp_dir/$bp_id.sh"
 
         '
       shell: sh
     - name: update apt
-      run: 'bp_dir="$RUNNER_TEMP/buildprof"; mkdir -p "$bp_dir"; bp_id=$(date +%s%N)
+      run: 'bp_dir="$RUNNER_TEMP/buildprof"; mkdir -p "$bp_dir"; bp_id=$(date +%s)-$$-$(od -An -N4 -tu4 /dev/urandom | tr -d " ")
 
         cat > "$bp_dir/$bp_id.sh" <<''BUILDPROF_SCRIPT_EOF''
 
@@ -641,12 +641,12 @@ jobs:
 
         BUILDPROF_SCRIPT_EOF
 
-        "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open -o "$bp_dir/$bp_id-update-apt.buildprof" -- bash --noprofile --norc -eo pipefail "$bp_dir/$bp_id.sh"
+        ASAN_OPTIONS="${ASAN_OPTIONS:+$ASAN_OPTIONS:}detect_leaks=0" "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open -o "$bp_dir/$bp_id-update-apt.buildprof" -- bash --noprofile --norc -eo pipefail "$bp_dir/$bp_id.sh"
 
         '
       shell: sh
     - name: install dependencies
-      run: 'bp_dir="$RUNNER_TEMP/buildprof"; mkdir -p "$bp_dir"; bp_id=$(date +%s%N)
+      run: 'bp_dir="$RUNNER_TEMP/buildprof"; mkdir -p "$bp_dir"; bp_id=$(date +%s)-$$-$(od -An -N4 -tu4 /dev/urandom | tr -d " ")
 
         cat > "$bp_dir/$bp_id.sh" <<''BUILDPROF_SCRIPT_EOF''
 
@@ -654,12 +654,12 @@ jobs:
 
         BUILDPROF_SCRIPT_EOF
 
-        "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open -o "$bp_dir/$bp_id-install-dependencies.buildprof" -- bash --noprofile --norc -eo pipefail "$bp_dir/$bp_id.sh"
+        ASAN_OPTIONS="${ASAN_OPTIONS:+$ASAN_OPTIONS:}detect_leaks=0" "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open -o "$bp_dir/$bp_id-install-dependencies.buildprof" -- bash --noprofile --norc -eo pipefail "$bp_dir/$bp_id.sh"
 
         '
       shell: sh
     - name: configure git
-      run: 'bp_dir="$RUNNER_TEMP/buildprof"; mkdir -p "$bp_dir"; bp_id=$(date +%s%N)
+      run: 'bp_dir="$RUNNER_TEMP/buildprof"; mkdir -p "$bp_dir"; bp_id=$(date +%s)-$$-$(od -An -N4 -tu4 /dev/urandom | tr -d " ")
 
         cat > "$bp_dir/$bp_id.sh" <<''BUILDPROF_SCRIPT_EOF''
 
@@ -667,7 +667,7 @@ jobs:
 
         BUILDPROF_SCRIPT_EOF
 
-        "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open -o "$bp_dir/$bp_id-configure-git.buildprof" -- bash --noprofile --norc -eo pipefail "$bp_dir/$bp_id.sh"
+        ASAN_OPTIONS="${ASAN_OPTIONS:+$ASAN_OPTIONS:}detect_leaks=0" "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open -o "$bp_dir/$bp_id-configure-git.buildprof" -- bash --noprofile --norc -eo pipefail "$bp_dir/$bp_id.sh"
 
         '
       shell: sh
@@ -683,7 +683,7 @@ jobs:
 
         '
     - name: archive
-      run: 'bp_dir="$RUNNER_TEMP/buildprof"; mkdir -p "$bp_dir"; bp_id=$(date +%s%N)
+      run: 'bp_dir="$RUNNER_TEMP/buildprof"; mkdir -p "$bp_dir"; bp_id=$(date +%s)-$$-$(od -An -N4 -tu4 /dev/urandom | tr -d " ")
 
         cat > "$bp_dir/$bp_id.sh" <<''BUILDPROF_SCRIPT_EOF''
 
@@ -699,7 +699,7 @@ jobs:
 
         BUILDPROF_SCRIPT_EOF
 
-        "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open -o "$bp_dir/$bp_id-archive.buildprof" -- bash --noprofile --norc -eo pipefail "$bp_dir/$bp_id.sh"
+        ASAN_OPTIONS="${ASAN_OPTIONS:+$ASAN_OPTIONS:}detect_leaks=0" "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open -o "$bp_dir/$bp_id-archive.buildprof" -- bash --noprofile --norc -eo pipefail "$bp_dir/$bp_id.sh"
 
         '
       shell: sh
