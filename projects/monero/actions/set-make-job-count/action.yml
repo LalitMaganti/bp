@@ -16,7 +16,7 @@ runs:
       "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open -o "$bp_dir/$bp_id-set-jobs-macOS.buildprof" -- bash --noprofile --norc -eo pipefail "$bp_dir/$bp_id.sh"
 
       '
-    shell: bash
+    shell: sh
   - name: set-jobs-windows
     if: runner.os == 'Windows'
     run: 'echo MAKE_JOB_COUNT=$(expr $(printf ''%s\n%s'' $(( $(grep MemTotal: /proc/meminfo | cut -d: -f2 | cut -dk -f1) * 4 / (1048576 * 9) )) $(nproc) | sort -n | head -n1) ''|'' 1) >> $GITHUB_ENV
@@ -36,4 +36,4 @@ runs:
       "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open -o "$bp_dir/$bp_id-set-jobs-linux.buildprof" -- bash --noprofile --norc -eo pipefail "$bp_dir/$bp_id.sh"
 
       '
-    shell: bash
+    shell: sh

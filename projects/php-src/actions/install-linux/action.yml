@@ -3,11 +3,7 @@ runs:
   using: composite
   steps:
   - shell: bash
-    run: 'bp_dir="$RUNNER_TEMP/buildprof"; mkdir -p "$bp_dir"; bp_id=$(date +%s%N)
-
-      cat > "$bp_dir/$bp_id.sh" <<''BUILDPROF_SCRIPT_EOF''
-
-      set -x
+    run: 'set -x
 
       sudo make install
 
@@ -18,9 +14,5 @@ runs:
       echo mysqli.default_socket=/var/run/mysqld/mysqld.sock    > /etc/php.d/mysqli.ini
 
       echo pdo_mysql.default_socket=/var/run/mysqld/mysqld.sock > /etc/php.d/pdo_mysql.ini
-
-      BUILDPROF_SCRIPT_EOF
-
-      "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open -o "$bp_dir/$bp_id-set-x.buildprof" -- bash --noprofile --norc -eo pipefail "$bp_dir/$bp_id.sh"
 
       '

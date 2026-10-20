@@ -5,21 +5,13 @@ runs:
   - shell: bash
     env:
       GH_TOKEN: ${{ github.token }}
-    run: 'bp_dir="$RUNNER_TEMP/buildprof"; mkdir -p "$bp_dir"; bp_id=$(date +%s%N)
-
-      cat > "$bp_dir/$bp_id.sh" <<''BUILDPROF_SCRIPT_EOF''
-
-      set -x
+    run: 'set -x
 
       gh release -R caddyserver/caddy download --pattern ''caddy_*_linux_amd64.tar.gz'' -O - | sudo tar -xz -C /usr/bin caddy
 
       sudo chmod +x /usr/bin/caddy
 
       sudo caddy start --config ext/curl/tests/Caddyfile
-
-      BUILDPROF_SCRIPT_EOF
-
-      "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open -o "$bp_dir/$bp_id-set-x.buildprof" -- bash --noprofile --norc -eo pipefail "$bp_dir/$bp_id.sh"
 
       '
     continue-on-error: true

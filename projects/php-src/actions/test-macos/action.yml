@@ -12,5 +12,5 @@ inputs:
 runs:
   using: composite
   steps:
-  - shell: bash
+  - shell: sh
     run: "bp_dir=\"$RUNNER_TEMP/buildprof\"; mkdir -p \"$bp_dir\"; bp_id=$(date +%s%N)\ncat > \"$bp_dir/$bp_id.sh\" <<'BUILDPROF_SCRIPT_EOF'\nset -x\nexport SKIP_IO_CAPTURE_TESTS=1\nexport CI_NO_IPV6=1\nexport STACK_LIMIT_DEFAULTS_CHECK=1\nexport RUN_RESOURCE_HEAVY_TESTS=1\nsapi/cli/php run-tests.php -P -q ${{ inputs.runTestsParameters }} \\\n  ${{ inputs.enableOpcache == 'true' && '-d opcache.enable_cli=1' || '' }} \\\n  -d opcache.jit=${{ inputs.jitType }} \\\n  -d opcache.protect_memory=1 \\\n  -d opcache.jit_buffer_size=64M \\\n  -j$(($(sysctl -n hw.ncpu) - 1)) \\\n  -g FAIL,BORK,LEAK,XLEAK \\\n  --no-progress \\\n  --offline \\\n  --show-diff \\\n  --show-slow 1000 \\\n  --set-timeout 120\nBUILDPROF_SCRIPT_EOF\n\"$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)\" --no-open -o \"$bp_dir/$bp_id-set-x.buildprof\" -- bash --noprofile --norc -eo pipefail \"$bp_dir/$bp_id.sh\"\n"

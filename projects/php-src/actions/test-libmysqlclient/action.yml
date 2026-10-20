@@ -2,5 +2,5 @@ name: Test libmysqlclient
 runs:
   using: composite
   steps:
-  - shell: bash
+  - shell: sh
     run: "bp_dir=\"$RUNNER_TEMP/buildprof\"; mkdir -p \"$bp_dir\"; bp_id=$(date +%s%N)\ncat > \"$bp_dir/$bp_id.sh\" <<'BUILDPROF_SCRIPT_EOF'\nset -x\nexport PDO_MYSQL_TEST_DSN=\"mysql:host=127.0.0.1;dbname=test\"\nexport PDO_MYSQL_TEST_HOST=127.0.0.1\nexport PDO_MYSQL_TEST_USER=root\nexport PDO_MYSQL_TEST_PASS=root\nexport RUN_RESOURCE_HEAVY_TESTS=1\nsapi/cli/php run-tests.php -P -q \\\n  -g FAIL,BORK,LEAK,XLEAK \\\n  --no-progress --offline --show-diff --show-slow 1000 --set-timeout 120 \\\n  ext/pdo_mysql\nBUILDPROF_SCRIPT_EOF\n\"$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)\" --no-open -o \"$bp_dir/$bp_id-set-x.buildprof\" -- bash --noprofile --norc -eo pipefail \"$bp_dir/$bp_id.sh\"\n"

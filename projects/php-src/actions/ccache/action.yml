@@ -15,7 +15,7 @@ runs:
   using: composite
   steps:
   - name: Get cache key
-    shell: bash
+    shell: sh
     id: cache_key
     run: 'bp_dir="$RUNNER_TEMP/buildprof"; mkdir -p "$bp_dir"; bp_id=$(date +%s%N)
 
@@ -48,7 +48,7 @@ runs:
       restore-keys: ${{ steps.cache_key.outputs.prefix }}
       save: ${{ github.event_name != 'pull_request' }}
   - name: Export CC/CXX
-    shell: bash
+    shell: sh
     run: 'bp_dir="$RUNNER_TEMP/buildprof"; mkdir -p "$bp_dir"; bp_id=$(date +%s%N)
 
       cat > "$bp_dir/$bp_id.sh" <<''BUILDPROF_SCRIPT_EOF''

@@ -3,11 +3,7 @@ runs:
   using: composite
   steps:
   - shell: bash
-    run: 'bp_dir="$RUNNER_TEMP/buildprof"; mkdir -p "$bp_dir"; bp_id=$(date +%s%N)
-
-      cat > "$bp_dir/$bp_id.sh" <<''BUILDPROF_SCRIPT_EOF''
-
-      set -x
+    run: 'set -x
 
 
       sudo service slapd start
@@ -33,9 +29,5 @@ runs:
       sudo cp ext/snmp/tests/bigtest /etc/snmp
 
       sudo service snmpd restart
-
-      BUILDPROF_SCRIPT_EOF
-
-      "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open -o "$bp_dir/$bp_id-set-x.buildprof" -- bash --noprofile --norc -eo pipefail "$bp_dir/$bp_id.sh"
 
       '

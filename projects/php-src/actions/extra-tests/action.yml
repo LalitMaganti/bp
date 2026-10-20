@@ -2,7 +2,7 @@ name: Extra tests
 runs:
   using: composite
   steps:
-  - shell: bash
+  - shell: sh
     run: 'bp_dir="$RUNNER_TEMP/buildprof"; mkdir -p "$bp_dir"; bp_id=$(date +%s%N)
 
       cat > "$bp_dir/$bp_id.sh" <<''BUILDPROF_SCRIPT_EOF''

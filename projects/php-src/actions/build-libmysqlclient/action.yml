@@ -8,5 +8,5 @@ inputs:
 runs:
   using: composite
   steps:
-  - shell: bash
+  - shell: sh
     run: "bp_dir=\"$RUNNER_TEMP/buildprof\"; mkdir -p \"$bp_dir\"; bp_id=$(date +%s%N)\ncat > \"$bp_dir/$bp_id.sh\" <<'BUILDPROF_SCRIPT_EOF'\nset -x\nLIBMYSQL=${{ inputs.libmysql }}\nMYSQL_BASE=${LIBMYSQL%%-linux-*}\nMYSQL_DIR=$HOME/$MYSQL_BASE\nmkdir -p $MYSQL_DIR\nURL=https://downloads.mysql.com/archives/get/p/23/file/$LIBMYSQL\nwget -nv $URL\ntar -xf $LIBMYSQL --strip-components=1 -C $MYSQL_DIR\nPDO_MYSQL=${MYSQL_DIR}\n./buildconf --force\n./configure ${{ inputs.configurationParameters }} \\\n  --enable-option-checking=fatal \\\n  --disable-all \\\n  --enable-pdo \\\n  --with-pdo-mysql=${PDO_MYSQL}\nmake clean\nmake -j$(/usr/bin/nproc) >/dev/null\nBUILDPROF_SCRIPT_EOF\n\"$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)\" --no-open -o \"$bp_dir/$bp_id-set-x.buildprof\" -- bash --noprofile --norc -eo pipefail \"$bp_dir/$bp_id.sh\"\n"

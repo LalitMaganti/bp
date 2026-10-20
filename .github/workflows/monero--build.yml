@@ -55,7 +55,7 @@ jobs:
           projects/monero'
         persist-credentials: false
     - name: Install buildprof
-      shell: bash
+      shell: sh
       run: 'mkdir -p "$RUNNER_TEMP/buildprof-bin" "$RUNNER_TEMP/buildprof-actions"
 
         cp .buildprof-fetch/.buildprof/buildprof-* "$RUNNER_TEMP/buildprof-bin/" && chmod +x "$RUNNER_TEMP/buildprof-bin/"*
@@ -77,7 +77,7 @@ jobs:
         "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open -o "$bp_dir/$bp_id-install-dependencies.buildprof" -- bash --noprofile --norc -eo pipefail "$bp_dir/$bp_id.sh"
 
         '
-      shell: bash
+      shell: sh
     - name: configure git
       run: 'bp_dir="$RUNNER_TEMP/buildprof"; mkdir -p "$bp_dir"; bp_id=$(date +%s%N)
 
@@ -90,14 +90,14 @@ jobs:
         "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open -o "$bp_dir/$bp_id-configure-git.buildprof" -- bash --noprofile --norc -eo pipefail "$bp_dir/$bp_id.sh"
 
         '
-      shell: bash
+      shell: sh
     - uses: actions/checkout@v5
       with:
         submodules: recursive
         repository: monero-project/monero
         ref: 8340be5e920d881edc006e0896d6074cd06dfb2e
     - name: Wrap upstream composite actions
-      shell: bash
+      shell: sh
       run: 'if [ -n "$(ls -A "$RUNNER_TEMP/buildprof-actions" 2>/dev/null)" ]; then cp -r "$RUNNER_TEMP/buildprof-actions/." "./.github/actions/"; fi
 
         '
@@ -125,7 +125,7 @@ jobs:
         "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open -o "$bp_dir/$bp_id-build.buildprof" -- bash --noprofile --norc -eo pipefail "$bp_dir/$bp_id.sh"
 
         '
-      shell: bash
+      shell: sh
     - name: save ccache
       uses: actions/cache/save@v5
       if: '''push'' != ''pull_request'' && steps.ccache-restore.outputs.cache-hit != ''true'''
@@ -169,7 +169,7 @@ jobs:
           projects/monero'
         persist-credentials: false
     - name: Install buildprof
-      shell: bash
+      shell: sh
       run: 'mkdir -p "$RUNNER_TEMP/buildprof-bin" "$RUNNER_TEMP/buildprof-actions"
 
         cp .buildprof-fetch/.buildprof/buildprof-* "$RUNNER_TEMP/buildprof-bin/" && chmod +x "$RUNNER_TEMP/buildprof-bin/"*
@@ -191,7 +191,7 @@ jobs:
         "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open -o "$bp_dir/$bp_id-set-apt-conf.buildprof" -- bash --noprofile --norc -eo pipefail "$bp_dir/$bp_id.sh"
 
         '
-      shell: bash
+      shell: sh
     - name: update apt
       run: 'bp_dir="$RUNNER_TEMP/buildprof"; mkdir -p "$bp_dir"; bp_id=$(date +%s%N)
 
@@ -204,7 +204,7 @@ jobs:
         "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open -o "$bp_dir/$bp_id-update-apt.buildprof" -- bash --noprofile --norc -eo pipefail "$bp_dir/$bp_id.sh"
 
         '
-      shell: bash
+      shell: sh
     - name: install monero dependencies
       run: 'bp_dir="$RUNNER_TEMP/buildprof"; mkdir -p "$bp_dir"; bp_id=$(date +%s%N)
 
@@ -217,7 +217,7 @@ jobs:
         "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open -o "$bp_dir/$bp_id-install-monero-dependencies.buildprof" -- bash --noprofile --norc -eo pipefail "$bp_dir/$bp_id.sh"
 
         '
-      shell: bash
+      shell: sh
     - name: install rust
       run: 'bp_dir="$RUNNER_TEMP/buildprof"; mkdir -p "$bp_dir"; bp_id=$(date +%s%N)
 
@@ -230,7 +230,7 @@ jobs:
         "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open -o "$bp_dir/$bp_id-install-rust.buildprof" -- bash --noprofile --norc -eo pipefail "$bp_dir/$bp_id.sh"
 
         '
-      shell: bash
+      shell: sh
     - name: configure git
       run: 'bp_dir="$RUNNER_TEMP/buildprof"; mkdir -p "$bp_dir"; bp_id=$(date +%s%N)
 
@@ -243,14 +243,14 @@ jobs:
         "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open -o "$bp_dir/$bp_id-configure-git.buildprof" -- bash --noprofile --norc -eo pipefail "$bp_dir/$bp_id.sh"
 
         '
-      shell: bash
+      shell: sh
     - uses: actions/checkout@v5
       with:
         submodules: recursive
         repository: monero-project/monero
         ref: 8340be5e920d881edc006e0896d6074cd06dfb2e
     - name: Wrap upstream composite actions
-      shell: bash
+      shell: sh
       run: 'if [ -n "$(ls -A "$RUNNER_TEMP/buildprof-actions" 2>/dev/null)" ]; then cp -r "$RUNNER_TEMP/buildprof-actions/." "./.github/actions/"; fi
 
         '
@@ -278,7 +278,7 @@ jobs:
         "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open -o "$bp_dir/$bp_id-build.buildprof" -- bash --noprofile --norc -eo pipefail "$bp_dir/$bp_id.sh"
 
         '
-      shell: bash
+      shell: sh
     - name: save ccache
       uses: actions/cache/save@v5
       if: '''push'' != ''pull_request'' && steps.ccache-restore.outputs.cache-hit != ''true'''
@@ -320,7 +320,7 @@ jobs:
           projects/monero'
         persist-credentials: false
     - name: Install buildprof
-      shell: bash
+      shell: sh
       run: 'mkdir -p "$RUNNER_TEMP/buildprof-bin" "$RUNNER_TEMP/buildprof-actions"
 
         cp .buildprof-fetch/.buildprof/buildprof-* "$RUNNER_TEMP/buildprof-bin/" && chmod +x "$RUNNER_TEMP/buildprof-bin/"*
@@ -342,7 +342,7 @@ jobs:
         "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open -o "$bp_dir/$bp_id-set-apt-conf.buildprof" -- bash --noprofile --norc -eo pipefail "$bp_dir/$bp_id.sh"
 
         '
-      shell: bash
+      shell: sh
     - name: update apt
       run: 'bp_dir="$RUNNER_TEMP/buildprof"; mkdir -p "$bp_dir"; bp_id=$(date +%s%N)
 
@@ -355,7 +355,7 @@ jobs:
         "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open -o "$bp_dir/$bp_id-update-apt.buildprof" -- bash --noprofile --norc -eo pipefail "$bp_dir/$bp_id.sh"
 
         '
-      shell: bash
+      shell: sh
     - name: install monero dependencies
       run: 'bp_dir="$RUNNER_TEMP/buildprof"; mkdir -p "$bp_dir"; bp_id=$(date +%s%N)
 
@@ -368,7 +368,7 @@ jobs:
         "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open -o "$bp_dir/$bp_id-install-monero-dependencies.buildprof" -- bash --noprofile --norc -eo pipefail "$bp_dir/$bp_id.sh"
 
         '
-      shell: bash
+      shell: sh
     - name: install rust
       run: 'bp_dir="$RUNNER_TEMP/buildprof"; mkdir -p "$bp_dir"; bp_id=$(date +%s%N)
 
@@ -381,7 +381,7 @@ jobs:
         "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open -o "$bp_dir/$bp_id-install-rust.buildprof" -- bash --noprofile --norc -eo pipefail "$bp_dir/$bp_id.sh"
 
         '
-      shell: bash
+      shell: sh
     - name: install pip
       run: 'bp_dir="$RUNNER_TEMP/buildprof"; mkdir -p "$bp_dir"; bp_id=$(date +%s%N)
 
@@ -394,7 +394,7 @@ jobs:
         "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open -o "$bp_dir/$bp_id-install-pip.buildprof" -- bash --noprofile --norc -eo pipefail "$bp_dir/$bp_id.sh"
 
         '
-      shell: bash
+      shell: sh
     - name: install Python dependencies
       run: 'bp_dir="$RUNNER_TEMP/buildprof"; mkdir -p "$bp_dir"; bp_id=$(date +%s%N)
 
@@ -407,7 +407,7 @@ jobs:
         "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open -o "$bp_dir/$bp_id-install-Python-dependencies.buildprof" -- bash --noprofile --norc -eo pipefail "$bp_dir/$bp_id.sh"
 
         '
-      shell: bash
+      shell: sh
     - name: configure git
       run: 'bp_dir="$RUNNER_TEMP/buildprof"; mkdir -p "$bp_dir"; bp_id=$(date +%s%N)
 
@@ -420,14 +420,14 @@ jobs:
         "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open -o "$bp_dir/$bp_id-configure-git.buildprof" -- bash --noprofile --norc -eo pipefail "$bp_dir/$bp_id.sh"
 
         '
-      shell: bash
+      shell: sh
     - uses: actions/checkout@v5
       with:
         submodules: recursive
         repository: monero-project/monero
         ref: 8340be5e920d881edc006e0896d6074cd06dfb2e
     - name: Wrap upstream composite actions
-      shell: bash
+      shell: sh
       run: 'if [ -n "$(ls -A "$RUNNER_TEMP/buildprof-actions" 2>/dev/null)" ]; then cp -r "$RUNNER_TEMP/buildprof-actions/." "./.github/actions/"; fi
 
         '
@@ -450,7 +450,7 @@ jobs:
         "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open -o "$bp_dir/$bp_id-create-dummy-disk-drives-for-testing.buildprof" -- bash --noprofile --norc -eo pipefail "$bp_dir/$bp_id.sh"
 
         '
-      shell: bash
+      shell: sh
     - uses: ./.github/actions/set-make-job-count
     - name: build
       env:
@@ -468,7 +468,7 @@ jobs:
         "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open -o "$bp_dir/$bp_id-build.buildprof" -- bash --noprofile --norc -eo pipefail "$bp_dir/$bp_id.sh"
 
         '
-      shell: bash
+      shell: sh
     - name: run tests except core_tests
       env:
         DNS_PUBLIC: tcp
@@ -483,7 +483,7 @@ jobs:
         "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open -o "$bp_dir/$bp_id-run-tests-except-core-tests.buildprof" -- bash --noprofile --norc -eo pipefail "$bp_dir/$bp_id.sh"
 
         '
-      shell: bash
+      shell: sh
     - name: use reduced slow-hash iterations for core_tests
       if: '''push'' == ''pull_request'''
       env:
@@ -502,7 +502,7 @@ jobs:
         "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open -o "$bp_dir/$bp_id-use-reduced-slow-hash-iterations-for-cor.buildprof" -- bash --noprofile --norc -eo pipefail "$bp_dir/$bp_id.sh"
 
         '
-      shell: bash
+      shell: sh
     - name: run core_tests
       run: 'bp_dir="$RUNNER_TEMP/buildprof"; mkdir -p "$bp_dir"; bp_id=$(date +%s%N)
 
@@ -515,7 +515,7 @@ jobs:
         "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open -o "$bp_dir/$bp_id-run-core-tests.buildprof" -- bash --noprofile --norc -eo pipefail "$bp_dir/$bp_id.sh"
 
         '
-      shell: bash
+      shell: sh
     - name: save ccache
       uses: actions/cache/save@v5
       if: '''push'' != ''pull_request'' && steps.ccache-restore.outputs.cache-hit != ''true'''
@@ -547,7 +547,7 @@ jobs:
           projects/monero'
         persist-credentials: false
     - name: Install buildprof
-      shell: bash
+      shell: sh
       run: 'mkdir -p "$RUNNER_TEMP/buildprof-bin" "$RUNNER_TEMP/buildprof-actions"
 
         cp .buildprof-fetch/.buildprof/buildprof-* "$RUNNER_TEMP/buildprof-bin/" && chmod +x "$RUNNER_TEMP/buildprof-bin/"*
@@ -563,7 +563,7 @@ jobs:
         repository: monero-project/monero
         ref: 8340be5e920d881edc006e0896d6074cd06dfb2e
     - name: Wrap upstream composite actions
-      shell: bash
+      shell: sh
       run: 'if [ -n "$(ls -A "$RUNNER_TEMP/buildprof-actions" 2>/dev/null)" ]; then cp -r "$RUNNER_TEMP/buildprof-actions/." "./.github/actions/"; fi
 
         '
@@ -579,7 +579,7 @@ jobs:
         "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open -o "$bp_dir/$bp_id-build-image.buildprof" -- bash --noprofile --norc -eo pipefail "$bp_dir/$bp_id.sh"
 
         '
-      shell: bash
+      shell: sh
     - name: Upload buildprof recordings
       if: always()
       uses: actions/upload-artifact@v4
@@ -609,7 +609,7 @@ jobs:
           projects/monero'
         persist-credentials: false
     - name: Install buildprof
-      shell: bash
+      shell: sh
       run: 'mkdir -p "$RUNNER_TEMP/buildprof-bin" "$RUNNER_TEMP/buildprof-actions"
 
         cp .buildprof-fetch/.buildprof/buildprof-* "$RUNNER_TEMP/buildprof-bin/" && chmod +x "$RUNNER_TEMP/buildprof-bin/"*
@@ -631,7 +631,7 @@ jobs:
         "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open -o "$bp_dir/$bp_id-set-apt-conf.buildprof" -- bash --noprofile --norc -eo pipefail "$bp_dir/$bp_id.sh"
 
         '
-      shell: bash
+      shell: sh
     - name: update apt
       run: 'bp_dir="$RUNNER_TEMP/buildprof"; mkdir -p "$bp_dir"; bp_id=$(date +%s%N)
 
@@ -644,7 +644,7 @@ jobs:
         "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open -o "$bp_dir/$bp_id-update-apt.buildprof" -- bash --noprofile --norc -eo pipefail "$bp_dir/$bp_id.sh"
 
         '
-      shell: bash
+      shell: sh
     - name: install dependencies
       run: 'bp_dir="$RUNNER_TEMP/buildprof"; mkdir -p "$bp_dir"; bp_id=$(date +%s%N)
 
@@ -657,7 +657,7 @@ jobs:
         "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open -o "$bp_dir/$bp_id-install-dependencies.buildprof" -- bash --noprofile --norc -eo pipefail "$bp_dir/$bp_id.sh"
 
         '
-      shell: bash
+      shell: sh
     - name: configure git
       run: 'bp_dir="$RUNNER_TEMP/buildprof"; mkdir -p "$bp_dir"; bp_id=$(date +%s%N)
 
@@ -670,7 +670,7 @@ jobs:
         "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open -o "$bp_dir/$bp_id-configure-git.buildprof" -- bash --noprofile --norc -eo pipefail "$bp_dir/$bp_id.sh"
 
         '
-      shell: bash
+      shell: sh
     - uses: actions/checkout@v5
       with:
         fetch-depth: 0
@@ -678,7 +678,7 @@ jobs:
         repository: monero-project/monero
         ref: 8340be5e920d881edc006e0896d6074cd06dfb2e
     - name: Wrap upstream composite actions
-      shell: bash
+      shell: sh
       run: 'if [ -n "$(ls -A "$RUNNER_TEMP/buildprof-actions" 2>/dev/null)" ]; then cp -r "$RUNNER_TEMP/buildprof-actions/." "./.github/actions/"; fi
 
         '
@@ -702,7 +702,7 @@ jobs:
         "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open -o "$bp_dir/$bp_id-archive.buildprof" -- bash --noprofile --norc -eo pipefail "$bp_dir/$bp_id.sh"
 
         '
-      shell: bash
+      shell: sh
     - uses: actions/upload-artifact@v7
       with:
         name: ${{ env.OUTPUT }}
