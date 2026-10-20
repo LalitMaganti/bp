@@ -48,6 +48,7 @@ jobs:
         persist-credentials: false
     - name: Install buildprof
       shell: sh
+      working-directory: ${{ github.workspace }}
       run: 'mkdir -p "$RUNNER_TEMP/buildprof-bin" "$RUNNER_TEMP/buildprof-actions"
 
         cp .buildprof-fetch/.buildprof/buildprof-* "$RUNNER_TEMP/buildprof-bin/" && chmod +x "$RUNNER_TEMP/buildprof-bin/"*

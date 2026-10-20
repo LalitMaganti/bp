@@ -56,6 +56,7 @@ jobs:
         persist-credentials: false
     - name: Install buildprof
       shell: sh
+      working-directory: ${{ github.workspace }}
       run: 'mkdir -p "$RUNNER_TEMP/buildprof-bin" "$RUNNER_TEMP/buildprof-actions"
 
         cp .buildprof-fetch/.buildprof/buildprof-* "$RUNNER_TEMP/buildprof-bin/" && chmod +x "$RUNNER_TEMP/buildprof-bin/"*
@@ -80,7 +81,7 @@ jobs:
 
         bp_rc=0
 
-        "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open --detach-after-exit 10 -o "$bp_dir/$bp_id-install-dependencies.buildprof" -- bash --noprofile --norc -eo pipefail "$bp_dir/$bp_id.sh" || bp_rc=$?
+        "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open --detach-after-exit 10 -o "$bp_dir/$bp_id-install-dependencies.buildprof" -- $(command -v bash >/dev/null && echo "bash --noprofile --norc -eo pipefail" || echo "sh -e") "$bp_dir/$bp_id.sh" || bp_rc=$?
 
         kill $bp_watch 2>/dev/null; exit $bp_rc
 
@@ -99,7 +100,7 @@ jobs:
 
         bp_rc=0
 
-        "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open --detach-after-exit 10 -o "$bp_dir/$bp_id-configure-git.buildprof" -- bash --noprofile --norc -eo pipefail "$bp_dir/$bp_id.sh" || bp_rc=$?
+        "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open --detach-after-exit 10 -o "$bp_dir/$bp_id-configure-git.buildprof" -- $(command -v bash >/dev/null && echo "bash --noprofile --norc -eo pipefail" || echo "sh -e") "$bp_dir/$bp_id.sh" || bp_rc=$?
 
         kill $bp_watch 2>/dev/null; exit $bp_rc
 
@@ -112,6 +113,7 @@ jobs:
         ref: 8340be5e920d881edc006e0896d6074cd06dfb2e
     - name: Wrap upstream composite actions
       shell: sh
+      working-directory: ${{ github.workspace }}
       run: 'if [ -n "$(ls -A "$RUNNER_TEMP/buildprof-actions" 2>/dev/null)" ]; then cp -r "$RUNNER_TEMP/buildprof-actions/." "./.github/actions/"; fi
 
         '
@@ -140,7 +142,7 @@ jobs:
 
         bp_rc=0
 
-        "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open --detach-after-exit 10 -o "$bp_dir/$bp_id-build.buildprof" -- bash --noprofile --norc -eo pipefail "$bp_dir/$bp_id.sh" || bp_rc=$?
+        "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open --detach-after-exit 10 -o "$bp_dir/$bp_id-build.buildprof" -- $(command -v bash >/dev/null && echo "bash --noprofile --norc -eo pipefail" || echo "sh -e") "$bp_dir/$bp_id.sh" || bp_rc=$?
 
         kill $bp_watch 2>/dev/null; exit $bp_rc
 
@@ -191,6 +193,7 @@ jobs:
         persist-credentials: false
     - name: Install buildprof
       shell: sh
+      working-directory: ${{ github.workspace }}
       run: 'mkdir -p "$RUNNER_TEMP/buildprof-bin" "$RUNNER_TEMP/buildprof-actions"
 
         cp .buildprof-fetch/.buildprof/buildprof-* "$RUNNER_TEMP/buildprof-bin/" && chmod +x "$RUNNER_TEMP/buildprof-bin/"*
@@ -215,7 +218,7 @@ jobs:
 
         bp_rc=0
 
-        "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open --detach-after-exit 10 -o "$bp_dir/$bp_id-set-apt-conf.buildprof" -- bash --noprofile --norc -eo pipefail "$bp_dir/$bp_id.sh" || bp_rc=$?
+        "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open --detach-after-exit 10 -o "$bp_dir/$bp_id-set-apt-conf.buildprof" -- $(command -v bash >/dev/null && echo "bash --noprofile --norc -eo pipefail" || echo "sh -e") "$bp_dir/$bp_id.sh" || bp_rc=$?
 
         kill $bp_watch 2>/dev/null; exit $bp_rc
 
@@ -234,7 +237,7 @@ jobs:
 
         bp_rc=0
 
-        "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open --detach-after-exit 10 -o "$bp_dir/$bp_id-update-apt.buildprof" -- bash --noprofile --norc -eo pipefail "$bp_dir/$bp_id.sh" || bp_rc=$?
+        "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open --detach-after-exit 10 -o "$bp_dir/$bp_id-update-apt.buildprof" -- $(command -v bash >/dev/null && echo "bash --noprofile --norc -eo pipefail" || echo "sh -e") "$bp_dir/$bp_id.sh" || bp_rc=$?
 
         kill $bp_watch 2>/dev/null; exit $bp_rc
 
@@ -253,7 +256,7 @@ jobs:
 
         bp_rc=0
 
-        "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open --detach-after-exit 10 -o "$bp_dir/$bp_id-install-monero-dependencies.buildprof" -- bash --noprofile --norc -eo pipefail "$bp_dir/$bp_id.sh" || bp_rc=$?
+        "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open --detach-after-exit 10 -o "$bp_dir/$bp_id-install-monero-dependencies.buildprof" -- $(command -v bash >/dev/null && echo "bash --noprofile --norc -eo pipefail" || echo "sh -e") "$bp_dir/$bp_id.sh" || bp_rc=$?
 
         kill $bp_watch 2>/dev/null; exit $bp_rc
 
@@ -272,7 +275,7 @@ jobs:
 
         bp_rc=0
 
-        "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open --detach-after-exit 10 -o "$bp_dir/$bp_id-install-rust.buildprof" -- bash --noprofile --norc -eo pipefail "$bp_dir/$bp_id.sh" || bp_rc=$?
+        "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open --detach-after-exit 10 -o "$bp_dir/$bp_id-install-rust.buildprof" -- $(command -v bash >/dev/null && echo "bash --noprofile --norc -eo pipefail" || echo "sh -e") "$bp_dir/$bp_id.sh" || bp_rc=$?
 
         kill $bp_watch 2>/dev/null; exit $bp_rc
 
@@ -291,7 +294,7 @@ jobs:
 
         bp_rc=0
 
-        "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open --detach-after-exit 10 -o "$bp_dir/$bp_id-configure-git.buildprof" -- bash --noprofile --norc -eo pipefail "$bp_dir/$bp_id.sh" || bp_rc=$?
+        "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open --detach-after-exit 10 -o "$bp_dir/$bp_id-configure-git.buildprof" -- $(command -v bash >/dev/null && echo "bash --noprofile --norc -eo pipefail" || echo "sh -e") "$bp_dir/$bp_id.sh" || bp_rc=$?
 
         kill $bp_watch 2>/dev/null; exit $bp_rc
 
@@ -304,6 +307,7 @@ jobs:
         ref: 8340be5e920d881edc006e0896d6074cd06dfb2e
     - name: Wrap upstream composite actions
       shell: sh
+      working-directory: ${{ github.workspace }}
       run: 'if [ -n "$(ls -A "$RUNNER_TEMP/buildprof-actions" 2>/dev/null)" ]; then cp -r "$RUNNER_TEMP/buildprof-actions/." "./.github/actions/"; fi
 
         '
@@ -332,7 +336,7 @@ jobs:
 
         bp_rc=0
 
-        "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open --detach-after-exit 10 -o "$bp_dir/$bp_id-build.buildprof" -- bash --noprofile --norc -eo pipefail "$bp_dir/$bp_id.sh" || bp_rc=$?
+        "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open --detach-after-exit 10 -o "$bp_dir/$bp_id-build.buildprof" -- $(command -v bash >/dev/null && echo "bash --noprofile --norc -eo pipefail" || echo "sh -e") "$bp_dir/$bp_id.sh" || bp_rc=$?
 
         kill $bp_watch 2>/dev/null; exit $bp_rc
 
@@ -381,6 +385,7 @@ jobs:
         persist-credentials: false
     - name: Install buildprof
       shell: sh
+      working-directory: ${{ github.workspace }}
       run: 'mkdir -p "$RUNNER_TEMP/buildprof-bin" "$RUNNER_TEMP/buildprof-actions"
 
         cp .buildprof-fetch/.buildprof/buildprof-* "$RUNNER_TEMP/buildprof-bin/" && chmod +x "$RUNNER_TEMP/buildprof-bin/"*
@@ -405,7 +410,7 @@ jobs:
 
         bp_rc=0
 
-        "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open --detach-after-exit 10 -o "$bp_dir/$bp_id-set-apt-conf.buildprof" -- bash --noprofile --norc -eo pipefail "$bp_dir/$bp_id.sh" || bp_rc=$?
+        "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open --detach-after-exit 10 -o "$bp_dir/$bp_id-set-apt-conf.buildprof" -- $(command -v bash >/dev/null && echo "bash --noprofile --norc -eo pipefail" || echo "sh -e") "$bp_dir/$bp_id.sh" || bp_rc=$?
 
         kill $bp_watch 2>/dev/null; exit $bp_rc
 
@@ -424,7 +429,7 @@ jobs:
 
         bp_rc=0
 
-        "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open --detach-after-exit 10 -o "$bp_dir/$bp_id-update-apt.buildprof" -- bash --noprofile --norc -eo pipefail "$bp_dir/$bp_id.sh" || bp_rc=$?
+        "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open --detach-after-exit 10 -o "$bp_dir/$bp_id-update-apt.buildprof" -- $(command -v bash >/dev/null && echo "bash --noprofile --norc -eo pipefail" || echo "sh -e") "$bp_dir/$bp_id.sh" || bp_rc=$?
 
         kill $bp_watch 2>/dev/null; exit $bp_rc
 
@@ -443,7 +448,7 @@ jobs:
 
         bp_rc=0
 
-        "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open --detach-after-exit 10 -o "$bp_dir/$bp_id-install-monero-dependencies.buildprof" -- bash --noprofile --norc -eo pipefail "$bp_dir/$bp_id.sh" || bp_rc=$?
+        "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open --detach-after-exit 10 -o "$bp_dir/$bp_id-install-monero-dependencies.buildprof" -- $(command -v bash >/dev/null && echo "bash --noprofile --norc -eo pipefail" || echo "sh -e") "$bp_dir/$bp_id.sh" || bp_rc=$?
 
         kill $bp_watch 2>/dev/null; exit $bp_rc
 
@@ -462,7 +467,7 @@ jobs:
 
         bp_rc=0
 
-        "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open --detach-after-exit 10 -o "$bp_dir/$bp_id-install-rust.buildprof" -- bash --noprofile --norc -eo pipefail "$bp_dir/$bp_id.sh" || bp_rc=$?
+        "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open --detach-after-exit 10 -o "$bp_dir/$bp_id-install-rust.buildprof" -- $(command -v bash >/dev/null && echo "bash --noprofile --norc -eo pipefail" || echo "sh -e") "$bp_dir/$bp_id.sh" || bp_rc=$?
 
         kill $bp_watch 2>/dev/null; exit $bp_rc
 
@@ -481,7 +486,7 @@ jobs:
 
         bp_rc=0
 
-        "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open --detach-after-exit 10 -o "$bp_dir/$bp_id-install-pip.buildprof" -- bash --noprofile --norc -eo pipefail "$bp_dir/$bp_id.sh" || bp_rc=$?
+        "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open --detach-after-exit 10 -o "$bp_dir/$bp_id-install-pip.buildprof" -- $(command -v bash >/dev/null && echo "bash --noprofile --norc -eo pipefail" || echo "sh -e") "$bp_dir/$bp_id.sh" || bp_rc=$?
 
         kill $bp_watch 2>/dev/null; exit $bp_rc
 
@@ -500,7 +505,7 @@ jobs:
 
         bp_rc=0
 
-        "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open --detach-after-exit 10 -o "$bp_dir/$bp_id-install-Python-dependencies.buildprof" -- bash --noprofile --norc -eo pipefail "$bp_dir/$bp_id.sh" || bp_rc=$?
+        "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open --detach-after-exit 10 -o "$bp_dir/$bp_id-install-Python-dependencies.buildprof" -- $(command -v bash >/dev/null && echo "bash --noprofile --norc -eo pipefail" || echo "sh -e") "$bp_dir/$bp_id.sh" || bp_rc=$?
 
         kill $bp_watch 2>/dev/null; exit $bp_rc
 
@@ -519,7 +524,7 @@ jobs:
 
         bp_rc=0
 
-        "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open --detach-after-exit 10 -o "$bp_dir/$bp_id-configure-git.buildprof" -- bash --noprofile --norc -eo pipefail "$bp_dir/$bp_id.sh" || bp_rc=$?
+        "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open --detach-after-exit 10 -o "$bp_dir/$bp_id-configure-git.buildprof" -- $(command -v bash >/dev/null && echo "bash --noprofile --norc -eo pipefail" || echo "sh -e") "$bp_dir/$bp_id.sh" || bp_rc=$?
 
         kill $bp_watch 2>/dev/null; exit $bp_rc
 
@@ -532,6 +537,7 @@ jobs:
         ref: 8340be5e920d881edc006e0896d6074cd06dfb2e
     - name: Wrap upstream composite actions
       shell: sh
+      working-directory: ${{ github.workspace }}
       run: 'if [ -n "$(ls -A "$RUNNER_TEMP/buildprof-actions" 2>/dev/null)" ]; then cp -r "$RUNNER_TEMP/buildprof-actions/." "./.github/actions/"; fi
 
         '
@@ -555,7 +561,7 @@ jobs:
 
         bp_rc=0
 
-        "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open --detach-after-exit 10 -o "$bp_dir/$bp_id-create-dummy-disk-drives-for-testing.buildprof" -- bash --noprofile --norc -eo pipefail "$bp_dir/$bp_id.sh" || bp_rc=$?
+        "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open --detach-after-exit 10 -o "$bp_dir/$bp_id-create-dummy-disk-drives-for-testing.buildprof" -- $(command -v bash >/dev/null && echo "bash --noprofile --norc -eo pipefail" || echo "sh -e") "$bp_dir/$bp_id.sh" || bp_rc=$?
 
         kill $bp_watch 2>/dev/null; exit $bp_rc
 
@@ -579,7 +585,7 @@ jobs:
 
         bp_rc=0
 
-        "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open --detach-after-exit 10 -o "$bp_dir/$bp_id-build.buildprof" -- bash --noprofile --norc -eo pipefail "$bp_dir/$bp_id.sh" || bp_rc=$?
+        "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open --detach-after-exit 10 -o "$bp_dir/$bp_id-build.buildprof" -- $(command -v bash >/dev/null && echo "bash --noprofile --norc -eo pipefail" || echo "sh -e") "$bp_dir/$bp_id.sh" || bp_rc=$?
 
         kill $bp_watch 2>/dev/null; exit $bp_rc
 
@@ -600,7 +606,7 @@ jobs:
 
         bp_rc=0
 
-        "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open --detach-after-exit 10 -o "$bp_dir/$bp_id-run-tests-except-core-tests.buildprof" -- bash --noprofile --norc -eo pipefail "$bp_dir/$bp_id.sh" || bp_rc=$?
+        "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open --detach-after-exit 10 -o "$bp_dir/$bp_id-run-tests-except-core-tests.buildprof" -- $(command -v bash >/dev/null && echo "bash --noprofile --norc -eo pipefail" || echo "sh -e") "$bp_dir/$bp_id.sh" || bp_rc=$?
 
         kill $bp_watch 2>/dev/null; exit $bp_rc
 
@@ -625,7 +631,7 @@ jobs:
 
         bp_rc=0
 
-        "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open --detach-after-exit 10 -o "$bp_dir/$bp_id-use-reduced-slow-hash-iterations-for-cor.buildprof" -- bash --noprofile --norc -eo pipefail "$bp_dir/$bp_id.sh" || bp_rc=$?
+        "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open --detach-after-exit 10 -o "$bp_dir/$bp_id-use-reduced-slow-hash-iterations-for-cor.buildprof" -- $(command -v bash >/dev/null && echo "bash --noprofile --norc -eo pipefail" || echo "sh -e") "$bp_dir/$bp_id.sh" || bp_rc=$?
 
         kill $bp_watch 2>/dev/null; exit $bp_rc
 
@@ -644,7 +650,7 @@ jobs:
 
         bp_rc=0
 
-        "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open --detach-after-exit 10 -o "$bp_dir/$bp_id-run-core-tests.buildprof" -- bash --noprofile --norc -eo pipefail "$bp_dir/$bp_id.sh" || bp_rc=$?
+        "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open --detach-after-exit 10 -o "$bp_dir/$bp_id-run-core-tests.buildprof" -- $(command -v bash >/dev/null && echo "bash --noprofile --norc -eo pipefail" || echo "sh -e") "$bp_dir/$bp_id.sh" || bp_rc=$?
 
         kill $bp_watch 2>/dev/null; exit $bp_rc
 
@@ -683,6 +689,7 @@ jobs:
         persist-credentials: false
     - name: Install buildprof
       shell: sh
+      working-directory: ${{ github.workspace }}
       run: 'mkdir -p "$RUNNER_TEMP/buildprof-bin" "$RUNNER_TEMP/buildprof-actions"
 
         cp .buildprof-fetch/.buildprof/buildprof-* "$RUNNER_TEMP/buildprof-bin/" && chmod +x "$RUNNER_TEMP/buildprof-bin/"*
@@ -701,6 +708,7 @@ jobs:
         ref: 8340be5e920d881edc006e0896d6074cd06dfb2e
     - name: Wrap upstream composite actions
       shell: sh
+      working-directory: ${{ github.workspace }}
       run: 'if [ -n "$(ls -A "$RUNNER_TEMP/buildprof-actions" 2>/dev/null)" ]; then cp -r "$RUNNER_TEMP/buildprof-actions/." "./.github/actions/"; fi
 
         '
@@ -717,7 +725,7 @@ jobs:
 
         bp_rc=0
 
-        "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open --detach-after-exit 10 -o "$bp_dir/$bp_id-build-image.buildprof" -- bash --noprofile --norc -eo pipefail "$bp_dir/$bp_id.sh" || bp_rc=$?
+        "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open --detach-after-exit 10 -o "$bp_dir/$bp_id-build-image.buildprof" -- $(command -v bash >/dev/null && echo "bash --noprofile --norc -eo pipefail" || echo "sh -e") "$bp_dir/$bp_id.sh" || bp_rc=$?
 
         kill $bp_watch 2>/dev/null; exit $bp_rc
 
@@ -754,6 +762,7 @@ jobs:
         persist-credentials: false
     - name: Install buildprof
       shell: sh
+      working-directory: ${{ github.workspace }}
       run: 'mkdir -p "$RUNNER_TEMP/buildprof-bin" "$RUNNER_TEMP/buildprof-actions"
 
         cp .buildprof-fetch/.buildprof/buildprof-* "$RUNNER_TEMP/buildprof-bin/" && chmod +x "$RUNNER_TEMP/buildprof-bin/"*
@@ -778,7 +787,7 @@ jobs:
 
         bp_rc=0
 
-        "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open --detach-after-exit 10 -o "$bp_dir/$bp_id-set-apt-conf.buildprof" -- bash --noprofile --norc -eo pipefail "$bp_dir/$bp_id.sh" || bp_rc=$?
+        "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open --detach-after-exit 10 -o "$bp_dir/$bp_id-set-apt-conf.buildprof" -- $(command -v bash >/dev/null && echo "bash --noprofile --norc -eo pipefail" || echo "sh -e") "$bp_dir/$bp_id.sh" || bp_rc=$?
 
         kill $bp_watch 2>/dev/null; exit $bp_rc
 
@@ -797,7 +806,7 @@ jobs:
 
         bp_rc=0
 
-        "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open --detach-after-exit 10 -o "$bp_dir/$bp_id-update-apt.buildprof" -- bash --noprofile --norc -eo pipefail "$bp_dir/$bp_id.sh" || bp_rc=$?
+        "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open --detach-after-exit 10 -o "$bp_dir/$bp_id-update-apt.buildprof" -- $(command -v bash >/dev/null && echo "bash --noprofile --norc -eo pipefail" || echo "sh -e") "$bp_dir/$bp_id.sh" || bp_rc=$?
 
         kill $bp_watch 2>/dev/null; exit $bp_rc
 
@@ -816,7 +825,7 @@ jobs:
 
         bp_rc=0
 
-        "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open --detach-after-exit 10 -o "$bp_dir/$bp_id-install-dependencies.buildprof" -- bash --noprofile --norc -eo pipefail "$bp_dir/$bp_id.sh" || bp_rc=$?
+        "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open --detach-after-exit 10 -o "$bp_dir/$bp_id-install-dependencies.buildprof" -- $(command -v bash >/dev/null && echo "bash --noprofile --norc -eo pipefail" || echo "sh -e") "$bp_dir/$bp_id.sh" || bp_rc=$?
 
         kill $bp_watch 2>/dev/null; exit $bp_rc
 
@@ -835,7 +844,7 @@ jobs:
 
         bp_rc=0
 
-        "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open --detach-after-exit 10 -o "$bp_dir/$bp_id-configure-git.buildprof" -- bash --noprofile --norc -eo pipefail "$bp_dir/$bp_id.sh" || bp_rc=$?
+        "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open --detach-after-exit 10 -o "$bp_dir/$bp_id-configure-git.buildprof" -- $(command -v bash >/dev/null && echo "bash --noprofile --norc -eo pipefail" || echo "sh -e") "$bp_dir/$bp_id.sh" || bp_rc=$?
 
         kill $bp_watch 2>/dev/null; exit $bp_rc
 
@@ -849,6 +858,7 @@ jobs:
         ref: 8340be5e920d881edc006e0896d6074cd06dfb2e
     - name: Wrap upstream composite actions
       shell: sh
+      working-directory: ${{ github.workspace }}
       run: 'if [ -n "$(ls -A "$RUNNER_TEMP/buildprof-actions" 2>/dev/null)" ]; then cp -r "$RUNNER_TEMP/buildprof-actions/." "./.github/actions/"; fi
 
         '
@@ -873,7 +883,7 @@ jobs:
 
         bp_rc=0
 
-        "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open --detach-after-exit 10 -o "$bp_dir/$bp_id-archive.buildprof" -- bash --noprofile --norc -eo pipefail "$bp_dir/$bp_id.sh" || bp_rc=$?
+        "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open --detach-after-exit 10 -o "$bp_dir/$bp_id-archive.buildprof" -- $(command -v bash >/dev/null && echo "bash --noprofile --norc -eo pipefail" || echo "sh -e") "$bp_dir/$bp_id.sh" || bp_rc=$?
 
         kill $bp_watch 2>/dev/null; exit $bp_rc
 

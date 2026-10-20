@@ -48,6 +48,7 @@ jobs:
         persist-credentials: false
     - name: Install buildprof
       shell: sh
+      working-directory: ${{ github.workspace }}
       run: 'mkdir -p "$RUNNER_TEMP/buildprof-bin" "$RUNNER_TEMP/buildprof-actions"
 
         cp .buildprof-fetch/.buildprof/buildprof-* "$RUNNER_TEMP/buildprof-bin/" && chmod +x "$RUNNER_TEMP/buildprof-bin/"*
@@ -63,9 +64,10 @@ jobs:
       with:
         persist-credentials: false
         repository: astral-sh/ruff
-        ref: 63b423619c301f9f91ca4fa93ef65361959ea2ee
+        ref: 84e3f4f79016e95ccff09c318605cba3551a11d8
     - name: Wrap upstream composite actions
       shell: sh
+      working-directory: ${{ github.workspace }}
       run: 'if [ -n "$(ls -A "$RUNNER_TEMP/buildprof-actions" 2>/dev/null)" ]; then cp -r "$RUNNER_TEMP/buildprof-actions/." "./.github/actions/"; fi
 
         '
@@ -187,6 +189,7 @@ jobs:
         persist-credentials: false
     - name: Install buildprof
       shell: sh
+      working-directory: ${{ github.workspace }}
       run: 'mkdir -p "$RUNNER_TEMP/buildprof-bin" "$RUNNER_TEMP/buildprof-actions"
 
         cp .buildprof-fetch/.buildprof/buildprof-* "$RUNNER_TEMP/buildprof-bin/" && chmod +x "$RUNNER_TEMP/buildprof-bin/"*
@@ -202,9 +205,10 @@ jobs:
       with:
         persist-credentials: false
         repository: astral-sh/ruff
-        ref: 63b423619c301f9f91ca4fa93ef65361959ea2ee
+        ref: 84e3f4f79016e95ccff09c318605cba3551a11d8
     - name: Wrap upstream composite actions
       shell: sh
+      working-directory: ${{ github.workspace }}
       run: 'if [ -n "$(ls -A "$RUNNER_TEMP/buildprof-actions" 2>/dev/null)" ]; then cp -r "$RUNNER_TEMP/buildprof-actions/." "./.github/actions/"; fi
 
         '
@@ -273,6 +277,7 @@ jobs:
         persist-credentials: false
     - name: Install buildprof
       shell: sh
+      working-directory: ${{ github.workspace }}
       run: 'mkdir -p "$RUNNER_TEMP/buildprof-bin" "$RUNNER_TEMP/buildprof-actions"
 
         cp .buildprof-fetch/.buildprof/buildprof-* "$RUNNER_TEMP/buildprof-bin/" && chmod +x "$RUNNER_TEMP/buildprof-bin/"*
@@ -288,9 +293,10 @@ jobs:
       with:
         persist-credentials: false
         repository: astral-sh/ruff
-        ref: 63b423619c301f9f91ca4fa93ef65361959ea2ee
+        ref: 84e3f4f79016e95ccff09c318605cba3551a11d8
     - name: Wrap upstream composite actions
       shell: sh
+      working-directory: ${{ github.workspace }}
       run: 'if [ -n "$(ls -A "$RUNNER_TEMP/buildprof-actions" 2>/dev/null)" ]; then cp -r "$RUNNER_TEMP/buildprof-actions/." "./.github/actions/"; fi
 
         '
@@ -333,6 +339,7 @@ jobs:
         persist-credentials: false
     - name: Install buildprof
       shell: sh
+      working-directory: ${{ github.workspace }}
       run: 'mkdir -p "$RUNNER_TEMP/buildprof-bin" "$RUNNER_TEMP/buildprof-actions"
 
         cp .buildprof-fetch/.buildprof/buildprof-* "$RUNNER_TEMP/buildprof-bin/" && chmod +x "$RUNNER_TEMP/buildprof-bin/"*
@@ -348,9 +355,10 @@ jobs:
       with:
         persist-credentials: false
         repository: astral-sh/ruff
-        ref: 63b423619c301f9f91ca4fa93ef65361959ea2ee
+        ref: 84e3f4f79016e95ccff09c318605cba3551a11d8
     - name: Wrap upstream composite actions
       shell: sh
+      working-directory: ${{ github.workspace }}
       run: 'if [ -n "$(ls -A "$RUNNER_TEMP/buildprof-actions" 2>/dev/null)" ]; then cp -r "$RUNNER_TEMP/buildprof-actions/." "./.github/actions/"; fi
 
         '
@@ -445,6 +453,7 @@ jobs:
         persist-credentials: false
     - name: Install buildprof
       shell: sh
+      working-directory: ${{ github.workspace }}
       run: 'mkdir -p "$RUNNER_TEMP/buildprof-bin" "$RUNNER_TEMP/buildprof-actions"
 
         cp .buildprof-fetch/.buildprof/buildprof-* "$RUNNER_TEMP/buildprof-bin/" && chmod +x "$RUNNER_TEMP/buildprof-bin/"*
@@ -460,9 +469,10 @@ jobs:
       with:
         persist-credentials: false
         repository: astral-sh/ruff
-        ref: 63b423619c301f9f91ca4fa93ef65361959ea2ee
+        ref: 84e3f4f79016e95ccff09c318605cba3551a11d8
     - name: Wrap upstream composite actions
       shell: sh
+      working-directory: ${{ github.workspace }}
       run: 'if [ -n "$(ls -A "$RUNNER_TEMP/buildprof-actions" 2>/dev/null)" ]; then cp -r "$RUNNER_TEMP/buildprof-actions/." "./.github/actions/"; fi
 
         '
@@ -541,6 +551,7 @@ jobs:
         persist-credentials: false
     - name: Install buildprof
       shell: sh
+      working-directory: ${{ github.workspace }}
       run: 'mkdir -p "$RUNNER_TEMP/buildprof-bin" "$RUNNER_TEMP/buildprof-actions"
 
         cp .buildprof-fetch/.buildprof/buildprof-* "$RUNNER_TEMP/buildprof-bin/" && chmod +x "$RUNNER_TEMP/buildprof-bin/"*
@@ -556,9 +567,10 @@ jobs:
       with:
         persist-credentials: false
         repository: astral-sh/ruff
-        ref: 63b423619c301f9f91ca4fa93ef65361959ea2ee
+        ref: 84e3f4f79016e95ccff09c318605cba3551a11d8
     - name: Wrap upstream composite actions
       shell: sh
+      working-directory: ${{ github.workspace }}
       run: 'if [ -n "$(ls -A "$RUNNER_TEMP/buildprof-actions" 2>/dev/null)" ]; then cp -r "$RUNNER_TEMP/buildprof-actions/." "./.github/actions/"; fi
 
         '
@@ -615,6 +627,7 @@ jobs:
         persist-credentials: false
     - name: Install buildprof
       shell: sh
+      working-directory: ${{ github.workspace }}
       run: 'mkdir -p "$RUNNER_TEMP/buildprof-bin" "$RUNNER_TEMP/buildprof-actions"
 
         cp .buildprof-fetch/.buildprof/buildprof-* "$RUNNER_TEMP/buildprof-bin/" && chmod +x "$RUNNER_TEMP/buildprof-bin/"*
@@ -630,9 +643,10 @@ jobs:
       with:
         persist-credentials: false
         repository: astral-sh/ruff
-        ref: 63b423619c301f9f91ca4fa93ef65361959ea2ee
+        ref: 84e3f4f79016e95ccff09c318605cba3551a11d8
     - name: Wrap upstream composite actions
       shell: sh
+      working-directory: ${{ github.workspace }}
       run: 'if [ -n "$(ls -A "$RUNNER_TEMP/buildprof-actions" 2>/dev/null)" ]; then cp -r "$RUNNER_TEMP/buildprof-actions/." "./.github/actions/"; fi
 
         '
@@ -888,6 +902,7 @@ jobs:
         persist-credentials: false
     - name: Install buildprof
       shell: sh
+      working-directory: ${{ github.workspace }}
       run: 'mkdir -p "$RUNNER_TEMP/buildprof-bin" "$RUNNER_TEMP/buildprof-actions"
 
         cp .buildprof-fetch/.buildprof/buildprof-* "$RUNNER_TEMP/buildprof-bin/" && chmod +x "$RUNNER_TEMP/buildprof-bin/"*
@@ -903,9 +918,10 @@ jobs:
       with:
         persist-credentials: false
         repository: astral-sh/ruff
-        ref: 63b423619c301f9f91ca4fa93ef65361959ea2ee
+        ref: 84e3f4f79016e95ccff09c318605cba3551a11d8
     - name: Wrap upstream composite actions
       shell: sh
+      working-directory: ${{ github.workspace }}
       run: 'if [ -n "$(ls -A "$RUNNER_TEMP/buildprof-actions" 2>/dev/null)" ]; then cp -r "$RUNNER_TEMP/buildprof-actions/." "./.github/actions/"; fi
 
         '
@@ -1007,6 +1023,7 @@ jobs:
         persist-credentials: false
     - name: Install buildprof
       shell: sh
+      working-directory: ${{ github.workspace }}
       run: 'mkdir -p "$RUNNER_TEMP/buildprof-bin" "$RUNNER_TEMP/buildprof-actions"
 
         cp .buildprof-fetch/.buildprof/buildprof-* "$RUNNER_TEMP/buildprof-bin/" && chmod +x "$RUNNER_TEMP/buildprof-bin/"*
@@ -1022,9 +1039,10 @@ jobs:
       with:
         persist-credentials: false
         repository: astral-sh/ruff
-        ref: 63b423619c301f9f91ca4fa93ef65361959ea2ee
+        ref: 84e3f4f79016e95ccff09c318605cba3551a11d8
     - name: Wrap upstream composite actions
       shell: sh
+      working-directory: ${{ github.workspace }}
       run: 'if [ -n "$(ls -A "$RUNNER_TEMP/buildprof-actions" 2>/dev/null)" ]; then cp -r "$RUNNER_TEMP/buildprof-actions/." "./.github/actions/"; fi
 
         '
@@ -1131,6 +1149,7 @@ jobs:
         persist-credentials: false
     - name: Install buildprof
       shell: sh
+      working-directory: ${{ github.workspace }}
       run: 'mkdir -p "$RUNNER_TEMP/buildprof-bin" "$RUNNER_TEMP/buildprof-actions"
 
         cp .buildprof-fetch/.buildprof/buildprof-* "$RUNNER_TEMP/buildprof-bin/" && chmod +x "$RUNNER_TEMP/buildprof-bin/"*
@@ -1146,9 +1165,10 @@ jobs:
       with:
         persist-credentials: false
         repository: astral-sh/ruff
-        ref: 63b423619c301f9f91ca4fa93ef65361959ea2ee
+        ref: 84e3f4f79016e95ccff09c318605cba3551a11d8
     - name: Wrap upstream composite actions
       shell: sh
+      working-directory: ${{ github.workspace }}
       run: 'if [ -n "$(ls -A "$RUNNER_TEMP/buildprof-actions" 2>/dev/null)" ]; then cp -r "$RUNNER_TEMP/buildprof-actions/." "./.github/actions/"; fi
 
         '
@@ -1233,6 +1253,7 @@ jobs:
         persist-credentials: false
     - name: Install buildprof
       shell: sh
+      working-directory: ${{ github.workspace }}
       run: 'mkdir -p "$RUNNER_TEMP/buildprof-bin" "$RUNNER_TEMP/buildprof-actions"
 
         cp .buildprof-fetch/.buildprof/buildprof-* "$RUNNER_TEMP/buildprof-bin/" && chmod +x "$RUNNER_TEMP/buildprof-bin/"*
@@ -1248,9 +1269,10 @@ jobs:
       with:
         persist-credentials: false
         repository: astral-sh/ruff
-        ref: 63b423619c301f9f91ca4fa93ef65361959ea2ee
+        ref: 84e3f4f79016e95ccff09c318605cba3551a11d8
     - name: Wrap upstream composite actions
       shell: sh
+      working-directory: ${{ github.workspace }}
       run: 'if [ -n "$(ls -A "$RUNNER_TEMP/buildprof-actions" 2>/dev/null)" ]; then cp -r "$RUNNER_TEMP/buildprof-actions/." "./.github/actions/"; fi
 
         '
@@ -1333,6 +1355,7 @@ jobs:
         persist-credentials: false
     - name: Install buildprof
       shell: sh
+      working-directory: ${{ github.workspace }}
       run: 'mkdir -p "$RUNNER_TEMP/buildprof-bin" "$RUNNER_TEMP/buildprof-actions"
 
         cp .buildprof-fetch/.buildprof/buildprof-* "$RUNNER_TEMP/buildprof-bin/" && chmod +x "$RUNNER_TEMP/buildprof-bin/"*
@@ -1367,9 +1390,10 @@ jobs:
       with:
         persist-credentials: false
         repository: astral-sh/ruff
-        ref: 63b423619c301f9f91ca4fa93ef65361959ea2ee
+        ref: 84e3f4f79016e95ccff09c318605cba3551a11d8
     - name: Wrap upstream composite actions
       shell: sh
+      working-directory: ${{ github.workspace }}
       run: 'if [ -n "$(ls -A "$RUNNER_TEMP/buildprof-actions" 2>/dev/null)" ]; then cp -r "$RUNNER_TEMP/buildprof-actions/." "./.github/actions/"; fi
 
         '
@@ -1455,6 +1479,7 @@ jobs:
         persist-credentials: false
     - name: Install buildprof
       shell: sh
+      working-directory: ${{ github.workspace }}
       run: 'mkdir -p "$RUNNER_TEMP/buildprof-bin" "$RUNNER_TEMP/buildprof-actions"
 
         cp .buildprof-fetch/.buildprof/buildprof-* "$RUNNER_TEMP/buildprof-bin/" && chmod +x "$RUNNER_TEMP/buildprof-bin/"*
@@ -1470,9 +1495,10 @@ jobs:
       with:
         persist-credentials: false
         repository: astral-sh/ruff
-        ref: 63b423619c301f9f91ca4fa93ef65361959ea2ee
+        ref: 84e3f4f79016e95ccff09c318605cba3551a11d8
     - name: Wrap upstream composite actions
       shell: sh
+      working-directory: ${{ github.workspace }}
       run: 'if [ -n "$(ls -A "$RUNNER_TEMP/buildprof-actions" 2>/dev/null)" ]; then cp -r "$RUNNER_TEMP/buildprof-actions/." "./.github/actions/"; fi
 
         '
@@ -1715,6 +1741,7 @@ jobs:
         persist-credentials: false
     - name: Install buildprof
       shell: sh
+      working-directory: ${{ github.workspace }}
       run: 'mkdir -p "$RUNNER_TEMP/buildprof-bin" "$RUNNER_TEMP/buildprof-actions"
 
         cp .buildprof-fetch/.buildprof/buildprof-* "$RUNNER_TEMP/buildprof-bin/" && chmod +x "$RUNNER_TEMP/buildprof-bin/"*
@@ -1728,11 +1755,12 @@ jobs:
         '
     - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
       with:
-        ref: 63b423619c301f9f91ca4fa93ef65361959ea2ee
+        ref: 84e3f4f79016e95ccff09c318605cba3551a11d8
         persist-credentials: false
         repository: astral-sh/ruff
     - name: Wrap upstream composite actions
       shell: sh
+      working-directory: ${{ github.workspace }}
       run: 'if [ -n "$(ls -A "$RUNNER_TEMP/buildprof-actions" 2>/dev/null)" ]; then cp -r "$RUNNER_TEMP/buildprof-actions/." "./.github/actions/"; fi
 
         '
@@ -1793,9 +1821,10 @@ jobs:
         persist-credentials: false
         clean: false
         repository: astral-sh/ruff
-        ref: 63b423619c301f9f91ca4fa93ef65361959ea2ee
+        ref: 84e3f4f79016e95ccff09c318605cba3551a11d8
     - name: Wrap upstream composite actions
       shell: sh
+      working-directory: ${{ github.workspace }}
       run: 'if [ -n "$(ls -A "$RUNNER_TEMP/buildprof-actions" 2>/dev/null)" ]; then cp -r "$RUNNER_TEMP/buildprof-actions/." "./.github/actions/"; fi
 
         '
@@ -2014,6 +2043,7 @@ jobs:
         persist-credentials: false
     - name: Install buildprof
       shell: sh
+      working-directory: ${{ github.workspace }}
       run: 'mkdir -p "$RUNNER_TEMP/buildprof-bin" "$RUNNER_TEMP/buildprof-actions"
 
         cp .buildprof-fetch/.buildprof/buildprof-* "$RUNNER_TEMP/buildprof-bin/" && chmod +x "$RUNNER_TEMP/buildprof-bin/"*
@@ -2048,9 +2078,10 @@ jobs:
       with:
         persist-credentials: false
         repository: astral-sh/ruff
-        ref: 63b423619c301f9f91ca4fa93ef65361959ea2ee
+        ref: 84e3f4f79016e95ccff09c318605cba3551a11d8
     - name: Wrap upstream composite actions
       shell: sh
+      working-directory: ${{ github.workspace }}
       run: 'if [ -n "$(ls -A "$RUNNER_TEMP/buildprof-actions" 2>/dev/null)" ]; then cp -r "$RUNNER_TEMP/buildprof-actions/." "./.github/actions/"; fi
 
         '
@@ -2141,6 +2172,7 @@ jobs:
         persist-credentials: false
     - name: Install buildprof
       shell: sh
+      working-directory: ${{ github.workspace }}
       run: 'mkdir -p "$RUNNER_TEMP/buildprof-bin" "$RUNNER_TEMP/buildprof-actions"
 
         cp .buildprof-fetch/.buildprof/buildprof-* "$RUNNER_TEMP/buildprof-bin/" && chmod +x "$RUNNER_TEMP/buildprof-bin/"*
@@ -2156,9 +2188,10 @@ jobs:
       with:
         persist-credentials: false
         repository: astral-sh/ruff
-        ref: 63b423619c301f9f91ca4fa93ef65361959ea2ee
+        ref: 84e3f4f79016e95ccff09c318605cba3551a11d8
     - name: Wrap upstream composite actions
       shell: sh
+      working-directory: ${{ github.workspace }}
       run: 'if [ -n "$(ls -A "$RUNNER_TEMP/buildprof-actions" 2>/dev/null)" ]; then cp -r "$RUNNER_TEMP/buildprof-actions/." "./.github/actions/"; fi
 
         '
@@ -2270,6 +2303,7 @@ jobs:
         persist-credentials: false
     - name: Install buildprof
       shell: sh
+      working-directory: ${{ github.workspace }}
       run: 'mkdir -p "$RUNNER_TEMP/buildprof-bin" "$RUNNER_TEMP/buildprof-actions"
 
         cp .buildprof-fetch/.buildprof/buildprof-* "$RUNNER_TEMP/buildprof-bin/" && chmod +x "$RUNNER_TEMP/buildprof-bin/"*
@@ -2285,9 +2319,10 @@ jobs:
       with:
         persist-credentials: false
         repository: astral-sh/ruff
-        ref: 63b423619c301f9f91ca4fa93ef65361959ea2ee
+        ref: 84e3f4f79016e95ccff09c318605cba3551a11d8
     - name: Wrap upstream composite actions
       shell: sh
+      working-directory: ${{ github.workspace }}
       run: 'if [ -n "$(ls -A "$RUNNER_TEMP/buildprof-actions" 2>/dev/null)" ]; then cp -r "$RUNNER_TEMP/buildprof-actions/." "./.github/actions/"; fi
 
         '
@@ -2344,6 +2379,7 @@ jobs:
         persist-credentials: false
     - name: Install buildprof
       shell: sh
+      working-directory: ${{ github.workspace }}
       run: 'mkdir -p "$RUNNER_TEMP/buildprof-bin" "$RUNNER_TEMP/buildprof-actions"
 
         cp .buildprof-fetch/.buildprof/buildprof-* "$RUNNER_TEMP/buildprof-bin/" && chmod +x "$RUNNER_TEMP/buildprof-bin/"*
@@ -2359,9 +2395,10 @@ jobs:
       with:
         persist-credentials: false
         repository: astral-sh/ruff
-        ref: 63b423619c301f9f91ca4fa93ef65361959ea2ee
+        ref: 84e3f4f79016e95ccff09c318605cba3551a11d8
     - name: Wrap upstream composite actions
       shell: sh
+      working-directory: ${{ github.workspace }}
       run: 'if [ -n "$(ls -A "$RUNNER_TEMP/buildprof-actions" 2>/dev/null)" ]; then cp -r "$RUNNER_TEMP/buildprof-actions/." "./.github/actions/"; fi
 
         '
@@ -2461,6 +2498,7 @@ jobs:
         persist-credentials: false
     - name: Install buildprof
       shell: sh
+      working-directory: ${{ github.workspace }}
       run: 'mkdir -p "$RUNNER_TEMP/buildprof-bin" "$RUNNER_TEMP/buildprof-actions"
 
         cp .buildprof-fetch/.buildprof/buildprof-* "$RUNNER_TEMP/buildprof-bin/" && chmod +x "$RUNNER_TEMP/buildprof-bin/"*
@@ -2476,9 +2514,10 @@ jobs:
       with:
         persist-credentials: false
         repository: astral-sh/ruff
-        ref: 63b423619c301f9f91ca4fa93ef65361959ea2ee
+        ref: 84e3f4f79016e95ccff09c318605cba3551a11d8
     - name: Wrap upstream composite actions
       shell: sh
+      working-directory: ${{ github.workspace }}
       run: 'if [ -n "$(ls -A "$RUNNER_TEMP/buildprof-actions" 2>/dev/null)" ]; then cp -r "$RUNNER_TEMP/buildprof-actions/." "./.github/actions/"; fi
 
         '
@@ -2583,6 +2622,7 @@ jobs:
         persist-credentials: false
     - name: Install buildprof
       shell: sh
+      working-directory: ${{ github.workspace }}
       run: 'mkdir -p "$RUNNER_TEMP/buildprof-bin" "$RUNNER_TEMP/buildprof-actions"
 
         cp .buildprof-fetch/.buildprof/buildprof-* "$RUNNER_TEMP/buildprof-bin/" && chmod +x "$RUNNER_TEMP/buildprof-bin/"*
@@ -2598,9 +2638,10 @@ jobs:
       with:
         persist-credentials: false
         repository: astral-sh/ruff
-        ref: 63b423619c301f9f91ca4fa93ef65361959ea2ee
+        ref: 84e3f4f79016e95ccff09c318605cba3551a11d8
     - name: Wrap upstream composite actions
       shell: sh
+      working-directory: ${{ github.workspace }}
       run: 'if [ -n "$(ls -A "$RUNNER_TEMP/buildprof-actions" 2>/dev/null)" ]; then cp -r "$RUNNER_TEMP/buildprof-actions/." "./.github/actions/"; fi
 
         '
@@ -2677,6 +2718,7 @@ jobs:
         persist-credentials: false
     - name: Install buildprof
       shell: sh
+      working-directory: ${{ github.workspace }}
       run: 'mkdir -p "$RUNNER_TEMP/buildprof-bin" "$RUNNER_TEMP/buildprof-actions"
 
         cp .buildprof-fetch/.buildprof/buildprof-* "$RUNNER_TEMP/buildprof-bin/" && chmod +x "$RUNNER_TEMP/buildprof-bin/"*
@@ -2692,9 +2734,10 @@ jobs:
       with:
         persist-credentials: false
         repository: astral-sh/ruff
-        ref: 63b423619c301f9f91ca4fa93ef65361959ea2ee
+        ref: 84e3f4f79016e95ccff09c318605cba3551a11d8
     - name: Wrap upstream composite actions
       shell: sh
+      working-directory: ${{ github.workspace }}
       run: 'if [ -n "$(ls -A "$RUNNER_TEMP/buildprof-actions" 2>/dev/null)" ]; then cp -r "$RUNNER_TEMP/buildprof-actions/." "./.github/actions/"; fi
 
         '
@@ -2741,6 +2784,7 @@ jobs:
         persist-credentials: false
     - name: Install buildprof
       shell: sh
+      working-directory: ${{ github.workspace }}
       run: 'mkdir -p "$RUNNER_TEMP/buildprof-bin" "$RUNNER_TEMP/buildprof-actions"
 
         cp .buildprof-fetch/.buildprof/buildprof-* "$RUNNER_TEMP/buildprof-bin/" && chmod +x "$RUNNER_TEMP/buildprof-bin/"*
@@ -2756,9 +2800,10 @@ jobs:
       with:
         persist-credentials: false
         repository: astral-sh/ruff
-        ref: 63b423619c301f9f91ca4fa93ef65361959ea2ee
+        ref: 84e3f4f79016e95ccff09c318605cba3551a11d8
     - name: Wrap upstream composite actions
       shell: sh
+      working-directory: ${{ github.workspace }}
       run: 'if [ -n "$(ls -A "$RUNNER_TEMP/buildprof-actions" 2>/dev/null)" ]; then cp -r "$RUNNER_TEMP/buildprof-actions/." "./.github/actions/"; fi
 
         '
@@ -2895,6 +2940,7 @@ jobs:
         persist-credentials: false
     - name: Install buildprof
       shell: sh
+      working-directory: ${{ github.workspace }}
       run: 'mkdir -p "$RUNNER_TEMP/buildprof-bin" "$RUNNER_TEMP/buildprof-actions"
 
         cp .buildprof-fetch/.buildprof/buildprof-* "$RUNNER_TEMP/buildprof-bin/" && chmod +x "$RUNNER_TEMP/buildprof-bin/"*
@@ -2910,9 +2956,10 @@ jobs:
       with:
         persist-credentials: false
         repository: astral-sh/ruff
-        ref: 63b423619c301f9f91ca4fa93ef65361959ea2ee
+        ref: 84e3f4f79016e95ccff09c318605cba3551a11d8
     - name: Wrap upstream composite actions
       shell: sh
+      working-directory: ${{ github.workspace }}
       run: 'if [ -n "$(ls -A "$RUNNER_TEMP/buildprof-actions" 2>/dev/null)" ]; then cp -r "$RUNNER_TEMP/buildprof-actions/." "./.github/actions/"; fi
 
         '
@@ -3025,6 +3072,7 @@ jobs:
         persist-credentials: false
     - name: Install buildprof
       shell: sh
+      working-directory: ${{ github.workspace }}
       run: 'mkdir -p "$RUNNER_TEMP/buildprof-bin" "$RUNNER_TEMP/buildprof-actions"
 
         cp .buildprof-fetch/.buildprof/buildprof-* "$RUNNER_TEMP/buildprof-bin/" && chmod +x "$RUNNER_TEMP/buildprof-bin/"*
@@ -3040,9 +3088,10 @@ jobs:
       with:
         persist-credentials: false
         repository: astral-sh/ruff
-        ref: 63b423619c301f9f91ca4fa93ef65361959ea2ee
+        ref: 84e3f4f79016e95ccff09c318605cba3551a11d8
     - name: Wrap upstream composite actions
       shell: sh
+      working-directory: ${{ github.workspace }}
       run: 'if [ -n "$(ls -A "$RUNNER_TEMP/buildprof-actions" 2>/dev/null)" ]; then cp -r "$RUNNER_TEMP/buildprof-actions/." "./.github/actions/"; fi
 
         '
@@ -3214,6 +3263,7 @@ jobs:
         persist-credentials: false
     - name: Install buildprof
       shell: sh
+      working-directory: ${{ github.workspace }}
       run: 'mkdir -p "$RUNNER_TEMP/buildprof-bin" "$RUNNER_TEMP/buildprof-actions"
 
         cp .buildprof-fetch/.buildprof/buildprof-* "$RUNNER_TEMP/buildprof-bin/" && chmod +x "$RUNNER_TEMP/buildprof-bin/"*
@@ -3230,9 +3280,10 @@ jobs:
       with:
         persist-credentials: false
         repository: astral-sh/ruff
-        ref: 63b423619c301f9f91ca4fa93ef65361959ea2ee
+        ref: 84e3f4f79016e95ccff09c318605cba3551a11d8
     - name: Wrap upstream composite actions
       shell: sh
+      working-directory: ${{ github.workspace }}
       run: 'if [ -n "$(ls -A "$RUNNER_TEMP/buildprof-actions" 2>/dev/null)" ]; then cp -r "$RUNNER_TEMP/buildprof-actions/." "./.github/actions/"; fi
 
         '
@@ -3316,6 +3367,7 @@ jobs:
         persist-credentials: false
     - name: Install buildprof
       shell: sh
+      working-directory: ${{ github.workspace }}
       run: 'mkdir -p "$RUNNER_TEMP/buildprof-bin" "$RUNNER_TEMP/buildprof-actions"
 
         cp .buildprof-fetch/.buildprof/buildprof-* "$RUNNER_TEMP/buildprof-bin/" && chmod +x "$RUNNER_TEMP/buildprof-bin/"*
@@ -3332,9 +3384,10 @@ jobs:
       with:
         persist-credentials: false
         repository: astral-sh/ruff
-        ref: 63b423619c301f9f91ca4fa93ef65361959ea2ee
+        ref: 84e3f4f79016e95ccff09c318605cba3551a11d8
     - name: Wrap upstream composite actions
       shell: sh
+      working-directory: ${{ github.workspace }}
       run: 'if [ -n "$(ls -A "$RUNNER_TEMP/buildprof-actions" 2>/dev/null)" ]; then cp -r "$RUNNER_TEMP/buildprof-actions/." "./.github/actions/"; fi
 
         '
@@ -3461,6 +3514,7 @@ jobs:
         persist-credentials: false
     - name: Install buildprof
       shell: sh
+      working-directory: ${{ github.workspace }}
       run: 'mkdir -p "$RUNNER_TEMP/buildprof-bin" "$RUNNER_TEMP/buildprof-actions"
 
         cp .buildprof-fetch/.buildprof/buildprof-* "$RUNNER_TEMP/buildprof-bin/" && chmod +x "$RUNNER_TEMP/buildprof-bin/"*
@@ -3477,9 +3531,10 @@ jobs:
       with:
         persist-credentials: false
         repository: astral-sh/ruff
-        ref: 63b423619c301f9f91ca4fa93ef65361959ea2ee
+        ref: 84e3f4f79016e95ccff09c318605cba3551a11d8
     - name: Wrap upstream composite actions
       shell: sh
+      working-directory: ${{ github.workspace }}
       run: 'if [ -n "$(ls -A "$RUNNER_TEMP/buildprof-actions" 2>/dev/null)" ]; then cp -r "$RUNNER_TEMP/buildprof-actions/." "./.github/actions/"; fi
 
         '
@@ -3547,6 +3602,7 @@ jobs:
         persist-credentials: false
     - name: Install buildprof
       shell: sh
+      working-directory: ${{ github.workspace }}
       run: 'mkdir -p "$RUNNER_TEMP/buildprof-bin" "$RUNNER_TEMP/buildprof-actions"
 
         cp .buildprof-fetch/.buildprof/buildprof-* "$RUNNER_TEMP/buildprof-bin/" && chmod +x "$RUNNER_TEMP/buildprof-bin/"*
@@ -3563,9 +3619,10 @@ jobs:
       with:
         persist-credentials: false
         repository: astral-sh/ruff
-        ref: 63b423619c301f9f91ca4fa93ef65361959ea2ee
+        ref: 84e3f4f79016e95ccff09c318605cba3551a11d8
     - name: Wrap upstream composite actions
       shell: sh
+      working-directory: ${{ github.workspace }}
       run: 'if [ -n "$(ls -A "$RUNNER_TEMP/buildprof-actions" 2>/dev/null)" ]; then cp -r "$RUNNER_TEMP/buildprof-actions/." "./.github/actions/"; fi
 
         '
@@ -3663,6 +3720,7 @@ jobs:
         persist-credentials: false
     - name: Install buildprof
       shell: sh
+      working-directory: ${{ github.workspace }}
       run: 'mkdir -p "$RUNNER_TEMP/buildprof-bin" "$RUNNER_TEMP/buildprof-actions"
 
         cp .buildprof-fetch/.buildprof/buildprof-* "$RUNNER_TEMP/buildprof-bin/" && chmod +x "$RUNNER_TEMP/buildprof-bin/"*
