@@ -1,0 +1,6 @@
+name: Create MSSQL container
+runs:
+  using: composite
+  steps:
+  - shell: bash
+    run: "bp_dir=\"$RUNNER_TEMP/buildprof\"; mkdir -p \"$bp_dir\"; bp_id=$(date +%s%N)\ncat > \"$bp_dir/$bp_id.sh\" <<'BUILDPROF_SCRIPT_EOF'\nset -x\ndocker run \\\n  -e \"ACCEPT_EULA=Y\" \\\n  -e \"SA_PASSWORD=<YourStrong@Passw0rd>\" \\\n  -p 1433:1433 \\\n  --name sql1 \\\n  -h sql1 \\\n  -d mcr.microsoft.com/mssql/server:2025-latest\nBUILDPROF_SCRIPT_EOF\n\"$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)\" --no-open -o \"$bp_dir/$bp_id-set-x.buildprof\" -- bash --noprofile --norc -eo pipefail \"$bp_dir/$bp_id.sh\"\n"

@@ -1,0 +1,32 @@
+name: Install
+runs:
+  using: composite
+  steps:
+  - shell: bash
+    run: 'bp_dir="$RUNNER_TEMP/buildprof"; mkdir -p "$bp_dir"; bp_id=$(date +%s%N)
+
+      cat > "$bp_dir/$bp_id.sh" <<''BUILDPROF_SCRIPT_EOF''
+
+      set -x
+
+      make install
+
+      mkdir -p /etc/php.d
+
+      chmod 777 /etc/php.d
+
+      echo mysqli.default_socket=/var/run/mysqld/mysqld.sock > /etc/php.d/mysqli.ini
+
+      echo pdo_mysql.default_socket=/var/run/mysqld/mysqld.sock > /etc/php.d/pdo_mysql.ini
+
+      echo opcache.enable_cli=1 >> /etc/php.d/opcache.ini
+
+      echo opcache.protect_memory=1 >> /etc/php.d/opcache.ini
+
+      echo opcache.preload_user=root >> /etc/php.d/opcache.ini
+
+      BUILDPROF_SCRIPT_EOF
+
+      "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open -o "$bp_dir/$bp_id-set-x.buildprof" -- bash --noprofile --norc -eo pipefail "$bp_dir/$bp_id.sh"
+
+      '

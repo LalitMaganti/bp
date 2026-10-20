@@ -1,0 +1,20 @@
+name: Solaris
+inputs:
+  configurationParameters:
+    default: ''
+    required: false
+  runExtraTests:
+    default: false
+    required: false
+runs:
+  using: composite
+  steps:
+  - name: Solaris
+    uses: vmactions/solaris-vm@v1
+    with:
+      release: 11.4-gcc
+      usesh: true
+      copyback: false
+      disable-cache: true
+      prepare: "cd $GITHUB_WORKSPACE\npkg install bison developer/icu libzip oniguruma re2c\n\n./buildconf -f\nCC=gcc CXX=g++ \\\nCFLAGS=\"-Wno-char-subscripts\" \\\nPATH=/usr/gnu/bin:/usr/bin \\\nPKG_CONFIG_PATH=/usr/lib/amd64/pkgconfig \\\n./configure \\\n  --prefix=/usr/local \\\n  --enable-debug \\\n  --enable-werror \\\n  --enable-option-checking=fatal \\\n  --enable-fpm \\\n  --without-pear \\\n  --with-bz2 \\\n  --with-jpeg \\\n  --with-webp \\\n  --with-freetype \\\n  --enable-gd \\\n  --enable-exif \\\n  --with-zip \\\n  --with-zlib \\\n  --enable-soap \\\n  --enable-xmlreader \\\n  --with-xsl \\\n  --with-libxml \\\n  --enable-shmop \\\n  --enable-pcntl \\\n  --enable-mbstring \\\n  --with-curl \\\n  --enable-sockets \\\n  --with-openssl \\\n  --enable-bcmath \\\n  --enable-calendar \\\n  --enable-ftp \\\n  --enable-zend-test \\\n  --enable-dl-test=shared \\\n  --enable-intl \\\n  --with-mhash \\\n  --with-config-file-path=/etc \\\n  --with-config-file-scan-dir=/etc/php.d \\\n  ${{ inputs.configurationParameters }}\n\ngmake -j2\nmkdir /etc/php.d\ngmake install > /dev/null\necho opcache.enable_cli=1 > /etc/php.d/opcache.ini\necho opcache.protect_memory=1 >> /etc/php.d/opcache.ini\necho opcache.preload_user=root >> /etc/php.d/opcache.ini\n"
+      run: "cd $GITHUB_WORKSPACE\n\nexport SKIP_IO_CAPTURE_TESTS=1\nexport CI_NO_IPV6=1\nexport STACK_LIMIT_DEFAULTS_CHECK=1\nPATH=/usr/gnu/bin:/usr/bin \\\nsapi/cli/php run-tests.php \\\n  -P -q -j1 \\\n  -g FAIL,BORK,LEAK,XLEAK \\\n  --no-progress \\\n  --offline \\\n  --show-diff \\\n  --show-slow 1000 \\\n  --set-timeout 120\n\nif test \"${{ inputs.runExtraTests }}\" = \"true\"; then\n  sapi/cli/php run-extra-tests.php\nfi\n"

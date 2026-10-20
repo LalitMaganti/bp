@@ -1,0 +1,34 @@
+name: Verify generated files are up to date
+runs:
+  using: composite
+  steps:
+  - shell: bash
+    run: 'bp_dir="$RUNNER_TEMP/buildprof"; mkdir -p "$bp_dir"; bp_id=$(date +%s%N)
+
+      cat > "$bp_dir/$bp_id.sh" <<''BUILDPROF_SCRIPT_EOF''
+
+      set -ex
+
+      [[ "$OSTYPE" == "darwin"* ]] && export PATH="$(brew --prefix)/opt/bison/bin:$PATH"
+
+      scripts/dev/credits
+
+      scripts/dev/genfiles
+
+      scripts/gdb/debug_gdb_scripts_gen.php
+
+      Zend/zend_vm_gen.php
+
+      ext/tokenizer/tokenizer_data_gen.php
+
+      build/gen_stub.php -f --generate-optimizer-info --verify
+
+      ext/phar/makestub.php
+
+      .github/scripts/test-directory-unchanged.sh .
+
+      BUILDPROF_SCRIPT_EOF
+
+      "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open -o "$bp_dir/$bp_id-set-ex.buildprof" -- bash --noprofile --norc -eo pipefail "$bp_dir/$bp_id.sh"
+
+      '

@@ -1,0 +1,16 @@
+name: Test
+inputs:
+  runTestsParameters:
+    default: ''
+    required: false
+  enableOpcache:
+    default: 'false'
+    required: false
+  jitType:
+    default: disable
+    required: false
+runs:
+  using: composite
+  steps:
+  - shell: bash
+    run: "bp_dir=\"$RUNNER_TEMP/buildprof\"; mkdir -p \"$bp_dir\"; bp_id=$(date +%s%N)\ncat > \"$bp_dir/$bp_id.sh\" <<'BUILDPROF_SCRIPT_EOF'\nset -x\nexport SKIP_IO_CAPTURE_TESTS=1\nexport STACK_LIMIT_DEFAULTS_CHECK=1\nsapi/cli/php run-tests.php -P -q ${{ inputs.runTestsParameters }} \\\n  ${{ inputs.enableOpcache == 'true' && '-d opcache.enable_cli=1' || '' }} \\\n  -d opcache.jit=${{ inputs.jitType }} \\\n  -d opcache.jit_buffer_size=64M \\\n  -j$(nproc) \\\n  -g FAIL,BORK,LEAK,XLEAK \\\n  --no-progress \\\n  --show-diff \\\n  --show-slow 1000 \\\n  --set-timeout 120\nBUILDPROF_SCRIPT_EOF\n\"$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)\" --no-open -o \"$bp_dir/$bp_id-set-x.buildprof\" -- bash --noprofile --norc -eo pipefail \"$bp_dir/$bp_id.sh\"\n"

@@ -1,0 +1,16 @@
+name: Extra tests
+runs:
+  using: composite
+  steps:
+  - shell: bash
+    run: 'bp_dir="$RUNNER_TEMP/buildprof"; mkdir -p "$bp_dir"; bp_id=$(date +%s%N)
+
+      cat > "$bp_dir/$bp_id.sh" <<''BUILDPROF_SCRIPT_EOF''
+
+      sapi/cli/php run-extra-tests.php
+
+      BUILDPROF_SCRIPT_EOF
+
+      "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open -o "$bp_dir/$bp_id-sapi-cli-php-run-extra-tests-php.buildprof" -- sh -e "$bp_dir/$bp_id.sh"
+
+      '

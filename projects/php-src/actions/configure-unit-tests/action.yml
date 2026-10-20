@@ -1,0 +1,21 @@
+name: ./configure (unit tests)
+description: Configure PHP with minimal settings for unit testing
+runs:
+  using: composite
+  steps:
+  - shell: bash
+    run: 'bp_dir="$RUNNER_TEMP/buildprof"; mkdir -p "$bp_dir"; bp_id=$(date +%s%N)
+
+      cat > "$bp_dir/$bp_id.sh" <<''BUILDPROF_SCRIPT_EOF''
+
+      set -x
+
+      ./buildconf --force
+
+      ./configure --disable-all --enable-embed=static
+
+      BUILDPROF_SCRIPT_EOF
+
+      "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open -o "$bp_dir/$bp_id-set-x.buildprof" -- bash --noprofile --norc -eo pipefail "$bp_dir/$bp_id.sh"
+
+      '

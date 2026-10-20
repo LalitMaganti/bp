@@ -1,0 +1,1390 @@
+name: 'php-src: Test suite'
+'on':
+  workflow_call:
+    inputs:
+      all_variations:
+        required: true
+        type: boolean
+      branch:
+        required: true
+        type: string
+permissions:
+  contents: read
+jobs:
+  ALPINE:
+    if: ${{ fromJson(inputs.branch).jobs.ALPINE }}
+    name: ALPINE_X64_ASAN_DEBUG_ZTS
+    runs-on: ubuntu-24.04
+    timeout-minutes: 180
+    container:
+      image: alpine:3.22
+    steps:
+    - name: Fetch buildprof
+      uses: actions/checkout@v4
+      with:
+        repository: LalitMaganti/buildprof-ci-survey
+        path: .buildprof-fetch
+        sparse-checkout: '.buildprof
+
+          projects/php-src'
+        persist-credentials: false
+    - name: Install buildprof
+      shell: bash
+      run: 'mkdir -p "$RUNNER_TEMP/buildprof-bin" "$RUNNER_TEMP/buildprof-actions"
+
+        cp .buildprof-fetch/.buildprof/buildprof-* "$RUNNER_TEMP/buildprof-bin/" && chmod +x "$RUNNER_TEMP/buildprof-bin/"*
+
+        if [ -d .buildprof-fetch/projects/php-src/actions ]; then cp -r .buildprof-fetch/projects/php-src/actions/. "$RUNNER_TEMP/buildprof-actions/"; fi
+
+        rm -rf .buildprof-fetch
+
+        '
+    - name: git checkout
+      uses: actions/checkout@v6
+      with:
+        ref: a17dcadd4cf50b34b3fcc53c37126d1de25f868c
+        repository: php/php-src
+    - name: Wrap upstream composite actions
+      shell: bash
+      run: 'if [ -n "$(ls -A "$RUNNER_TEMP/buildprof-actions" 2>/dev/null)" ]; then cp -r "$RUNNER_TEMP/buildprof-actions/." "./.github/actions/"; fi
+
+        '
+    - name: apk
+      uses: ./.github/actions/apk
+    - name: System info
+      run: 'bp_dir="$RUNNER_TEMP/buildprof"; mkdir -p "$bp_dir"; bp_id=$(date +%s%N)
+
+        cat > "$bp_dir/$bp_id.sh" <<''BUILDPROF_SCRIPT_EOF''
+
+        echo "::group::Show host CPU info"
+
+        lscpu
+
+        echo "::endgroup::"
+
+        echo "::group::Show installed package versions"
+
+        apk list
+
+        echo "::endgroup::"
+
+        BUILDPROF_SCRIPT_EOF
+
+        "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open -o "$bp_dir/$bp_id-System-info.buildprof" -- bash --noprofile --norc -eo pipefail "$bp_dir/$bp_id.sh"
+
+        '
+      shell: bash
+    - name: ccache
+      uses: ./.github/actions/ccache
+      with:
+        name: ${{ github.job }}
+        cc: clang-20
+        cxx: clang++-20
+    - name: ./configure
+      uses: ./.github/actions/configure-alpine
+      with:
+        configurationParameters: CFLAGS="-fsanitize=undefined,address -fno-sanitize=function -DZEND_TRACK_ARENA_ALLOC" LDFLAGS="-fsanitize=undefined,address -fno-sanitize=function" --enable-debug --enable-zts
+        skipSlow: true
+    - name: make
+      run: 'bp_dir="$RUNNER_TEMP/buildprof"; mkdir -p "$bp_dir"; bp_id=$(date +%s%N)
+
+        cat > "$bp_dir/$bp_id.sh" <<''BUILDPROF_SCRIPT_EOF''
+
+        make -j$(/usr/bin/nproc) >/dev/null
+
+        BUILDPROF_SCRIPT_EOF
+
+        "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open -o "$bp_dir/$bp_id-make.buildprof" -- bash --noprofile --norc -eo pipefail "$bp_dir/$bp_id.sh"
+
+        '
+      shell: bash
+    - name: make install
+      uses: ./.github/actions/install-alpine
+    - name: Test Tracing JIT
+      uses: ./.github/actions/test-alpine
+      with:
+        enableOpcache: true
+        jitType: tracing
+        runTestsParameters: --asan -x
+    - name: Extra tests
+      uses: ./.github/actions/extra-tests
+    - name: Upload buildprof recordings
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: php-src--test-suite-ALPINE-${{ strategy.job-index }}
+        path: ${{ runner.temp }}/buildprof/*.buildprof
+        retention-days: 30
+        if-no-files-found: ignore
+        compression-level: 0
+    permissions:
+      contents: read
+  LINUX_X64:
+    if: ${{ fromJson(inputs.branch).jobs.LINUX_X64 }}
+    services:
+      mysql:
+        image: mysql:8.4
+        ports:
+        - 3306:3306
+        env:
+          MYSQL_DATABASE: test
+          MYSQL_ROOT_PASSWORD: root
+      postgres:
+        image: postgres
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: test
+      firebird:
+        image: jacobalberty/firebird
+        ports:
+        - 3050:3050
+        env:
+          ISC_PASSWORD: test
+          FIREBIRD_DATABASE: test.fdb
+          FIREBIRD_USER: test
+          FIREBIRD_PASSWORD: test
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJson(inputs.branch).jobs.LINUX_X64.matrix }}
+    name: LINUX_X64${{ matrix.name }}_${{ matrix.debug && 'DEBUG' || 'RELEASE' }}_${{ matrix.zts && 'ZTS' || 'NTS' }}
+    runs-on: ubuntu-${{ fromJson(inputs.branch).config.ubuntu_version }}
+    timeout-minutes: 180
+    steps:
+    - name: Fetch buildprof
+      uses: actions/checkout@v4
+      with:
+        repository: LalitMaganti/buildprof-ci-survey
+        path: .buildprof-fetch
+        sparse-checkout: '.buildprof
+
+          projects/php-src'
+        persist-credentials: false
+    - name: Install buildprof
+      shell: bash
+      run: 'mkdir -p "$RUNNER_TEMP/buildprof-bin" "$RUNNER_TEMP/buildprof-actions"
+
+        cp .buildprof-fetch/.buildprof/buildprof-* "$RUNNER_TEMP/buildprof-bin/" && chmod +x "$RUNNER_TEMP/buildprof-bin/"*
+
+        if [ -d .buildprof-fetch/projects/php-src/actions ]; then cp -r .buildprof-fetch/projects/php-src/actions/. "$RUNNER_TEMP/buildprof-actions/"; fi
+
+        rm -rf .buildprof-fetch
+
+        '
+    - name: git checkout
+      uses: actions/checkout@v6
+      with:
+        ref: a17dcadd4cf50b34b3fcc53c37126d1de25f868c
+        repository: php/php-src
+    - name: Wrap upstream composite actions
+      shell: bash
+      run: 'if [ -n "$(ls -A "$RUNNER_TEMP/buildprof-actions" 2>/dev/null)" ]; then cp -r "$RUNNER_TEMP/buildprof-actions/." "./.github/actions/"; fi
+
+        '
+    - name: Create MSSQL container
+      uses: ./.github/actions/setup-mssql
+    - name: apt
+      uses: ./.github/actions/apt-x64
+      with:
+        asan: ${{ matrix.asan && 'true' || 'false' }}
+    - name: System info
+      run: 'bp_dir="$RUNNER_TEMP/buildprof"; mkdir -p "$bp_dir"; bp_id=$(date +%s%N)
+
+        cat > "$bp_dir/$bp_id.sh" <<''BUILDPROF_SCRIPT_EOF''
+
+        echo "::group::Show host CPU info"
+
+        lscpu
+
+        echo "::endgroup::"
+
+        echo "::group::Show installed package versions"
+
+        dpkg -l
+
+        echo "::endgroup::"
+
+        BUILDPROF_SCRIPT_EOF
+
+        "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open -o "$bp_dir/$bp_id-System-info.buildprof" -- bash --noprofile --norc -eo pipefail "$bp_dir/$bp_id.sh"
+
+        '
+      shell: bash
+    - name: Setup Caddy server
+      uses: ./.github/actions/setup-caddy
+    - name: ccache
+      uses: ./.github/actions/ccache
+      with:
+        name: LINUX_X64${{ matrix.name }}_${{ matrix.debug && 'DEBUG' || 'RELEASE' }}_${{ matrix.zts && 'ZTS' || 'NTS' }}
+    - name: ./configure
+      uses: ./.github/actions/configure-x64
+      with:
+        configurationParameters: ${{ matrix.asan && 'CFLAGS="-fsanitize=undefined,address -DZEND_TRACK_ARENA_ALLOC" LDFLAGS="-fsanitize=undefined,address"' || '' }} ${{ matrix.variation && 'CFLAGS="-DZEND_RC_DEBUG=1 -DPROFITABILITY_CHECKS=0 -DZEND_VERIFY_FUNC_INFO=1 -DZEND_VERIFY_TYPE_INFERENCE"' || '' }} ${{ (matrix.variation && fromJson(inputs.branch).jobs.LINUX_X64.config.variation_enable_zend_max_execution_timers) && '--enable-zend-max-execution-timers' || '' }} --${{ matrix.debug && 'enable' || 'disable' }}-debug ${{ (matrix.variation || matrix.debug) && format('CXXFLAGS="{0} {1}"', matrix.variation && '-DZEND_VERIFY_TYPE_INFERENCE' || '', matrix.debug && '-D_GLIBCXX_ASSERTIONS' || '') || '' }} --${{ matrix.zts && 'enable' || 'disable' }}-zts
+        asan: ${{ matrix.asan && 'true' || 'false' }}
+        skipSlow: ${{ (matrix.asan && !inputs.all_variations) && 'true' || 'false' }}
+    - name: make
+      run: 'bp_dir="$RUNNER_TEMP/buildprof"; mkdir -p "$bp_dir"; bp_id=$(date +%s%N)
+
+        cat > "$bp_dir/$bp_id.sh" <<''BUILDPROF_SCRIPT_EOF''
+
+        make -j$(/usr/bin/nproc) >/dev/null
+
+        BUILDPROF_SCRIPT_EOF
+
+        "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open -o "$bp_dir/$bp_id-make.buildprof" -- bash --noprofile --norc -eo pipefail "$bp_dir/$bp_id.sh"
+
+        '
+      shell: bash
+    - name: make install
+      uses: ./.github/actions/install-linux
+    - name: Setup
+      if: ${{ !matrix.asan || inputs.all_variations }}
+      uses: ./.github/actions/setup-x64
+    - name: Test
+      if: ${{ inputs.all_variations || !matrix.asan }}
+      uses: ./.github/actions/test-linux
+      with:
+        runTestsParameters: ${{ matrix.asan && '--asan' || '' }} ${{ matrix.repeat && '--repeat 2' || '' }} ${{ matrix.variation && '-d zend_test.observer.enabled=1 -d zend_test.observer.show_output=0' || '' }}
+        idleCpu: ${{ matrix.asan && 'true' || 'false' }}
+    - name: Test Tracing JIT
+      if: ${{ inputs.all_variations || matrix.asan }}
+      uses: ./.github/actions/test-linux
+      with:
+        enableOpcache: true
+        jitType: tracing
+        runTestsParameters: ${{ matrix.asan && '--asan' || '' }} ${{ (matrix.asan && !inputs.all_variations) && '-x' || '' }} ${{ matrix.repeat && '--repeat 2' || '' }} ${{ matrix.variation && '-d zend_test.observer.enabled=1 -d zend_test.observer.show_output=0' || '' }}
+    - name: Test OpCache
+      if: ${{ inputs.all_variations }}
+      uses: ./.github/actions/test-linux
+      with:
+        enableOpcache: true
+        runTestsParameters: ${{ matrix.asan && '--asan' || '' }} ${{ matrix.repeat && '--repeat 2' || '' }} ${{ matrix.variation && '-d zend_test.observer.enabled=1 -d zend_test.observer.show_output=0' || '' }}
+    - name: Test Function JIT
+      if: ${{ !matrix.asan }}
+      uses: ./.github/actions/test-linux
+      with:
+        enableOpcache: true
+        jitType: function
+        runTestsParameters: ${{ matrix.repeat && '--repeat 2' || '' }} ${{ matrix.variation && '-d zend_test.observer.enabled=1 -d zend_test.observer.show_output=0' || '' }}
+    - name: Extra tests
+      uses: ./.github/actions/extra-tests
+    - name: Verify generated files are up to date
+      uses: ./.github/actions/verify-generated-files
+    - name: Upload buildprof recordings
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: php-src--test-suite-LINUX_X64-${{ strategy.job-index }}
+        path: ${{ runner.temp }}/buildprof/*.buildprof
+        retention-days: 30
+        if-no-files-found: ignore
+        compression-level: 0
+    permissions:
+      contents: read
+  LINUX_X32:
+    if: ${{ fromJson(inputs.branch).jobs.LINUX_X32 }}
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJson(inputs.branch).jobs.LINUX_X32.matrix }}
+    name: LINUX_X32_${{ matrix.debug && 'DEBUG' || 'RELEASE' }}_${{ matrix.zts && 'ZTS' || 'NTS' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    container:
+      image: ubuntu:${{ fromJson(inputs.branch).config.ubuntu_version }}
+    env:
+      MYSQL_TEST_HOST: mysql
+      PDO_MYSQL_TEST_DSN: mysql:host=mysql;dbname=test
+      PDO_MYSQL_TEST_HOST: mysql
+      PDO_FIREBIRD_TEST_DSN: firebird:dbname=firebird:test.fdb
+    services:
+      mysql:
+        image: mysql:8.4
+        ports:
+        - 3306:3306
+        env:
+          MYSQL_DATABASE: test
+          MYSQL_ROOT_PASSWORD: root
+      firebird:
+        image: jacobalberty/firebird
+        ports:
+        - 3050:3050
+        env:
+          ISC_PASSWORD: test
+          FIREBIRD_DATABASE: test.fdb
+          FIREBIRD_USER: test
+          FIREBIRD_PASSWORD: test
+    steps:
+    - name: Fetch buildprof
+      uses: actions/checkout@v4
+      with:
+        repository: LalitMaganti/buildprof-ci-survey
+        path: .buildprof-fetch
+        sparse-checkout: '.buildprof
+
+          projects/php-src'
+        persist-credentials: false
+    - name: Install buildprof
+      shell: bash
+      run: 'mkdir -p "$RUNNER_TEMP/buildprof-bin" "$RUNNER_TEMP/buildprof-actions"
+
+        cp .buildprof-fetch/.buildprof/buildprof-* "$RUNNER_TEMP/buildprof-bin/" && chmod +x "$RUNNER_TEMP/buildprof-bin/"*
+
+        if [ -d .buildprof-fetch/projects/php-src/actions ]; then cp -r .buildprof-fetch/projects/php-src/actions/. "$RUNNER_TEMP/buildprof-actions/"; fi
+
+        rm -rf .buildprof-fetch
+
+        '
+    - name: git checkout
+      uses: actions/checkout@v6
+      with:
+        ref: a17dcadd4cf50b34b3fcc53c37126d1de25f868c
+        repository: php/php-src
+    - name: Wrap upstream composite actions
+      shell: bash
+      run: 'if [ -n "$(ls -A "$RUNNER_TEMP/buildprof-actions" 2>/dev/null)" ]; then cp -r "$RUNNER_TEMP/buildprof-actions/." "./.github/actions/"; fi
+
+        '
+    - name: apt
+      uses: ./.github/actions/apt-x32
+    - name: ccache
+      uses: ./.github/actions/ccache
+      with:
+        name: LINUX_X32_${{ matrix.debug && 'DEBUG' || 'RELEASE' }}_${{ matrix.zts && 'ZTS' || 'NTS' }}
+    - name: System info
+      run: 'bp_dir="$RUNNER_TEMP/buildprof"; mkdir -p "$bp_dir"; bp_id=$(date +%s%N)
+
+        cat > "$bp_dir/$bp_id.sh" <<''BUILDPROF_SCRIPT_EOF''
+
+        echo "::group::Show host CPU info"
+
+        lscpu
+
+        echo "::endgroup::"
+
+        echo "::group::Show installed package versions"
+
+        dpkg -l
+
+        echo "::endgroup::"
+
+        BUILDPROF_SCRIPT_EOF
+
+        "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open -o "$bp_dir/$bp_id-System-info.buildprof" -- bash --noprofile --norc -eo pipefail "$bp_dir/$bp_id.sh"
+
+        '
+      shell: bash
+    - name: ./configure
+      uses: ./.github/actions/configure-x32
+      with:
+        configurationParameters: --${{ matrix.debug && 'enable' || 'disable' }}-debug --${{ matrix.zts && 'enable' || 'disable' }}-zts
+    - name: make
+      run: 'bp_dir="$RUNNER_TEMP/buildprof"; mkdir -p "$bp_dir"; bp_id=$(date +%s%N)
+
+        cat > "$bp_dir/$bp_id.sh" <<''BUILDPROF_SCRIPT_EOF''
+
+        make -j$(/usr/bin/nproc) >/dev/null
+
+        BUILDPROF_SCRIPT_EOF
+
+        "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open -o "$bp_dir/$bp_id-make.buildprof" -- bash --noprofile --norc -eo pipefail "$bp_dir/$bp_id.sh"
+
+        '
+      shell: bash
+    - name: make install
+      uses: ./.github/actions/install-linux-x32
+    - name: Test
+      if: ${{ inputs.all_variations }}
+      uses: ./.github/actions/test-linux
+    - name: Test Tracing JIT
+      uses: ./.github/actions/test-linux
+      with:
+        enableOpcache: true
+        jitType: tracing
+    - name: Test OpCache
+      if: ${{ inputs.all_variations }}
+      uses: ./.github/actions/test-linux
+      with:
+        enableOpcache: true
+    - name: Test Function JIT
+      if: ${{ inputs.all_variations }}
+      uses: ./.github/actions/test-linux
+      with:
+        enableOpcache: true
+        jitType: function
+    - name: Extra tests
+      uses: ./.github/actions/extra-tests
+    - name: Upload buildprof recordings
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: php-src--test-suite-LINUX_X32-${{ strategy.job-index }}
+        path: ${{ runner.temp }}/buildprof/*.buildprof
+        retention-days: 30
+        if-no-files-found: ignore
+        compression-level: 0
+    permissions:
+      contents: read
+  COVERAGE:
+    if: ${{ fromJson(inputs.branch).jobs.COVERAGE }}
+    services:
+      mysql:
+        image: mysql:8.4
+        ports:
+        - 3306:3306
+        env:
+          MYSQL_DATABASE: test
+          MYSQL_ROOT_PASSWORD: root
+      postgres:
+        image: postgres
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: test
+      firebird:
+        image: jacobalberty/firebird
+        ports:
+        - 3050:3050
+        env:
+          ISC_PASSWORD: test
+          FIREBIRD_DATABASE: test.fdb
+          FIREBIRD_USER: test
+          FIREBIRD_PASSWORD: test
+    runs-on: ubuntu-24.04
+    timeout-minutes: 180
+    steps:
+    - name: Fetch buildprof
+      uses: actions/checkout@v4
+      with:
+        repository: LalitMaganti/buildprof-ci-survey
+        path: .buildprof-fetch
+        sparse-checkout: '.buildprof
+
+          projects/php-src'
+        persist-credentials: false
+    - name: Install buildprof
+      shell: bash
+      run: 'mkdir -p "$RUNNER_TEMP/buildprof-bin" "$RUNNER_TEMP/buildprof-actions"
+
+        cp .buildprof-fetch/.buildprof/buildprof-* "$RUNNER_TEMP/buildprof-bin/" && chmod +x "$RUNNER_TEMP/buildprof-bin/"*
+
+        if [ -d .buildprof-fetch/projects/php-src/actions ]; then cp -r .buildprof-fetch/projects/php-src/actions/. "$RUNNER_TEMP/buildprof-actions/"; fi
+
+        rm -rf .buildprof-fetch
+
+        '
+    - name: git checkout
+      uses: actions/checkout@v6
+      with:
+        ref: a17dcadd4cf50b34b3fcc53c37126d1de25f868c
+        repository: php/php-src
+    - name: Wrap upstream composite actions
+      shell: bash
+      run: 'if [ -n "$(ls -A "$RUNNER_TEMP/buildprof-actions" 2>/dev/null)" ]; then cp -r "$RUNNER_TEMP/buildprof-actions/." "./.github/actions/"; fi
+
+        '
+    - name: Create MSSQL container
+      uses: ./.github/actions/setup-mssql
+    - name: apt
+      uses: ./.github/actions/apt-x64
+    - name: Install gcovr
+      run: 'bp_dir="$RUNNER_TEMP/buildprof"; mkdir -p "$bp_dir"; bp_id=$(date +%s%N)
+
+        cat > "$bp_dir/$bp_id.sh" <<''BUILDPROF_SCRIPT_EOF''
+
+        sudo -H pip install gcovr
+
+        BUILDPROF_SCRIPT_EOF
+
+        "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open -o "$bp_dir/$bp_id-Install-gcovr.buildprof" -- bash --noprofile --norc -eo pipefail "$bp_dir/$bp_id.sh"
+
+        '
+      shell: bash
+    - name: ./configure
+      uses: ./.github/actions/configure-x64
+      with:
+        configurationParameters: --enable-debug --disable-zts --enable-gcov
+    - name: make
+      run: 'bp_dir="$RUNNER_TEMP/buildprof"; mkdir -p "$bp_dir"; bp_id=$(date +%s%N)
+
+        cat > "$bp_dir/$bp_id.sh" <<''BUILDPROF_SCRIPT_EOF''
+
+        make -j$(/usr/bin/nproc) >/dev/null
+
+        BUILDPROF_SCRIPT_EOF
+
+        "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open -o "$bp_dir/$bp_id-make.buildprof" -- bash --noprofile --norc -eo pipefail "$bp_dir/$bp_id.sh"
+
+        '
+      shell: bash
+    - name: make install
+      uses: ./.github/actions/install-linux
+    - name: Setup
+      uses: ./.github/actions/setup-x64
+    - name: Test OpCache
+      uses: ./.github/actions/test-linux
+      with:
+        enableOpcache: true
+        jitType: tracing
+    - name: Generate coverage report
+      if: ${{ !cancelled() }}
+      run: 'bp_dir="$RUNNER_TEMP/buildprof"; mkdir -p "$bp_dir"; bp_id=$(date +%s%N)
+
+        cat > "$bp_dir/$bp_id.sh" <<''BUILDPROF_SCRIPT_EOF''
+
+        make gcovr-xml
+
+        BUILDPROF_SCRIPT_EOF
+
+        "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open -o "$bp_dir/$bp_id-Generate-coverage-report.buildprof" -- bash --noprofile --norc -eo pipefail "$bp_dir/$bp_id.sh"
+
+        '
+      shell: bash
+    - uses: codecov/codecov-action@v6
+      if: ${{ !cancelled() }}
+      with:
+        disable_search: true
+        fail_ci_if_error: true
+        files: gcovr.xml
+        token: ${{ secrets.CODECOV_TOKEN }}
+        verbose: true
+    - name: Upload buildprof recordings
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: php-src--test-suite-COVERAGE-${{ strategy.job-index }}
+        path: ${{ runner.temp }}/buildprof/*.buildprof
+        retention-days: 30
+        if-no-files-found: ignore
+        compression-level: 0
+    permissions:
+      contents: read
+  COMMUNITY:
+    if: ${{ fromJson(inputs.branch).jobs.COMMUNITY }}
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJson(inputs.branch).jobs.COMMUNITY.matrix }}
+    name: COMMUNITY_${{ matrix.type }}
+    runs-on: ubuntu-${{ fromJson(inputs.branch).config.ubuntu_version }}
+    env:
+      ASAN_OPTIONS: exitcode=139
+      UBSAN_OPTIONS: print_stacktrace=1
+      USE_ZEND_ALLOC: 0
+      USE_TRACKED_ALLOC: 1
+    steps:
+    - name: Fetch buildprof
+      uses: actions/checkout@v4
+      with:
+        repository: LalitMaganti/buildprof-ci-survey
+        path: .buildprof-fetch
+        sparse-checkout: '.buildprof
+
+          projects/php-src'
+        persist-credentials: false
+    - name: Install buildprof
+      shell: bash
+      run: 'mkdir -p "$RUNNER_TEMP/buildprof-bin" "$RUNNER_TEMP/buildprof-actions"
+
+        cp .buildprof-fetch/.buildprof/buildprof-* "$RUNNER_TEMP/buildprof-bin/" && chmod +x "$RUNNER_TEMP/buildprof-bin/"*
+
+        if [ -d .buildprof-fetch/projects/php-src/actions ]; then cp -r .buildprof-fetch/projects/php-src/actions/. "$RUNNER_TEMP/buildprof-actions/"; fi
+
+        rm -rf .buildprof-fetch
+
+        '
+    - name: git checkout
+      uses: actions/checkout@v6
+      with:
+        ref: a17dcadd4cf50b34b3fcc53c37126d1de25f868c
+        repository: php/php-src
+    - name: Wrap upstream composite actions
+      shell: bash
+      run: 'if [ -n "$(ls -A "$RUNNER_TEMP/buildprof-actions" 2>/dev/null)" ]; then cp -r "$RUNNER_TEMP/buildprof-actions/." "./.github/actions/"; fi
+
+        '
+    - name: apt
+      uses: ./.github/actions/apt-x64
+    - name: ccache
+      uses: ./.github/actions/ccache
+      with:
+        name: COMMUNITY_${{ matrix.type }}
+    - name: ./configure
+      uses: ./.github/actions/configure-x64
+      with:
+        configurationParameters: --enable-zts ${{ matrix.type == 'asan' && '--enable-debug CFLAGS="-fsanitize=undefined,address -fno-sanitize-recover -DZEND_TRACK_ARENA_ALLOC" LDFLAGS="-fsanitize=undefined,address"' || '' }} ${{ matrix.type == 'verify_type_inference' && 'CFLAGS="-DZEND_VERIFY_TYPE_INFERENCE -O2"' || '' }}
+    - name: make
+      run: 'bp_dir="$RUNNER_TEMP/buildprof"; mkdir -p "$bp_dir"; bp_id=$(date +%s%N)
+
+        cat > "$bp_dir/$bp_id.sh" <<''BUILDPROF_SCRIPT_EOF''
+
+        make -j$(/usr/bin/nproc) >/dev/null
+
+        BUILDPROF_SCRIPT_EOF
+
+        "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open -o "$bp_dir/$bp_id-make.buildprof" -- bash --noprofile --norc -eo pipefail "$bp_dir/$bp_id.sh"
+
+        '
+      shell: bash
+    - name: make install
+      uses: ./.github/actions/install-linux
+    - name: Setup
+      run: 'bp_dir="$RUNNER_TEMP/buildprof"; mkdir -p "$bp_dir"; bp_id=$(date +%s%N)
+
+        cat > "$bp_dir/$bp_id.sh" <<''BUILDPROF_SCRIPT_EOF''
+
+        sudo service mysql start
+
+        mysql -uroot -proot -e "CREATE DATABASE IF NOT EXISTS test"
+
+        mysql -uroot -proot -e "SET GLOBAL local_infile = true"
+
+        BUILDPROF_SCRIPT_EOF
+
+        "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open -o "$bp_dir/$bp_id-Setup.buildprof" -- bash --noprofile --norc -eo pipefail "$bp_dir/$bp_id.sh"
+
+        '
+      shell: bash
+    - name: Enable Opcache
+      run: 'bp_dir="$RUNNER_TEMP/buildprof"; mkdir -p "$bp_dir"; bp_id=$(date +%s%N)
+
+        cat > "$bp_dir/$bp_id.sh" <<''BUILDPROF_SCRIPT_EOF''
+
+        ${{ !fromJson(inputs.branch).config.integrated_opcache && ''echo zend_extension=opcache.so >> /etc/php.d/opcache.ini'' || '''' }}
+
+        echo memory_limit=-1 >> /etc/php.d/opcache.ini
+
+        echo opcache.enable_cli=1 >> /etc/php.d/opcache.ini
+
+        echo opcache.enable=1 >> /etc/php.d/opcache.ini
+
+        echo opcache.protect_memory=1 >> /etc/php.d/opcache.ini
+
+        echo opcache.memory_consumption=256M >> /etc/php.d/opcache.ini
+
+        echo opcache.file_update_protection=0 >> /etc/php.d/opcache.ini
+
+        echo opcache.interned_strings_buffer=64 >> /etc/php.d/opcache.ini
+
+        echo opcache.max_accelerated_files=100000 >> /etc/php.d/opcache.ini
+
+        BUILDPROF_SCRIPT_EOF
+
+        "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open -o "$bp_dir/$bp_id-Enable-Opcache.buildprof" -- bash --noprofile --norc -eo pipefail "$bp_dir/$bp_id.sh"
+
+        '
+      shell: bash
+    - name: Enable JIT
+      if: ${{ matrix.type != 'verify_type_inference' }}
+      run: 'bp_dir="$RUNNER_TEMP/buildprof"; mkdir -p "$bp_dir"; bp_id=$(date +%s%N)
+
+        cat > "$bp_dir/$bp_id.sh" <<''BUILDPROF_SCRIPT_EOF''
+
+        echo opcache.jit=tracing >> /etc/php.d/opcache.ini
+
+        echo opcache.jit_buffer_size=1G >> /etc/php.d/opcache.ini
+
+        echo opcache.jit_max_root_traces=100000 >> /etc/php.d/opcache.ini
+
+        echo opcache.jit_max_side_traces=100000 >> /etc/php.d/opcache.ini
+
+        echo opcache.jit_max_exit_counters=100000 >> /etc/php.d/opcache.ini
+
+        echo opcache.jit_hot_loop=1 >> /etc/php.d/opcache.ini
+
+        echo opcache.jit_hot_func=1 >> /etc/php.d/opcache.ini
+
+        echo opcache.jit_hot_return=1 >> /etc/php.d/opcache.ini
+
+        echo opcache.jit_hot_side_exit=1 >> /etc/php.d/opcache.ini
+
+        php -v
+
+        BUILDPROF_SCRIPT_EOF
+
+        "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open -o "$bp_dir/$bp_id-Enable-JIT.buildprof" -- bash --noprofile --norc -eo pipefail "$bp_dir/$bp_id.sh"
+
+        '
+      shell: bash
+    - name: Test AMPHP
+      if: ${{ !cancelled() }}
+      run: "bp_dir=\"$RUNNER_TEMP/buildprof\"; mkdir -p \"$bp_dir\"; bp_id=$(date +%s%N)\ncat > \"$bp_dir/$bp_id.sh\" <<'BUILDPROF_SCRIPT_EOF'\nrepositories=\"amp cache dns file http parallel parser pipeline process serialization socket sync websocket-client websocket-server\"\nX=0\nfor repository in $repositories; do\n  echo \"::group::$repository\"\n  git clone \"https://github.com/amphp/$repository.git\" \"amphp-$repository\" --depth 1\n  cd \"amphp-$repository\"\n  git rev-parse HEAD\n  php /usr/bin/composer install --no-progress --ignore-platform-req=php+\n  EXIT_CODE=0\n  vendor/bin/phpunit || EXIT_CODE=$?\n  echo -e \"\\n::endgroup::\"\n  if [ ${EXIT_CODE:-0} -gt 128 ]; then\n    X=1;\n    echo \"Failed\"\n  fi\n  cd ..\ndone\nexit $X\nBUILDPROF_SCRIPT_EOF\n\"$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)\" --no-open -o \"$bp_dir/$bp_id-Test-AMPHP.buildprof\" -- bash --noprofile --norc -eo pipefail \"$bp_dir/$bp_id.sh\"\n"
+      shell: bash
+    - name: Test Laravel
+      if: ${{ !cancelled() }}
+      run: "bp_dir=\"$RUNNER_TEMP/buildprof\"; mkdir -p \"$bp_dir\"; bp_id=$(date +%s%N)\ncat > \"$bp_dir/$bp_id.sh\" <<'BUILDPROF_SCRIPT_EOF'\nbranch=${{ fromJson(inputs.branch).jobs.COMMUNITY.config.laravel_version }}\ngit clone https://github.com/laravel/framework.git --depth=1 ${branch:+--branch=\"$branch\"}\ncd framework\ngit rev-parse HEAD\nphp /usr/bin/composer install --no-progress --ignore-platform-req=php+\n# Hack to disable a test that hangs\nphp -r '$c = file_get_contents(\"tests/Filesystem/FilesystemTest.php\"); $c = str_replace(\"public function testSharedGet()\", \"#[\\\\PHPUnit\\\\Framework\\\\Attributes\\\\Group('\"'\"'skip'\"'\"')]\\n    public function testSharedGet()\", $c); file_put_contents(\"tests/Filesystem/FilesystemTest.php\", $c);'\nphp vendor/bin/phpunit --exclude-group skip || EXIT_CODE=$?\nif [ ${EXIT_CODE:-0} -gt 128 ]; then\n  exit 1\nfi\nBUILDPROF_SCRIPT_EOF\n\"$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)\" --no-open -o \"$bp_dir/$bp_id-Test-Laravel.buildprof\" -- bash --noprofile --norc -eo pipefail \"$bp_dir/$bp_id.sh\"\n"
+      shell: bash
+    - name: Test ReactPHP
+      if: ${{ !cancelled() }}
+      run: "bp_dir=\"$RUNNER_TEMP/buildprof\"; mkdir -p \"$bp_dir\"; bp_id=$(date +%s%N)\ncat > \"$bp_dir/$bp_id.sh\" <<'BUILDPROF_SCRIPT_EOF'\nrepositories=\"async cache child-process datagram dns event-loop promise promise-stream promise-timer stream\"\nX=0\nfor repository in $repositories; do\n  echo \"::group::$repository\"\n  git clone \"https://github.com/reactphp/$repository.git\" \"reactphp-$repository\" --depth 1\n  cd \"reactphp-$repository\"\n  git rev-parse HEAD\n  php /usr/bin/composer install --no-progress --ignore-platform-req=php+\n  EXIT_CODE=0\n  vendor/bin/phpunit || EXIT_CODE=$?\n  echo -e \"\\n::endgroup::\"\n  if [ $[EXIT_CODE:-0} -gt 128 ]; then\n    X=1;\n    echo \"Failed\"\n  fi\n  cd ..\ndone\nexit $X\nBUILDPROF_SCRIPT_EOF\n\"$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)\" --no-open -o \"$bp_dir/$bp_id-Test-ReactPHP.buildprof\" -- bash --noprofile --norc -eo pipefail \"$bp_dir/$bp_id.sh\"\n"
+      shell: bash
+    - name: Test Revolt PHP
+      if: ${{ !cancelled() }}
+      run: "bp_dir=\"$RUNNER_TEMP/buildprof\"; mkdir -p \"$bp_dir\"; bp_id=$(date +%s%N)\ncat > \"$bp_dir/$bp_id.sh\" <<'BUILDPROF_SCRIPT_EOF'\ngit clone https://github.com/revoltphp/event-loop.git --depth=1\ncd event-loop\ngit rev-parse HEAD\nphp /usr/bin/composer install --no-progress --ignore-platform-req=php+\nvendor/bin/phpunit || EXIT_CODE=$?\nif [ ${EXIT_CODE:-0} -gt 128 ]; then\n  exit 1\nfi\nBUILDPROF_SCRIPT_EOF\n\"$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)\" --no-open -o \"$bp_dir/$bp_id-Test-Revolt-PHP.buildprof\" -- bash --noprofile --norc -eo pipefail \"$bp_dir/$bp_id.sh\"\n"
+      shell: bash
+    - name: Test Symfony
+      if: ${{ !cancelled() }}
+      run: "bp_dir=\"$RUNNER_TEMP/buildprof\"; mkdir -p \"$bp_dir\"; bp_id=$(date +%s%N)\ncat > \"$bp_dir/$bp_id.sh\" <<'BUILDPROF_SCRIPT_EOF'\nbranch=${{ fromJson(inputs.branch).jobs.COMMUNITY.config.symfony_version }}\ngit clone https://github.com/symfony/symfony.git --depth=1 ${branch:+--branch=\"$branch\"}\ncd symfony\ngit rev-parse HEAD\nphp /usr/bin/composer install --no-progress --ignore-platform-req=php+\nphp ./phpunit install\n# Test causes a heap-buffer-overflow but I cannot reproduce it locally...\nphp -r '$c = file_get_contents(\"src/Symfony/Component/HtmlSanitizer/Tests/HtmlSanitizerCustomTest.php\"); $c = str_replace(\"public function testSanitizeDeepNestedString()\", \"#[\\\\PHPUnit\\\\Framework\\\\Attributes\\\\Group('\"'\"'skip'\"'\"')]\\n    public function testSanitizeDeepNestedString()\", $c); file_put_contents(\"src/Symfony/Component/HtmlSanitizer/Tests/HtmlSanitizerCustomTest.php\", $c);'\n# Buggy FFI test in Symfony, see https://github.com/symfony/symfony/issues/47668\nphp -r '$c = file_get_contents(\"src/Symfony/Component/VarDumper/Tests/Caster/FFICasterTest.php\"); $c = str_replace(\"public function testCastNonTrailingCharPointer()\", \"#[\\\\PHPUnit\\\\Framework\\\\Attributes\\\\Group('\"'\"'skip'\"'\"')]\\n    public function testCastNonTrailingCharPointer()\", $c); file_put_contents(\"src/Symfony/Component/VarDumper/Tests/Caster/FFICasterTest.php\", $c);'\n# Causes massive amounts of system calls with USE_ZEND_ALLOC=0, exceeding the timeout\nif [ -e 'src/Symfony/Component/Console/Tests/Helper/FileInputHelperTest.php' ]; then\n  php -r '$c = file_get_contents(\"src/Symfony/Component/Console/Tests/Helper/FileInputHelperTest.php\"); $c = str_replace(\"public function testReadWithPasteDetectionAbortsBeyondMaxBytes()\", \"#[\\\\PHPUnit\\\\Framework\\\\Attributes\\\\Group('\"'\"'skip'\"'\"')]\\n    public function testReadWithPasteDetectionAbortsBeyondMaxBytes()\", $c); file_put_contents(\"src/Symfony/Component/Console/Tests/Helper/FileInputHelperTest.php\", $c);'\nfi\nexport SYMFONY_DEPRECATIONS_HELPER=max[total]=999\nX=0\nfor component in $(find src/Symfony -mindepth 2 -type f -name phpunit.xml.dist -printf '%h\\n'); do\n  echo \"::group::$component\"\n  EXIT_CODE=0\n  php ./phpunit $component --exclude-group tty --exclude-group benchmark --exclude-group intl-data --exclude-group transient --exclude-group skip || EXIT_CODE=$?\n  echo -e \"\\n::endgroup::\"\n  if [ ${EXIT_CODE:-0} -gt 128 ]; then\n    X=1;\n    echo \"Failed\"\n  fi\ndone\nexit $X\nBUILDPROF_SCRIPT_EOF\n\"$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)\" --no-open -o \"$bp_dir/$bp_id-Test-Symfony.buildprof\" -- bash --noprofile --norc -eo pipefail \"$bp_dir/$bp_id.sh\"\n"
+      shell: bash
+    - name: Test PHPUnit
+      if: ${{ !cancelled() }}
+      run: "bp_dir=\"$RUNNER_TEMP/buildprof\"; mkdir -p \"$bp_dir\"; bp_id=$(date +%s%N)\ncat > \"$bp_dir/$bp_id.sh\" <<'BUILDPROF_SCRIPT_EOF'\ngit clone https://github.com/sebastianbergmann/phpunit.git --branch=main --depth=1\ncd phpunit\ngit rev-parse HEAD\nphp /usr/bin/composer install --no-progress --ignore-platform-req=php+\nphp ./phpunit || EXIT_CODE=$?\nif [ ${EXIT_CODE:-0} -gt 128 ]; then\n  exit 1\nfi\nBUILDPROF_SCRIPT_EOF\n\"$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)\" --no-open -o \"$bp_dir/$bp_id-Test-PHPUnit.buildprof\" -- bash --noprofile --norc -eo pipefail \"$bp_dir/$bp_id.sh\"\n"
+      shell: bash
+    - name: Symfony Preloading
+      if: ${{ !cancelled() }}
+      run: 'bp_dir="$RUNNER_TEMP/buildprof"; mkdir -p "$bp_dir"; bp_id=$(date +%s%N)
+
+        cat > "$bp_dir/$bp_id.sh" <<''BUILDPROF_SCRIPT_EOF''
+
+        php /usr/bin/composer create-project symfony/symfony-demo symfony_demo --no-progress --ignore-platform-req=php+
+
+        cd symfony_demo
+
+        git rev-parse HEAD
+
+        sed -i ''s/PHP_SAPI/"cli-server"/g'' var/cache/dev/App_KernelDevDebugContainer.preload.php
+
+        php -d opcache.preload=var/cache/dev/App_KernelDevDebugContainer.preload.php public/index.php
+
+        BUILDPROF_SCRIPT_EOF
+
+        "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open -o "$bp_dir/$bp_id-Symfony-Preloading.buildprof" -- bash --noprofile --norc -eo pipefail "$bp_dir/$bp_id.sh"
+
+        '
+      shell: bash
+    - name: Test Wordpress
+      if: ${{ !cancelled() }}
+      run: "bp_dir=\"$RUNNER_TEMP/buildprof\"; mkdir -p \"$bp_dir\"; bp_id=$(date +%s%N)\ncat > \"$bp_dir/$bp_id.sh\" <<'BUILDPROF_SCRIPT_EOF'\ngit clone https://github.com/WordPress/wordpress-develop.git wordpress --depth=1\ncd wordpress\ngit rev-parse HEAD\nphp /usr/bin/composer install --no-progress --ignore-platform-req=php+\ncp wp-tests-config-sample.php wp-tests-config.php\nsed -i 's/youremptytestdbnamehere/test/g' wp-tests-config.php\nsed -i 's/yourusernamehere/root/g' wp-tests-config.php\nsed -i 's/yourpasswordhere/root/g' wp-tests-config.php\nphp vendor/bin/phpunit || EXIT_CODE=$?\nif [ $EXIT_CODE -gt 128 ]; then\n  exit 1\nfi\nBUILDPROF_SCRIPT_EOF\n\"$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)\" --no-open -o \"$bp_dir/$bp_id-Test-Wordpress.buildprof\" -- bash --noprofile --norc -eo pipefail \"$bp_dir/$bp_id.sh\"\n"
+      shell: bash
+    - name: Upload buildprof recordings
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: php-src--test-suite-COMMUNITY-${{ strategy.job-index }}
+        path: ${{ runner.temp }}/buildprof/*.buildprof
+        retention-days: 30
+        if-no-files-found: ignore
+        compression-level: 0
+    permissions:
+      contents: read
+  OPCACHE_VARIATION:
+    if: ${{ fromJson(inputs.branch).jobs.OPCACHE_VARIATION }}
+    services:
+      mysql:
+        image: mysql:8.4
+        ports:
+        - 3306:3306
+        env:
+          MYSQL_DATABASE: test
+          MYSQL_ROOT_PASSWORD: root
+      postgres:
+        image: postgres
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: test
+      firebird:
+        image: jacobalberty/firebird
+        ports:
+        - 3050:3050
+        env:
+          ISC_PASSWORD: test
+          FIREBIRD_DATABASE: test.fdb
+          FIREBIRD_USER: test
+          FIREBIRD_PASSWORD: test
+    name: OPCACHE_VARIATION
+    runs-on: ubuntu-${{ fromJson(inputs.branch).config.ubuntu_version }}
+    timeout-minutes: 180
+    steps:
+    - name: Fetch buildprof
+      uses: actions/checkout@v4
+      with:
+        repository: LalitMaganti/buildprof-ci-survey
+        path: .buildprof-fetch
+        sparse-checkout: '.buildprof
+
+          projects/php-src'
+        persist-credentials: false
+    - name: Install buildprof
+      shell: bash
+      run: 'mkdir -p "$RUNNER_TEMP/buildprof-bin" "$RUNNER_TEMP/buildprof-actions"
+
+        cp .buildprof-fetch/.buildprof/buildprof-* "$RUNNER_TEMP/buildprof-bin/" && chmod +x "$RUNNER_TEMP/buildprof-bin/"*
+
+        if [ -d .buildprof-fetch/projects/php-src/actions ]; then cp -r .buildprof-fetch/projects/php-src/actions/. "$RUNNER_TEMP/buildprof-actions/"; fi
+
+        rm -rf .buildprof-fetch
+
+        '
+    - name: git checkout
+      uses: actions/checkout@v6
+      with:
+        ref: a17dcadd4cf50b34b3fcc53c37126d1de25f868c
+        repository: php/php-src
+    - name: Wrap upstream composite actions
+      shell: bash
+      run: 'if [ -n "$(ls -A "$RUNNER_TEMP/buildprof-actions" 2>/dev/null)" ]; then cp -r "$RUNNER_TEMP/buildprof-actions/." "./.github/actions/"; fi
+
+        '
+    - name: Create MSSQL container
+      uses: ./.github/actions/setup-mssql
+    - name: apt
+      uses: ./.github/actions/apt-x64
+    - name: ccache
+      uses: ./.github/actions/ccache
+      with:
+        name: ${{ github.job }}
+    - name: ./configure
+      uses: ./.github/actions/configure-x64
+      with:
+        configurationParameters: --enable-debug --disable-zts
+    - name: make
+      run: 'bp_dir="$RUNNER_TEMP/buildprof"; mkdir -p "$bp_dir"; bp_id=$(date +%s%N)
+
+        cat > "$bp_dir/$bp_id.sh" <<''BUILDPROF_SCRIPT_EOF''
+
+        make -j$(/usr/bin/nproc) >/dev/null
+
+        BUILDPROF_SCRIPT_EOF
+
+        "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open -o "$bp_dir/$bp_id-make.buildprof" -- bash --noprofile --norc -eo pipefail "$bp_dir/$bp_id.sh"
+
+        '
+      shell: bash
+    - name: make install
+      uses: ./.github/actions/install-linux
+    - name: Setup
+      uses: ./.github/actions/setup-x64
+    - name: Test File Cache (prime shm)
+      uses: ./.github/actions/test-linux
+      with:
+        enableOpcache: true
+        runTestsParameters: --file-cache-prime
+    - name: Test File Cache (prime shm, use shm)
+      uses: ./.github/actions/test-linux
+      with:
+        enableOpcache: true
+        runTestsParameters: --file-cache-use
+    - name: Test File Cache (prime shm, use file)
+      uses: ./.github/actions/test-linux
+      with:
+        enableOpcache: true
+        runTestsParameters: --file-cache-use -d opcache.file_cache_only=1
+    - name: Test File Cache Only (prime)
+      uses: ./.github/actions/test-linux
+      with:
+        enableOpcache: true
+        runTestsParameters: --file-cache-prime -d opcache.file_cache_only=1
+    - name: Test File Cache Only (use)
+      uses: ./.github/actions/test-linux
+      with:
+        enableOpcache: true
+        runTestsParameters: --file-cache-use -d opcache.file_cache_only=1
+    - name: Verify generated files are up to date
+      uses: ./.github/actions/verify-generated-files
+    - name: Upload buildprof recordings
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: php-src--test-suite-OPCACHE_VARIATION-${{ strategy.job-index }}
+        path: ${{ runner.temp }}/buildprof/*.buildprof
+        retention-days: 30
+        if-no-files-found: ignore
+        compression-level: 0
+    permissions:
+      contents: read
+  MSAN:
+    if: ${{ fromJson(inputs.branch).jobs.MSAN }}
+    name: MSAN
+    runs-on: ubuntu-${{ fromJson(inputs.branch).config.ubuntu_version }}
+    timeout-minutes: 180
+    steps:
+    - name: Fetch buildprof
+      uses: actions/checkout@v4
+      with:
+        repository: LalitMaganti/buildprof-ci-survey
+        path: .buildprof-fetch
+        sparse-checkout: '.buildprof
+
+          projects/php-src'
+        persist-credentials: false
+    - name: Install buildprof
+      shell: bash
+      run: 'mkdir -p "$RUNNER_TEMP/buildprof-bin" "$RUNNER_TEMP/buildprof-actions"
+
+        cp .buildprof-fetch/.buildprof/buildprof-* "$RUNNER_TEMP/buildprof-bin/" && chmod +x "$RUNNER_TEMP/buildprof-bin/"*
+
+        if [ -d .buildprof-fetch/projects/php-src/actions ]; then cp -r .buildprof-fetch/projects/php-src/actions/. "$RUNNER_TEMP/buildprof-actions/"; fi
+
+        rm -rf .buildprof-fetch
+
+        '
+    - name: git checkout
+      uses: actions/checkout@v6
+      with:
+        ref: a17dcadd4cf50b34b3fcc53c37126d1de25f868c
+        repository: php/php-src
+    - name: Wrap upstream composite actions
+      shell: bash
+      run: 'if [ -n "$(ls -A "$RUNNER_TEMP/buildprof-actions" 2>/dev/null)" ]; then cp -r "$RUNNER_TEMP/buildprof-actions/." "./.github/actions/"; fi
+
+        '
+    - name: apt
+      uses: ./.github/actions/apt-x64
+    - name: ccache
+      uses: ./.github/actions/ccache
+      with:
+        name: ${{ github.job }}
+        cc: clang
+        cxx: clang++
+    - name: ./configure
+      run: "bp_dir=\"$RUNNER_TEMP/buildprof\"; mkdir -p \"$bp_dir\"; bp_id=$(date +%s%N)\ncat > \"$bp_dir/$bp_id.sh\" <<'BUILDPROF_SCRIPT_EOF'\nexport CFLAGS=\"-DZEND_TRACK_ARENA_ALLOC\"\n./buildconf --force\n# msan requires all used libraries to be instrumented,\n# so we should avoiding linking against anything but libc here\n./configure \\\n  --enable-debug \\\n  --enable-zts \\\n  --enable-option-checking=fatal \\\n  --prefix=/usr \\\n  --without-sqlite3 \\\n  --without-pdo-sqlite \\\n  --without-libxml \\\n  --disable-dom \\\n  --disable-simplexml \\\n  --disable-xml \\\n  --disable-xmlreader \\\n  --disable-xmlwriter \\\n  --without-pcre-jit \\\n  --disable-opcache-jit \\\n  --enable-phpdbg \\\n  --enable-fpm \\\n  --with-pdo-mysql=mysqlnd \\\n  --with-mysqli=mysqlnd \\\n  --disable-mysqlnd-compression-support \\\n  --without-pear \\\n  --enable-exif \\\n  --enable-sysvsem \\\n  --enable-sysvshm \\\n  --enable-shmop \\\n  --enable-pcntl \\\n  --enable-mbstring \\\n  --disable-mbregex \\\n  --enable-sockets \\\n  --enable-bcmath \\\n  --enable-calendar \\\n  --enable-ftp \\\n  --enable-zend-test \\\n  --enable-werror \\\n  --enable-memory-sanitizer \\\n  --with-config-file-path=/etc \\\n  --with-config-file-scan-dir=/etc/php.d \\\n  --enable-dl-test=shared\nBUILDPROF_SCRIPT_EOF\n\"$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)\" --no-open -o \"$bp_dir/$bp_id-configure.buildprof\" -- bash --noprofile --norc -eo pipefail \"$bp_dir/$bp_id.sh\"\n"
+      shell: bash
+    - name: make
+      run: 'bp_dir="$RUNNER_TEMP/buildprof"; mkdir -p "$bp_dir"; bp_id=$(date +%s%N)
+
+        cat > "$bp_dir/$bp_id.sh" <<''BUILDPROF_SCRIPT_EOF''
+
+        make -j$(/usr/bin/nproc) >/dev/null
+
+        BUILDPROF_SCRIPT_EOF
+
+        "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open -o "$bp_dir/$bp_id-make.buildprof" -- bash --noprofile --norc -eo pipefail "$bp_dir/$bp_id.sh"
+
+        '
+      shell: bash
+    - name: make install
+      run: 'bp_dir="$RUNNER_TEMP/buildprof"; mkdir -p "$bp_dir"; bp_id=$(date +%s%N)
+
+        cat > "$bp_dir/$bp_id.sh" <<''BUILDPROF_SCRIPT_EOF''
+
+        sudo make install
+
+        sudo mkdir -p /etc/php.d
+
+        sudo chmod 777 /etc/php.d
+
+        echo mysqli.default_socket=/var/run/mysqld/mysqld.sock    > /etc/php.d/mysqli.ini
+
+        echo pdo_mysql.default_socket=/var/run/mysqld/mysqld.sock > /etc/php.d/pdo_mysql.ini
+
+        BUILDPROF_SCRIPT_EOF
+
+        "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open -o "$bp_dir/$bp_id-make-install.buildprof" -- bash --noprofile --norc -eo pipefail "$bp_dir/$bp_id.sh"
+
+        '
+      shell: bash
+    - name: Setup
+      run: 'bp_dir="$RUNNER_TEMP/buildprof"; mkdir -p "$bp_dir"; bp_id=$(date +%s%N)
+
+        cat > "$bp_dir/$bp_id.sh" <<''BUILDPROF_SCRIPT_EOF''
+
+        set -x
+
+        sudo service mysql start
+
+        mysql -uroot -proot -e "CREATE DATABASE IF NOT EXISTS test"
+
+        # Ensure local_infile tests can run.
+
+        mysql -uroot -proot -e "SET GLOBAL local_infile = true"
+
+        sudo locale-gen de_DE
+
+        BUILDPROF_SCRIPT_EOF
+
+        "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open -o "$bp_dir/$bp_id-Setup.buildprof" -- bash --noprofile --norc -eo pipefail "$bp_dir/$bp_id.sh"
+
+        '
+      shell: bash
+    - name: Test
+      uses: ./.github/actions/test-linux
+      with:
+        runTestsParameters: --msan
+    - name: Test Opcache
+      uses: ./.github/actions/test-linux
+      with:
+        enableOpcache: true
+        runTestsParameters: --msan
+    - name: Verify generated files are up to date
+      uses: ./.github/actions/verify-generated-files
+    - name: Upload buildprof recordings
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: php-src--test-suite-MSAN-${{ strategy.job-index }}
+        path: ${{ runner.temp }}/buildprof/*.buildprof
+        retention-days: 30
+        if-no-files-found: ignore
+        compression-level: 0
+    permissions:
+      contents: read
+  LIBMYSQLCLIENT:
+    if: ${{ fromJson(inputs.branch).jobs.LIBMYSQLCLIENT }}
+    name: LIBMYSQLCLIENT
+    runs-on: ubuntu-${{ fromJson(inputs.branch).config.ubuntu_version }}
+    timeout-minutes: 180
+    steps:
+    - name: Fetch buildprof
+      uses: actions/checkout@v4
+      with:
+        repository: LalitMaganti/buildprof-ci-survey
+        path: .buildprof-fetch
+        sparse-checkout: '.buildprof
+
+          projects/php-src'
+        persist-credentials: false
+    - name: Install buildprof
+      shell: bash
+      run: 'mkdir -p "$RUNNER_TEMP/buildprof-bin" "$RUNNER_TEMP/buildprof-actions"
+
+        cp .buildprof-fetch/.buildprof/buildprof-* "$RUNNER_TEMP/buildprof-bin/" && chmod +x "$RUNNER_TEMP/buildprof-bin/"*
+
+        if [ -d .buildprof-fetch/projects/php-src/actions ]; then cp -r .buildprof-fetch/projects/php-src/actions/. "$RUNNER_TEMP/buildprof-actions/"; fi
+
+        rm -rf .buildprof-fetch
+
+        '
+    - name: git checkout
+      uses: actions/checkout@v6
+      with:
+        ref: a17dcadd4cf50b34b3fcc53c37126d1de25f868c
+        repository: php/php-src
+    - name: Wrap upstream composite actions
+      shell: bash
+      run: 'if [ -n "$(ls -A "$RUNNER_TEMP/buildprof-actions" 2>/dev/null)" ]; then cp -r "$RUNNER_TEMP/buildprof-actions/." "./.github/actions/"; fi
+
+        '
+    - name: apt
+      run: 'bp_dir="$RUNNER_TEMP/buildprof"; mkdir -p "$bp_dir"; bp_id=$(date +%s%N)
+
+        cat > "$bp_dir/$bp_id.sh" <<''BUILDPROF_SCRIPT_EOF''
+
+        sudo apt-get update -y | true
+
+        sudo apt install bison re2c
+
+        BUILDPROF_SCRIPT_EOF
+
+        "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open -o "$bp_dir/$bp_id-apt.buildprof" -- bash --noprofile --norc -eo pipefail "$bp_dir/$bp_id.sh"
+
+        '
+      shell: bash
+    - name: Setup
+      run: 'bp_dir="$RUNNER_TEMP/buildprof"; mkdir -p "$bp_dir"; bp_id=$(date +%s%N)
+
+        cat > "$bp_dir/$bp_id.sh" <<''BUILDPROF_SCRIPT_EOF''
+
+        sudo service mysql start
+
+        mysql -uroot -proot -e "CREATE DATABASE IF NOT EXISTS test"
+
+        # Ensure local_infile tests can run.
+
+        mysql -uroot -proot -e "SET GLOBAL local_infile = true"
+
+        BUILDPROF_SCRIPT_EOF
+
+        "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open -o "$bp_dir/$bp_id-Setup.buildprof" -- bash --noprofile --norc -eo pipefail "$bp_dir/$bp_id.sh"
+
+        '
+      shell: bash
+    - name: Build mysql-8.0
+      uses: ./.github/actions/build-libmysqlclient
+      with:
+        configurationParameters: --enable-werror
+        libmysql: mysql-8.0.37-linux-glibc2.28-x86_64.tar.xz
+    - name: Test mysql-8.0
+      uses: ./.github/actions/test-libmysqlclient
+    - name: Build mysql-8.4
+      uses: ./.github/actions/build-libmysqlclient
+      with:
+        configurationParameters: --enable-werror
+        libmysql: mysql-8.4.0-linux-glibc2.28-x86_64.tar.xz
+    - name: Test mysql-8.4
+      uses: ./.github/actions/test-libmysqlclient
+    - name: Verify generated files are up to date
+      uses: ./.github/actions/verify-generated-files
+    - name: Upload buildprof recordings
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: php-src--test-suite-LIBMYSQLCLIENT-${{ strategy.job-index }}
+        path: ${{ runner.temp }}/buildprof/*.buildprof
+        retention-days: 30
+        if-no-files-found: ignore
+        compression-level: 0
+    permissions:
+      contents: read
+  FREEBSD:
+    if: ${{ fromJson(inputs.branch).jobs.FREEBSD }}
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJson(inputs.branch).jobs.FREEBSD.matrix }}
+    name: FREEBSD_${{ matrix.zts && 'ZTS' || 'NTS' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 50
+    steps:
+    - name: Fetch buildprof
+      uses: actions/checkout@v4
+      with:
+        repository: LalitMaganti/buildprof-ci-survey
+        path: .buildprof-fetch
+        sparse-checkout: '.buildprof
+
+          projects/php-src'
+        persist-credentials: false
+    - name: Install buildprof
+      shell: bash
+      run: 'mkdir -p "$RUNNER_TEMP/buildprof-bin" "$RUNNER_TEMP/buildprof-actions"
+
+        cp .buildprof-fetch/.buildprof/buildprof-* "$RUNNER_TEMP/buildprof-bin/" && chmod +x "$RUNNER_TEMP/buildprof-bin/"*
+
+        if [ -d .buildprof-fetch/projects/php-src/actions ]; then cp -r .buildprof-fetch/projects/php-src/actions/. "$RUNNER_TEMP/buildprof-actions/"; fi
+
+        rm -rf .buildprof-fetch
+
+        '
+    - name: git checkout
+      uses: actions/checkout@v6
+      with:
+        ref: a17dcadd4cf50b34b3fcc53c37126d1de25f868c
+        repository: php/php-src
+    - name: Wrap upstream composite actions
+      shell: bash
+      run: 'if [ -n "$(ls -A "$RUNNER_TEMP/buildprof-actions" 2>/dev/null)" ]; then cp -r "$RUNNER_TEMP/buildprof-actions/." "./.github/actions/"; fi
+
+        '
+    - name: FreeBSD
+      uses: ./.github/actions/freebsd
+      with:
+        configurationParameters: --${{ matrix.zts && 'enable' || 'disable' }}-zts
+        runExtraTests: true
+    - name: Upload buildprof recordings
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: php-src--test-suite-FREEBSD-${{ strategy.job-index }}
+        path: ${{ runner.temp }}/buildprof/*.buildprof
+        retention-days: 30
+        if-no-files-found: ignore
+        compression-level: 0
+    permissions:
+      contents: read
+  SOLARIS:
+    if: ${{ fromJson(inputs.branch).jobs.SOLARIS }}
+    name: SOLARIS
+    runs-on: ubuntu-latest
+    timeout-minutes: 50
+    steps:
+    - name: Fetch buildprof
+      uses: actions/checkout@v4
+      with:
+        repository: LalitMaganti/buildprof-ci-survey
+        path: .buildprof-fetch
+        sparse-checkout: '.buildprof
+
+          projects/php-src'
+        persist-credentials: false
+    - name: Install buildprof
+      shell: bash
+      run: 'mkdir -p "$RUNNER_TEMP/buildprof-bin" "$RUNNER_TEMP/buildprof-actions"
+
+        cp .buildprof-fetch/.buildprof/buildprof-* "$RUNNER_TEMP/buildprof-bin/" && chmod +x "$RUNNER_TEMP/buildprof-bin/"*
+
+        if [ -d .buildprof-fetch/projects/php-src/actions ]; then cp -r .buildprof-fetch/projects/php-src/actions/. "$RUNNER_TEMP/buildprof-actions/"; fi
+
+        rm -rf .buildprof-fetch
+
+        '
+    - name: git checkout
+      uses: actions/checkout@v5
+      with:
+        ref: a17dcadd4cf50b34b3fcc53c37126d1de25f868c
+        repository: php/php-src
+    - name: Wrap upstream composite actions
+      shell: bash
+      run: 'if [ -n "$(ls -A "$RUNNER_TEMP/buildprof-actions" 2>/dev/null)" ]; then cp -r "$RUNNER_TEMP/buildprof-actions/." "./.github/actions/"; fi
+
+        '
+    - name: Solaris
+      uses: ./.github/actions/solaris
+      with:
+        configurationParameters: --disable-zts
+        runExtraTests: true
+    - name: Upload buildprof recordings
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: php-src--test-suite-SOLARIS-${{ strategy.job-index }}
+        path: ${{ runner.temp }}/buildprof/*.buildprof
+        retention-days: 30
+        if-no-files-found: ignore
+        compression-level: 0
+    permissions:
+      contents: read
+  BENCHMARKING:
+    name: BENCHMARKING
+    if: ${{ fromJson(inputs.branch).jobs.BENCHMARKING }}
+    runs-on: ubuntu-${{ fromJson(inputs.branch).config.ubuntu_version }}
+    timeout-minutes: 50
+    steps:
+    - name: Fetch buildprof
+      uses: actions/checkout@v4
+      with:
+        repository: LalitMaganti/buildprof-ci-survey
+        path: .buildprof-fetch
+        sparse-checkout: '.buildprof
+
+          projects/php-src'
+        persist-credentials: false
+    - name: Install buildprof
+      shell: bash
+      run: 'mkdir -p "$RUNNER_TEMP/buildprof-bin" "$RUNNER_TEMP/buildprof-actions"
+
+        cp .buildprof-fetch/.buildprof/buildprof-* "$RUNNER_TEMP/buildprof-bin/" && chmod +x "$RUNNER_TEMP/buildprof-bin/"*
+
+        if [ -d .buildprof-fetch/projects/php-src/actions ]; then cp -r .buildprof-fetch/projects/php-src/actions/. "$RUNNER_TEMP/buildprof-actions/"; fi
+
+        rm -rf .buildprof-fetch
+
+        '
+    - name: git checkout
+      uses: actions/checkout@v6
+      with:
+        ref: a17dcadd4cf50b34b3fcc53c37126d1de25f868c
+        fetch-depth: 0
+        filter: blob:none
+        repository: php/php-src
+    - name: Wrap upstream composite actions
+      shell: bash
+      run: 'if [ -n "$(ls -A "$RUNNER_TEMP/buildprof-actions" 2>/dev/null)" ]; then cp -r "$RUNNER_TEMP/buildprof-actions/." "./.github/actions/"; fi
+
+        '
+    - name: Disable ASLR
+      run: 'bp_dir="$RUNNER_TEMP/buildprof"; mkdir -p "$bp_dir"; bp_id=$(date +%s%N)
+
+        cat > "$bp_dir/$bp_id.sh" <<''BUILDPROF_SCRIPT_EOF''
+
+        echo 0 | sudo tee /proc/sys/kernel/randomize_va_space
+
+        BUILDPROF_SCRIPT_EOF
+
+        "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open -o "$bp_dir/$bp_id-Disable-ASLR.buildprof" -- bash --noprofile --norc -eo pipefail "$bp_dir/$bp_id.sh"
+
+        '
+      shell: bash
+    - name: apt
+      run: "bp_dir=\"$RUNNER_TEMP/buildprof\"; mkdir -p \"$bp_dir\"; bp_id=$(date +%s%N)\ncat > \"$bp_dir/$bp_id.sh\" <<'BUILDPROF_SCRIPT_EOF'\nset -x\nsudo apt-get update\nsudo apt-get install \\\n  bison \\\n  libgmp-dev \\\n  libonig-dev \\\n  libsqlite3-dev \\\n  openssl \\\n  re2c \\\n  valgrind\nBUILDPROF_SCRIPT_EOF\n\"$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)\" --no-open -o \"$bp_dir/$bp_id-apt.buildprof\" -- bash --noprofile --norc -eo pipefail \"$bp_dir/$bp_id.sh\"\n"
+      shell: bash
+    - name: ccache
+      uses: ./.github/actions/ccache
+      with:
+        name: ${{ github.job }}
+    - name: ./configure
+      run: "bp_dir=\"$RUNNER_TEMP/buildprof\"; mkdir -p \"$bp_dir\"; bp_id=$(date +%s%N)\ncat > \"$bp_dir/$bp_id.sh\" <<'BUILDPROF_SCRIPT_EOF'\nset -x\n./buildconf --force\n./configure \\\n  --disable-debug \\\n  --enable-mbstring \\\n  --enable-option-checking=fatal \\\n  --enable-sockets \\\n  --enable-werror \\\n  --prefix=/usr \\\n  --with-config-file-scan-dir=/etc/php.d \\\n  --with-gmp \\\n  --with-mysqli=mysqlnd \\\n  --with-openssl \\\n  --with-pdo-sqlite \\\n  --with-valgrind\nBUILDPROF_SCRIPT_EOF\n\"$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)\" --no-open -o \"$bp_dir/$bp_id-configure.buildprof\" -- bash --noprofile --norc -eo pipefail \"$bp_dir/$bp_id.sh\"\n"
+      shell: bash
+    - name: make
+      run: 'bp_dir="$RUNNER_TEMP/buildprof"; mkdir -p "$bp_dir"; bp_id=$(date +%s%N)
+
+        cat > "$bp_dir/$bp_id.sh" <<''BUILDPROF_SCRIPT_EOF''
+
+        make -j$(/usr/bin/nproc) >/dev/null
+
+        BUILDPROF_SCRIPT_EOF
+
+        "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open -o "$bp_dir/$bp_id-make.buildprof" -- bash --noprofile --norc -eo pipefail "$bp_dir/$bp_id.sh"
+
+        '
+      shell: bash
+    - name: make install
+      run: 'bp_dir="$RUNNER_TEMP/buildprof"; mkdir -p "$bp_dir"; bp_id=$(date +%s%N)
+
+        cat > "$bp_dir/$bp_id.sh" <<''BUILDPROF_SCRIPT_EOF''
+
+        set -x
+
+        sudo make install
+
+        sudo mkdir -p /etc/php.d
+
+        sudo chmod 777 /etc/php.d
+
+        echo mysqli.default_socket=/var/run/mysqld/mysqld.sock > /etc/php.d/mysqli.ini
+
+        ${{ !fromJson(inputs.branch).config.integrated_opcache && ''echo zend_extension=opcache.so >> /etc/php.d/opcache.ini'' || '''' }}
+
+        echo opcache.enable=1 >> /etc/php.d/opcache.ini
+
+        echo opcache.enable_cli=1 >> /etc/php.d/opcache.ini
+
+        BUILDPROF_SCRIPT_EOF
+
+        "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open -o "$bp_dir/$bp_id-make-install.buildprof" -- bash --noprofile --norc -eo pipefail "$bp_dir/$bp_id.sh"
+
+        '
+      shell: bash
+    - name: Setup
+      run: 'bp_dir="$RUNNER_TEMP/buildprof"; mkdir -p "$bp_dir"; bp_id=$(date +%s%N)
+
+        cat > "$bp_dir/$bp_id.sh" <<''BUILDPROF_SCRIPT_EOF''
+
+        git config --global user.name "Benchmark"
+
+        git config --global user.email "benchmark@php.net"
+
+        sudo service mysql start
+
+        mysql -uroot -proot -e "CREATE DATABASE IF NOT EXISTS wordpress"
+
+        mysql -uroot -proot -e "CREATE USER ''wordpress''@''localhost'' IDENTIFIED BY ''wordpress''; FLUSH PRIVILEGES;"
+
+        mysql -uroot -proot -e "GRANT ALL PRIVILEGES ON *.* TO ''wordpress''@''localhost'' WITH GRANT OPTION;"
+
+        BUILDPROF_SCRIPT_EOF
+
+        "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open -o "$bp_dir/$bp_id-Setup.buildprof" -- bash --noprofile --norc -eo pipefail "$bp_dir/$bp_id.sh"
+
+        '
+      shell: bash
+    - name: git checkout benchmarking-data
+      uses: actions/checkout@v6
+      with:
+        repository: php/benchmarking-data
+        ssh-key: ${{ secrets.BENCHMARKING_DATA_DEPLOY_KEY }}
+        path: benchmark/repos/data
+    - name: Benchmark
+      run: 'bp_dir="$RUNNER_TEMP/buildprof"; mkdir -p "$bp_dir"; bp_id=$(date +%s%N)
+
+        cat > "$bp_dir/$bp_id.sh" <<''BUILDPROF_SCRIPT_EOF''
+
+        php benchmark/benchmark.php true
+
+        BUILDPROF_SCRIPT_EOF
+
+        "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open -o "$bp_dir/$bp_id-Benchmark.buildprof" -- bash --noprofile --norc -eo pipefail "$bp_dir/$bp_id.sh"
+
+        '
+      shell: bash
+    - name: Store result
+      if: '''push'' == ''push'''
+      run: "bp_dir=\"$RUNNER_TEMP/buildprof\"; mkdir -p \"$bp_dir\"; bp_id=$(date +%s%N)\ncat > \"$bp_dir/$bp_id.sh\" <<'BUILDPROF_SCRIPT_EOF'\nset -x\ncd benchmark/repos/data\ngit pull --autostash\nif [ -e \".git/MERGE_HEAD\" ]; then\n  echo \"Merging, can't proceed\"\n  exit 1\nfi\ngit add .\nif git diff --cached --quiet; then\n  exit 0\nfi\ngit commit -m \"Add result for ${{ 'php/php-src' }}@${{ github.sha }}\"\ngit push\nBUILDPROF_SCRIPT_EOF\n\"$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)\" --no-open -o \"$bp_dir/$bp_id-Store-result.buildprof\" -- bash --noprofile --norc -eo pipefail \"$bp_dir/$bp_id.sh\"\n"
+      shell: bash
+    - name: Show diff
+      if: '''push'' == ''pull_request'''
+      run: "bp_dir=\"$RUNNER_TEMP/buildprof\"; mkdir -p \"$bp_dir\"; bp_id=$(date +%s%N)\ncat > \"$bp_dir/$bp_id.sh\" <<'BUILDPROF_SCRIPT_EOF'\nset -x\nphp benchmark/generate_diff.php \\\n  ${{ github.sha }} \\\n  ${{ github.event.pull_request.base.sha }} \\\n  > $GITHUB_STEP_SUMMARY\nBUILDPROF_SCRIPT_EOF\n\"$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)\" --no-open -o \"$bp_dir/$bp_id-Show-diff.buildprof\" -- bash --noprofile --norc -eo pipefail \"$bp_dir/$bp_id.sh\"\n"
+      shell: bash
+    - uses: actions/upload-artifact@v6
+      with:
+        name: profiles
+        path: ${{ github.workspace }}/benchmark/profiles
+        retention-days: 30
+    - name: Upload buildprof recordings
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: php-src--test-suite-BENCHMARKING-${{ strategy.job-index }}
+        path: ${{ runner.temp }}/buildprof/*.buildprof
+        retention-days: 30
+        if-no-files-found: ignore
+        compression-level: 0
+    permissions:
+      contents: read

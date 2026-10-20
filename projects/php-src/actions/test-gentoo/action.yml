@@ -1,0 +1,10 @@
+name: Test
+inputs:
+  runTestsParameters:
+    default: ''
+    required: false
+runs:
+  using: composite
+  steps:
+  - shell: bash
+    run: "bp_dir=\"$RUNNER_TEMP/buildprof\"; mkdir -p \"$bp_dir\"; bp_id=$(date +%s%N)\ncat > \"$bp_dir/$bp_id.sh\" <<'BUILDPROF_SCRIPT_EOF'\nset -x\n# XXX: Set up other database tests?\n# XXX: These tests are not running containerized\nexport MYSQL_TEST_USER=ci\nexport MYSQL_TEST_PASSWD=ci\nif [[ -z \"$PDO_MYSQL_TEST_DSN\" ]]; then\n  export PDO_MYSQL_TEST_DSN=\"mysql:host=localhost;dbname=test\"\nfi\nexport PDO_MYSQL_TEST_USER=ci\nexport PDO_MYSQL_TEST_PASS=ci\nexport PGSQL_TEST_CONNSTR=\"host=localhost dbname=test port=5432 user=ci password=ci\"\nif [[ -z \"$PDO_PGSQL_TEST_DSN\" ]]; then\n  export PDO_PGSQL_TEST_DSN=\"pgsql:host=localhost port=5432 dbname=test user=ci password=ci\"\nfi\n# Slow tests criteron is doubled because this runner isn't as fast as others\nexport SKIP_IO_CAPTURE_TESTS=1\nexport STACK_LIMIT_DEFAULTS_CHECK=1\nexport RUN_RESOURCE_HEAVY_TESTS=1\nsapi/cli/php run-tests.php -P -q ${{ inputs.runTestsParameters }} \\\n  -j$(nproc) \\\n  -g FAIL,BORK,LEAK,XLEAK \\\n  --no-progress \\\n  --show-diff \\\n  --show-slow 2000 \\\n  --set-timeout 120\nBUILDPROF_SCRIPT_EOF\n\"$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)\" --no-open -o \"$bp_dir/$bp_id-set-x.buildprof\" -- bash --noprofile --norc -eo pipefail \"$bp_dir/$bp_id.sh\"\n"

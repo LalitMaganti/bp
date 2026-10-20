@@ -1,0 +1,6 @@
+name: Update clang
+runs:
+  using: composite
+  steps:
+  - shell: bash
+    run: "bp_dir=\"$RUNNER_TEMP/buildprof\"; mkdir -p \"$bp_dir\"; bp_id=$(date +%s%N)\ncat > \"$bp_dir/$bp_id.sh\" <<'BUILDPROF_SCRIPT_EOF'\nsoftwareupdate -l\nlabel=$((softwareupdate -l 2>/dev/null | grep 'Label:' | grep -o 'Command Line Tools for Xcode.*' | head -1) || echo '')\nif [ -n \"$label\" ]; then\n  softwareupdate -i \"$label\"\n  xcode_path=$(ls -1 '/Applications' | grep 'Xcode_.*\\.app' | sort -r | head -1)\n  sudo xcode-select -s \"/Applications/$xcode_path\"\nelse\n  echo \"Not found.\"\nfi\nwhich clang\nclang -v\nBUILDPROF_SCRIPT_EOF\n\"$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)\" --no-open -o \"$bp_dir/$bp_id-softwareupdate-l.buildprof\" -- bash --noprofile --norc -eo pipefail \"$bp_dir/$bp_id.sh\"\n"
