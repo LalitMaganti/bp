@@ -74,7 +74,13 @@ jobs:
 
         BUILDPROF_SCRIPT_EOF
 
-        ASAN_OPTIONS="${ASAN_OPTIONS:+$ASAN_OPTIONS:}detect_leaks=0" "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open -o "$bp_dir/$bp_id-install-dependencies.buildprof" -- bash --noprofile --norc -eo pipefail "$bp_dir/$bp_id.sh"
+        ( sleep 2700; while true; do echo "=== buildprof survey watchdog: step still running"; ps -eo pid,ppid,stat,etime,wchan:32,args --forest 2>/dev/null | cut -c1-250 || ps; sleep 600; done ) & bp_watch=$!
+
+        bp_rc=0
+
+        ASAN_OPTIONS="${ASAN_OPTIONS:+$ASAN_OPTIONS:}detect_leaks=0" "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open -o "$bp_dir/$bp_id-install-dependencies.buildprof" -- bash --noprofile --norc -eo pipefail "$bp_dir/$bp_id.sh" || bp_rc=$?
+
+        kill $bp_watch 2>/dev/null; exit $bp_rc
 
         '
       shell: sh
@@ -87,7 +93,13 @@ jobs:
 
         BUILDPROF_SCRIPT_EOF
 
-        ASAN_OPTIONS="${ASAN_OPTIONS:+$ASAN_OPTIONS:}detect_leaks=0" "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open -o "$bp_dir/$bp_id-configure-git.buildprof" -- bash --noprofile --norc -eo pipefail "$bp_dir/$bp_id.sh"
+        ( sleep 2700; while true; do echo "=== buildprof survey watchdog: step still running"; ps -eo pid,ppid,stat,etime,wchan:32,args --forest 2>/dev/null | cut -c1-250 || ps; sleep 600; done ) & bp_watch=$!
+
+        bp_rc=0
+
+        ASAN_OPTIONS="${ASAN_OPTIONS:+$ASAN_OPTIONS:}detect_leaks=0" "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open -o "$bp_dir/$bp_id-configure-git.buildprof" -- bash --noprofile --norc -eo pipefail "$bp_dir/$bp_id.sh" || bp_rc=$?
+
+        kill $bp_watch 2>/dev/null; exit $bp_rc
 
         '
       shell: sh
@@ -122,7 +134,13 @@ jobs:
 
         BUILDPROF_SCRIPT_EOF
 
-        ASAN_OPTIONS="${ASAN_OPTIONS:+$ASAN_OPTIONS:}detect_leaks=0" "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open -o "$bp_dir/$bp_id-build.buildprof" -- bash --noprofile --norc -eo pipefail "$bp_dir/$bp_id.sh"
+        ( sleep 2700; while true; do echo "=== buildprof survey watchdog: step still running"; ps -eo pid,ppid,stat,etime,wchan:32,args --forest 2>/dev/null | cut -c1-250 || ps; sleep 600; done ) & bp_watch=$!
+
+        bp_rc=0
+
+        ASAN_OPTIONS="${ASAN_OPTIONS:+$ASAN_OPTIONS:}detect_leaks=0" "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open -o "$bp_dir/$bp_id-build.buildprof" -- bash --noprofile --norc -eo pipefail "$bp_dir/$bp_id.sh" || bp_rc=$?
+
+        kill $bp_watch 2>/dev/null; exit $bp_rc
 
         '
       shell: sh
@@ -143,6 +161,7 @@ jobs:
         compression-level: 0
     permissions:
       contents: read
+    timeout-minutes: 120
   build-linux:
     name: ${{ matrix.name }}
     runs-on: ubuntu-latest
@@ -188,7 +207,13 @@ jobs:
 
         BUILDPROF_SCRIPT_EOF
 
-        ASAN_OPTIONS="${ASAN_OPTIONS:+$ASAN_OPTIONS:}detect_leaks=0" "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open -o "$bp_dir/$bp_id-set-apt-conf.buildprof" -- bash --noprofile --norc -eo pipefail "$bp_dir/$bp_id.sh"
+        ( sleep 2700; while true; do echo "=== buildprof survey watchdog: step still running"; ps -eo pid,ppid,stat,etime,wchan:32,args --forest 2>/dev/null | cut -c1-250 || ps; sleep 600; done ) & bp_watch=$!
+
+        bp_rc=0
+
+        ASAN_OPTIONS="${ASAN_OPTIONS:+$ASAN_OPTIONS:}detect_leaks=0" "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open -o "$bp_dir/$bp_id-set-apt-conf.buildprof" -- bash --noprofile --norc -eo pipefail "$bp_dir/$bp_id.sh" || bp_rc=$?
+
+        kill $bp_watch 2>/dev/null; exit $bp_rc
 
         '
       shell: sh
@@ -201,7 +226,13 @@ jobs:
 
         BUILDPROF_SCRIPT_EOF
 
-        ASAN_OPTIONS="${ASAN_OPTIONS:+$ASAN_OPTIONS:}detect_leaks=0" "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open -o "$bp_dir/$bp_id-update-apt.buildprof" -- bash --noprofile --norc -eo pipefail "$bp_dir/$bp_id.sh"
+        ( sleep 2700; while true; do echo "=== buildprof survey watchdog: step still running"; ps -eo pid,ppid,stat,etime,wchan:32,args --forest 2>/dev/null | cut -c1-250 || ps; sleep 600; done ) & bp_watch=$!
+
+        bp_rc=0
+
+        ASAN_OPTIONS="${ASAN_OPTIONS:+$ASAN_OPTIONS:}detect_leaks=0" "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open -o "$bp_dir/$bp_id-update-apt.buildprof" -- bash --noprofile --norc -eo pipefail "$bp_dir/$bp_id.sh" || bp_rc=$?
+
+        kill $bp_watch 2>/dev/null; exit $bp_rc
 
         '
       shell: sh
@@ -214,7 +245,13 @@ jobs:
 
         BUILDPROF_SCRIPT_EOF
 
-        ASAN_OPTIONS="${ASAN_OPTIONS:+$ASAN_OPTIONS:}detect_leaks=0" "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open -o "$bp_dir/$bp_id-install-monero-dependencies.buildprof" -- bash --noprofile --norc -eo pipefail "$bp_dir/$bp_id.sh"
+        ( sleep 2700; while true; do echo "=== buildprof survey watchdog: step still running"; ps -eo pid,ppid,stat,etime,wchan:32,args --forest 2>/dev/null | cut -c1-250 || ps; sleep 600; done ) & bp_watch=$!
+
+        bp_rc=0
+
+        ASAN_OPTIONS="${ASAN_OPTIONS:+$ASAN_OPTIONS:}detect_leaks=0" "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open -o "$bp_dir/$bp_id-install-monero-dependencies.buildprof" -- bash --noprofile --norc -eo pipefail "$bp_dir/$bp_id.sh" || bp_rc=$?
+
+        kill $bp_watch 2>/dev/null; exit $bp_rc
 
         '
       shell: sh
@@ -227,7 +264,13 @@ jobs:
 
         BUILDPROF_SCRIPT_EOF
 
-        ASAN_OPTIONS="${ASAN_OPTIONS:+$ASAN_OPTIONS:}detect_leaks=0" "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open -o "$bp_dir/$bp_id-install-rust.buildprof" -- bash --noprofile --norc -eo pipefail "$bp_dir/$bp_id.sh"
+        ( sleep 2700; while true; do echo "=== buildprof survey watchdog: step still running"; ps -eo pid,ppid,stat,etime,wchan:32,args --forest 2>/dev/null | cut -c1-250 || ps; sleep 600; done ) & bp_watch=$!
+
+        bp_rc=0
+
+        ASAN_OPTIONS="${ASAN_OPTIONS:+$ASAN_OPTIONS:}detect_leaks=0" "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open -o "$bp_dir/$bp_id-install-rust.buildprof" -- bash --noprofile --norc -eo pipefail "$bp_dir/$bp_id.sh" || bp_rc=$?
+
+        kill $bp_watch 2>/dev/null; exit $bp_rc
 
         '
       shell: sh
@@ -240,7 +283,13 @@ jobs:
 
         BUILDPROF_SCRIPT_EOF
 
-        ASAN_OPTIONS="${ASAN_OPTIONS:+$ASAN_OPTIONS:}detect_leaks=0" "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open -o "$bp_dir/$bp_id-configure-git.buildprof" -- bash --noprofile --norc -eo pipefail "$bp_dir/$bp_id.sh"
+        ( sleep 2700; while true; do echo "=== buildprof survey watchdog: step still running"; ps -eo pid,ppid,stat,etime,wchan:32,args --forest 2>/dev/null | cut -c1-250 || ps; sleep 600; done ) & bp_watch=$!
+
+        bp_rc=0
+
+        ASAN_OPTIONS="${ASAN_OPTIONS:+$ASAN_OPTIONS:}detect_leaks=0" "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open -o "$bp_dir/$bp_id-configure-git.buildprof" -- bash --noprofile --norc -eo pipefail "$bp_dir/$bp_id.sh" || bp_rc=$?
+
+        kill $bp_watch 2>/dev/null; exit $bp_rc
 
         '
       shell: sh
@@ -275,7 +324,13 @@ jobs:
 
         BUILDPROF_SCRIPT_EOF
 
-        ASAN_OPTIONS="${ASAN_OPTIONS:+$ASAN_OPTIONS:}detect_leaks=0" "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open -o "$bp_dir/$bp_id-build.buildprof" -- bash --noprofile --norc -eo pipefail "$bp_dir/$bp_id.sh"
+        ( sleep 2700; while true; do echo "=== buildprof survey watchdog: step still running"; ps -eo pid,ppid,stat,etime,wchan:32,args --forest 2>/dev/null | cut -c1-250 || ps; sleep 600; done ) & bp_watch=$!
+
+        bp_rc=0
+
+        ASAN_OPTIONS="${ASAN_OPTIONS:+$ASAN_OPTIONS:}detect_leaks=0" "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open -o "$bp_dir/$bp_id-build.buildprof" -- bash --noprofile --norc -eo pipefail "$bp_dir/$bp_id.sh" || bp_rc=$?
+
+        kill $bp_watch 2>/dev/null; exit $bp_rc
 
         '
       shell: sh
@@ -296,6 +351,7 @@ jobs:
         compression-level: 0
     permissions:
       contents: read
+    timeout-minutes: 120
   test-ubuntu:
     name: ${{ matrix.name }} (tests)
     runs-on: ubuntu-latest
@@ -339,7 +395,13 @@ jobs:
 
         BUILDPROF_SCRIPT_EOF
 
-        ASAN_OPTIONS="${ASAN_OPTIONS:+$ASAN_OPTIONS:}detect_leaks=0" "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open -o "$bp_dir/$bp_id-set-apt-conf.buildprof" -- bash --noprofile --norc -eo pipefail "$bp_dir/$bp_id.sh"
+        ( sleep 2700; while true; do echo "=== buildprof survey watchdog: step still running"; ps -eo pid,ppid,stat,etime,wchan:32,args --forest 2>/dev/null | cut -c1-250 || ps; sleep 600; done ) & bp_watch=$!
+
+        bp_rc=0
+
+        ASAN_OPTIONS="${ASAN_OPTIONS:+$ASAN_OPTIONS:}detect_leaks=0" "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open -o "$bp_dir/$bp_id-set-apt-conf.buildprof" -- bash --noprofile --norc -eo pipefail "$bp_dir/$bp_id.sh" || bp_rc=$?
+
+        kill $bp_watch 2>/dev/null; exit $bp_rc
 
         '
       shell: sh
@@ -352,7 +414,13 @@ jobs:
 
         BUILDPROF_SCRIPT_EOF
 
-        ASAN_OPTIONS="${ASAN_OPTIONS:+$ASAN_OPTIONS:}detect_leaks=0" "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open -o "$bp_dir/$bp_id-update-apt.buildprof" -- bash --noprofile --norc -eo pipefail "$bp_dir/$bp_id.sh"
+        ( sleep 2700; while true; do echo "=== buildprof survey watchdog: step still running"; ps -eo pid,ppid,stat,etime,wchan:32,args --forest 2>/dev/null | cut -c1-250 || ps; sleep 600; done ) & bp_watch=$!
+
+        bp_rc=0
+
+        ASAN_OPTIONS="${ASAN_OPTIONS:+$ASAN_OPTIONS:}detect_leaks=0" "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open -o "$bp_dir/$bp_id-update-apt.buildprof" -- bash --noprofile --norc -eo pipefail "$bp_dir/$bp_id.sh" || bp_rc=$?
+
+        kill $bp_watch 2>/dev/null; exit $bp_rc
 
         '
       shell: sh
@@ -365,7 +433,13 @@ jobs:
 
         BUILDPROF_SCRIPT_EOF
 
-        ASAN_OPTIONS="${ASAN_OPTIONS:+$ASAN_OPTIONS:}detect_leaks=0" "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open -o "$bp_dir/$bp_id-install-monero-dependencies.buildprof" -- bash --noprofile --norc -eo pipefail "$bp_dir/$bp_id.sh"
+        ( sleep 2700; while true; do echo "=== buildprof survey watchdog: step still running"; ps -eo pid,ppid,stat,etime,wchan:32,args --forest 2>/dev/null | cut -c1-250 || ps; sleep 600; done ) & bp_watch=$!
+
+        bp_rc=0
+
+        ASAN_OPTIONS="${ASAN_OPTIONS:+$ASAN_OPTIONS:}detect_leaks=0" "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open -o "$bp_dir/$bp_id-install-monero-dependencies.buildprof" -- bash --noprofile --norc -eo pipefail "$bp_dir/$bp_id.sh" || bp_rc=$?
+
+        kill $bp_watch 2>/dev/null; exit $bp_rc
 
         '
       shell: sh
@@ -378,7 +452,13 @@ jobs:
 
         BUILDPROF_SCRIPT_EOF
 
-        ASAN_OPTIONS="${ASAN_OPTIONS:+$ASAN_OPTIONS:}detect_leaks=0" "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open -o "$bp_dir/$bp_id-install-rust.buildprof" -- bash --noprofile --norc -eo pipefail "$bp_dir/$bp_id.sh"
+        ( sleep 2700; while true; do echo "=== buildprof survey watchdog: step still running"; ps -eo pid,ppid,stat,etime,wchan:32,args --forest 2>/dev/null | cut -c1-250 || ps; sleep 600; done ) & bp_watch=$!
+
+        bp_rc=0
+
+        ASAN_OPTIONS="${ASAN_OPTIONS:+$ASAN_OPTIONS:}detect_leaks=0" "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open -o "$bp_dir/$bp_id-install-rust.buildprof" -- bash --noprofile --norc -eo pipefail "$bp_dir/$bp_id.sh" || bp_rc=$?
+
+        kill $bp_watch 2>/dev/null; exit $bp_rc
 
         '
       shell: sh
@@ -391,7 +471,13 @@ jobs:
 
         BUILDPROF_SCRIPT_EOF
 
-        ASAN_OPTIONS="${ASAN_OPTIONS:+$ASAN_OPTIONS:}detect_leaks=0" "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open -o "$bp_dir/$bp_id-install-pip.buildprof" -- bash --noprofile --norc -eo pipefail "$bp_dir/$bp_id.sh"
+        ( sleep 2700; while true; do echo "=== buildprof survey watchdog: step still running"; ps -eo pid,ppid,stat,etime,wchan:32,args --forest 2>/dev/null | cut -c1-250 || ps; sleep 600; done ) & bp_watch=$!
+
+        bp_rc=0
+
+        ASAN_OPTIONS="${ASAN_OPTIONS:+$ASAN_OPTIONS:}detect_leaks=0" "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open -o "$bp_dir/$bp_id-install-pip.buildprof" -- bash --noprofile --norc -eo pipefail "$bp_dir/$bp_id.sh" || bp_rc=$?
+
+        kill $bp_watch 2>/dev/null; exit $bp_rc
 
         '
       shell: sh
@@ -404,7 +490,13 @@ jobs:
 
         BUILDPROF_SCRIPT_EOF
 
-        ASAN_OPTIONS="${ASAN_OPTIONS:+$ASAN_OPTIONS:}detect_leaks=0" "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open -o "$bp_dir/$bp_id-install-Python-dependencies.buildprof" -- bash --noprofile --norc -eo pipefail "$bp_dir/$bp_id.sh"
+        ( sleep 2700; while true; do echo "=== buildprof survey watchdog: step still running"; ps -eo pid,ppid,stat,etime,wchan:32,args --forest 2>/dev/null | cut -c1-250 || ps; sleep 600; done ) & bp_watch=$!
+
+        bp_rc=0
+
+        ASAN_OPTIONS="${ASAN_OPTIONS:+$ASAN_OPTIONS:}detect_leaks=0" "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open -o "$bp_dir/$bp_id-install-Python-dependencies.buildprof" -- bash --noprofile --norc -eo pipefail "$bp_dir/$bp_id.sh" || bp_rc=$?
+
+        kill $bp_watch 2>/dev/null; exit $bp_rc
 
         '
       shell: sh
@@ -417,7 +509,13 @@ jobs:
 
         BUILDPROF_SCRIPT_EOF
 
-        ASAN_OPTIONS="${ASAN_OPTIONS:+$ASAN_OPTIONS:}detect_leaks=0" "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open -o "$bp_dir/$bp_id-configure-git.buildprof" -- bash --noprofile --norc -eo pipefail "$bp_dir/$bp_id.sh"
+        ( sleep 2700; while true; do echo "=== buildprof survey watchdog: step still running"; ps -eo pid,ppid,stat,etime,wchan:32,args --forest 2>/dev/null | cut -c1-250 || ps; sleep 600; done ) & bp_watch=$!
+
+        bp_rc=0
+
+        ASAN_OPTIONS="${ASAN_OPTIONS:+$ASAN_OPTIONS:}detect_leaks=0" "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open -o "$bp_dir/$bp_id-configure-git.buildprof" -- bash --noprofile --norc -eo pipefail "$bp_dir/$bp_id.sh" || bp_rc=$?
+
+        kill $bp_watch 2>/dev/null; exit $bp_rc
 
         '
       shell: sh
@@ -447,7 +545,13 @@ jobs:
 
         BUILDPROF_SCRIPT_EOF
 
-        ASAN_OPTIONS="${ASAN_OPTIONS:+$ASAN_OPTIONS:}detect_leaks=0" "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open -o "$bp_dir/$bp_id-create-dummy-disk-drives-for-testing.buildprof" -- bash --noprofile --norc -eo pipefail "$bp_dir/$bp_id.sh"
+        ( sleep 2700; while true; do echo "=== buildprof survey watchdog: step still running"; ps -eo pid,ppid,stat,etime,wchan:32,args --forest 2>/dev/null | cut -c1-250 || ps; sleep 600; done ) & bp_watch=$!
+
+        bp_rc=0
+
+        ASAN_OPTIONS="${ASAN_OPTIONS:+$ASAN_OPTIONS:}detect_leaks=0" "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open -o "$bp_dir/$bp_id-create-dummy-disk-drives-for-testing.buildprof" -- bash --noprofile --norc -eo pipefail "$bp_dir/$bp_id.sh" || bp_rc=$?
+
+        kill $bp_watch 2>/dev/null; exit $bp_rc
 
         '
       shell: sh
@@ -465,7 +569,13 @@ jobs:
 
         BUILDPROF_SCRIPT_EOF
 
-        ASAN_OPTIONS="${ASAN_OPTIONS:+$ASAN_OPTIONS:}detect_leaks=0" "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open -o "$bp_dir/$bp_id-build.buildprof" -- bash --noprofile --norc -eo pipefail "$bp_dir/$bp_id.sh"
+        ( sleep 2700; while true; do echo "=== buildprof survey watchdog: step still running"; ps -eo pid,ppid,stat,etime,wchan:32,args --forest 2>/dev/null | cut -c1-250 || ps; sleep 600; done ) & bp_watch=$!
+
+        bp_rc=0
+
+        ASAN_OPTIONS="${ASAN_OPTIONS:+$ASAN_OPTIONS:}detect_leaks=0" "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open -o "$bp_dir/$bp_id-build.buildprof" -- bash --noprofile --norc -eo pipefail "$bp_dir/$bp_id.sh" || bp_rc=$?
+
+        kill $bp_watch 2>/dev/null; exit $bp_rc
 
         '
       shell: sh
@@ -480,7 +590,13 @@ jobs:
 
         BUILDPROF_SCRIPT_EOF
 
-        ASAN_OPTIONS="${ASAN_OPTIONS:+$ASAN_OPTIONS:}detect_leaks=0" "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open -o "$bp_dir/$bp_id-run-tests-except-core-tests.buildprof" -- bash --noprofile --norc -eo pipefail "$bp_dir/$bp_id.sh"
+        ( sleep 2700; while true; do echo "=== buildprof survey watchdog: step still running"; ps -eo pid,ppid,stat,etime,wchan:32,args --forest 2>/dev/null | cut -c1-250 || ps; sleep 600; done ) & bp_watch=$!
+
+        bp_rc=0
+
+        ASAN_OPTIONS="${ASAN_OPTIONS:+$ASAN_OPTIONS:}detect_leaks=0" "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open -o "$bp_dir/$bp_id-run-tests-except-core-tests.buildprof" -- bash --noprofile --norc -eo pipefail "$bp_dir/$bp_id.sh" || bp_rc=$?
+
+        kill $bp_watch 2>/dev/null; exit $bp_rc
 
         '
       shell: sh
@@ -499,7 +615,13 @@ jobs:
 
         BUILDPROF_SCRIPT_EOF
 
-        ASAN_OPTIONS="${ASAN_OPTIONS:+$ASAN_OPTIONS:}detect_leaks=0" "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open -o "$bp_dir/$bp_id-use-reduced-slow-hash-iterations-for-cor.buildprof" -- bash --noprofile --norc -eo pipefail "$bp_dir/$bp_id.sh"
+        ( sleep 2700; while true; do echo "=== buildprof survey watchdog: step still running"; ps -eo pid,ppid,stat,etime,wchan:32,args --forest 2>/dev/null | cut -c1-250 || ps; sleep 600; done ) & bp_watch=$!
+
+        bp_rc=0
+
+        ASAN_OPTIONS="${ASAN_OPTIONS:+$ASAN_OPTIONS:}detect_leaks=0" "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open -o "$bp_dir/$bp_id-use-reduced-slow-hash-iterations-for-cor.buildprof" -- bash --noprofile --norc -eo pipefail "$bp_dir/$bp_id.sh" || bp_rc=$?
+
+        kill $bp_watch 2>/dev/null; exit $bp_rc
 
         '
       shell: sh
@@ -512,7 +634,13 @@ jobs:
 
         BUILDPROF_SCRIPT_EOF
 
-        ASAN_OPTIONS="${ASAN_OPTIONS:+$ASAN_OPTIONS:}detect_leaks=0" "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open -o "$bp_dir/$bp_id-run-core-tests.buildprof" -- bash --noprofile --norc -eo pipefail "$bp_dir/$bp_id.sh"
+        ( sleep 2700; while true; do echo "=== buildprof survey watchdog: step still running"; ps -eo pid,ppid,stat,etime,wchan:32,args --forest 2>/dev/null | cut -c1-250 || ps; sleep 600; done ) & bp_watch=$!
+
+        bp_rc=0
+
+        ASAN_OPTIONS="${ASAN_OPTIONS:+$ASAN_OPTIONS:}detect_leaks=0" "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open -o "$bp_dir/$bp_id-run-core-tests.buildprof" -- bash --noprofile --norc -eo pipefail "$bp_dir/$bp_id.sh" || bp_rc=$?
+
+        kill $bp_watch 2>/dev/null; exit $bp_rc
 
         '
       shell: sh
@@ -533,6 +661,7 @@ jobs:
         compression-level: 0
     permissions:
       contents: read
+    timeout-minutes: 120
   build-docker:
     name: Docker
     runs-on: ubuntu-latest
@@ -576,7 +705,13 @@ jobs:
 
         BUILDPROF_SCRIPT_EOF
 
-        ASAN_OPTIONS="${ASAN_OPTIONS:+$ASAN_OPTIONS:}detect_leaks=0" "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open -o "$bp_dir/$bp_id-build-image.buildprof" -- bash --noprofile --norc -eo pipefail "$bp_dir/$bp_id.sh"
+        ( sleep 2700; while true; do echo "=== buildprof survey watchdog: step still running"; ps -eo pid,ppid,stat,etime,wchan:32,args --forest 2>/dev/null | cut -c1-250 || ps; sleep 600; done ) & bp_watch=$!
+
+        bp_rc=0
+
+        ASAN_OPTIONS="${ASAN_OPTIONS:+$ASAN_OPTIONS:}detect_leaks=0" "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open -o "$bp_dir/$bp_id-build-image.buildprof" -- bash --noprofile --norc -eo pipefail "$bp_dir/$bp_id.sh" || bp_rc=$?
+
+        kill $bp_watch 2>/dev/null; exit $bp_rc
 
         '
       shell: sh
@@ -591,6 +726,7 @@ jobs:
         compression-level: 0
     permissions:
       contents: read
+    timeout-minutes: 120
   source-archive:
     name: source archive
     runs-on: ubuntu-latest
@@ -628,7 +764,13 @@ jobs:
 
         BUILDPROF_SCRIPT_EOF
 
-        ASAN_OPTIONS="${ASAN_OPTIONS:+$ASAN_OPTIONS:}detect_leaks=0" "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open -o "$bp_dir/$bp_id-set-apt-conf.buildprof" -- bash --noprofile --norc -eo pipefail "$bp_dir/$bp_id.sh"
+        ( sleep 2700; while true; do echo "=== buildprof survey watchdog: step still running"; ps -eo pid,ppid,stat,etime,wchan:32,args --forest 2>/dev/null | cut -c1-250 || ps; sleep 600; done ) & bp_watch=$!
+
+        bp_rc=0
+
+        ASAN_OPTIONS="${ASAN_OPTIONS:+$ASAN_OPTIONS:}detect_leaks=0" "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open -o "$bp_dir/$bp_id-set-apt-conf.buildprof" -- bash --noprofile --norc -eo pipefail "$bp_dir/$bp_id.sh" || bp_rc=$?
+
+        kill $bp_watch 2>/dev/null; exit $bp_rc
 
         '
       shell: sh
@@ -641,7 +783,13 @@ jobs:
 
         BUILDPROF_SCRIPT_EOF
 
-        ASAN_OPTIONS="${ASAN_OPTIONS:+$ASAN_OPTIONS:}detect_leaks=0" "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open -o "$bp_dir/$bp_id-update-apt.buildprof" -- bash --noprofile --norc -eo pipefail "$bp_dir/$bp_id.sh"
+        ( sleep 2700; while true; do echo "=== buildprof survey watchdog: step still running"; ps -eo pid,ppid,stat,etime,wchan:32,args --forest 2>/dev/null | cut -c1-250 || ps; sleep 600; done ) & bp_watch=$!
+
+        bp_rc=0
+
+        ASAN_OPTIONS="${ASAN_OPTIONS:+$ASAN_OPTIONS:}detect_leaks=0" "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open -o "$bp_dir/$bp_id-update-apt.buildprof" -- bash --noprofile --norc -eo pipefail "$bp_dir/$bp_id.sh" || bp_rc=$?
+
+        kill $bp_watch 2>/dev/null; exit $bp_rc
 
         '
       shell: sh
@@ -654,7 +802,13 @@ jobs:
 
         BUILDPROF_SCRIPT_EOF
 
-        ASAN_OPTIONS="${ASAN_OPTIONS:+$ASAN_OPTIONS:}detect_leaks=0" "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open -o "$bp_dir/$bp_id-install-dependencies.buildprof" -- bash --noprofile --norc -eo pipefail "$bp_dir/$bp_id.sh"
+        ( sleep 2700; while true; do echo "=== buildprof survey watchdog: step still running"; ps -eo pid,ppid,stat,etime,wchan:32,args --forest 2>/dev/null | cut -c1-250 || ps; sleep 600; done ) & bp_watch=$!
+
+        bp_rc=0
+
+        ASAN_OPTIONS="${ASAN_OPTIONS:+$ASAN_OPTIONS:}detect_leaks=0" "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open -o "$bp_dir/$bp_id-install-dependencies.buildprof" -- bash --noprofile --norc -eo pipefail "$bp_dir/$bp_id.sh" || bp_rc=$?
+
+        kill $bp_watch 2>/dev/null; exit $bp_rc
 
         '
       shell: sh
@@ -667,7 +821,13 @@ jobs:
 
         BUILDPROF_SCRIPT_EOF
 
-        ASAN_OPTIONS="${ASAN_OPTIONS:+$ASAN_OPTIONS:}detect_leaks=0" "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open -o "$bp_dir/$bp_id-configure-git.buildprof" -- bash --noprofile --norc -eo pipefail "$bp_dir/$bp_id.sh"
+        ( sleep 2700; while true; do echo "=== buildprof survey watchdog: step still running"; ps -eo pid,ppid,stat,etime,wchan:32,args --forest 2>/dev/null | cut -c1-250 || ps; sleep 600; done ) & bp_watch=$!
+
+        bp_rc=0
+
+        ASAN_OPTIONS="${ASAN_OPTIONS:+$ASAN_OPTIONS:}detect_leaks=0" "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open -o "$bp_dir/$bp_id-configure-git.buildprof" -- bash --noprofile --norc -eo pipefail "$bp_dir/$bp_id.sh" || bp_rc=$?
+
+        kill $bp_watch 2>/dev/null; exit $bp_rc
 
         '
       shell: sh
@@ -699,7 +859,13 @@ jobs:
 
         BUILDPROF_SCRIPT_EOF
 
-        ASAN_OPTIONS="${ASAN_OPTIONS:+$ASAN_OPTIONS:}detect_leaks=0" "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open -o "$bp_dir/$bp_id-archive.buildprof" -- bash --noprofile --norc -eo pipefail "$bp_dir/$bp_id.sh"
+        ( sleep 2700; while true; do echo "=== buildprof survey watchdog: step still running"; ps -eo pid,ppid,stat,etime,wchan:32,args --forest 2>/dev/null | cut -c1-250 || ps; sleep 600; done ) & bp_watch=$!
+
+        bp_rc=0
+
+        ASAN_OPTIONS="${ASAN_OPTIONS:+$ASAN_OPTIONS:}detect_leaks=0" "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open -o "$bp_dir/$bp_id-archive.buildprof" -- bash --noprofile --norc -eo pipefail "$bp_dir/$bp_id.sh" || bp_rc=$?
+
+        kill $bp_watch 2>/dev/null; exit $bp_rc
 
         '
       shell: sh
@@ -718,3 +884,4 @@ jobs:
         compression-level: 0
     permissions:
       contents: read
+    timeout-minutes: 120

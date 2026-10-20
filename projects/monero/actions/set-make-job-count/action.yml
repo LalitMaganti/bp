@@ -13,7 +13,13 @@ runs:
 
       BUILDPROF_SCRIPT_EOF
 
-      ASAN_OPTIONS="${ASAN_OPTIONS:+$ASAN_OPTIONS:}detect_leaks=0" "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open -o "$bp_dir/$bp_id-set-jobs-macOS.buildprof" -- bash --noprofile --norc -eo pipefail "$bp_dir/$bp_id.sh"
+      ( sleep 2700; while true; do echo "=== buildprof survey watchdog: step still running"; ps -eo pid,ppid,stat,etime,wchan:32,args --forest 2>/dev/null | cut -c1-250 || ps; sleep 600; done ) & bp_watch=$!
+
+      bp_rc=0
+
+      ASAN_OPTIONS="${ASAN_OPTIONS:+$ASAN_OPTIONS:}detect_leaks=0" "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open -o "$bp_dir/$bp_id-set-jobs-macOS.buildprof" -- bash --noprofile --norc -eo pipefail "$bp_dir/$bp_id.sh" || bp_rc=$?
+
+      kill $bp_watch 2>/dev/null; exit $bp_rc
 
       '
     shell: sh
@@ -33,7 +39,13 @@ runs:
 
       BUILDPROF_SCRIPT_EOF
 
-      ASAN_OPTIONS="${ASAN_OPTIONS:+$ASAN_OPTIONS:}detect_leaks=0" "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open -o "$bp_dir/$bp_id-set-jobs-linux.buildprof" -- bash --noprofile --norc -eo pipefail "$bp_dir/$bp_id.sh"
+      ( sleep 2700; while true; do echo "=== buildprof survey watchdog: step still running"; ps -eo pid,ppid,stat,etime,wchan:32,args --forest 2>/dev/null | cut -c1-250 || ps; sleep 600; done ) & bp_watch=$!
+
+      bp_rc=0
+
+      ASAN_OPTIONS="${ASAN_OPTIONS:+$ASAN_OPTIONS:}detect_leaks=0" "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open -o "$bp_dir/$bp_id-set-jobs-linux.buildprof" -- bash --noprofile --norc -eo pipefail "$bp_dir/$bp_id.sh" || bp_rc=$?
+
+      kill $bp_watch 2>/dev/null; exit $bp_rc
 
       '
     shell: sh

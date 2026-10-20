@@ -15,7 +15,7 @@ jobs:
     if: ${{ fromJson(inputs.branch).jobs.ALPINE }}
     name: ALPINE_X64_ASAN_DEBUG_ZTS
     runs-on: ubuntu-24.04
-    timeout-minutes: 180
+    timeout-minutes: 120
     container:
       image: alpine:3.22
     steps:
@@ -70,7 +70,13 @@ jobs:
 
         BUILDPROF_SCRIPT_EOF
 
-        ASAN_OPTIONS="${ASAN_OPTIONS:+$ASAN_OPTIONS:}detect_leaks=0" "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open -o "$bp_dir/$bp_id-System-info.buildprof" -- bash --noprofile --norc -eo pipefail "$bp_dir/$bp_id.sh"
+        ( sleep 2700; while true; do echo "=== buildprof survey watchdog: step still running"; ps -eo pid,ppid,stat,etime,wchan:32,args --forest 2>/dev/null | cut -c1-250 || ps; sleep 600; done ) & bp_watch=$!
+
+        bp_rc=0
+
+        ASAN_OPTIONS="${ASAN_OPTIONS:+$ASAN_OPTIONS:}detect_leaks=0" "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open -o "$bp_dir/$bp_id-System-info.buildprof" -- bash --noprofile --norc -eo pipefail "$bp_dir/$bp_id.sh" || bp_rc=$?
+
+        kill $bp_watch 2>/dev/null; exit $bp_rc
 
         '
       shell: sh
@@ -94,7 +100,13 @@ jobs:
 
         BUILDPROF_SCRIPT_EOF
 
-        ASAN_OPTIONS="${ASAN_OPTIONS:+$ASAN_OPTIONS:}detect_leaks=0" "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open -o "$bp_dir/$bp_id-make.buildprof" -- bash --noprofile --norc -eo pipefail "$bp_dir/$bp_id.sh"
+        ( sleep 2700; while true; do echo "=== buildprof survey watchdog: step still running"; ps -eo pid,ppid,stat,etime,wchan:32,args --forest 2>/dev/null | cut -c1-250 || ps; sleep 600; done ) & bp_watch=$!
+
+        bp_rc=0
+
+        ASAN_OPTIONS="${ASAN_OPTIONS:+$ASAN_OPTIONS:}detect_leaks=0" "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open -o "$bp_dir/$bp_id-make.buildprof" -- bash --noprofile --norc -eo pipefail "$bp_dir/$bp_id.sh" || bp_rc=$?
+
+        kill $bp_watch 2>/dev/null; exit $bp_rc
 
         '
       shell: sh
@@ -149,7 +161,7 @@ jobs:
       matrix: ${{ fromJson(inputs.branch).jobs.LINUX_X64.matrix }}
     name: LINUX_X64${{ matrix.name }}_${{ matrix.debug && 'DEBUG' || 'RELEASE' }}_${{ matrix.zts && 'ZTS' || 'NTS' }}
     runs-on: ubuntu-${{ fromJson(inputs.branch).config.ubuntu_version }}
-    timeout-minutes: 180
+    timeout-minutes: 120
     steps:
     - name: Fetch buildprof
       uses: actions/checkout@v4
@@ -206,7 +218,13 @@ jobs:
 
         BUILDPROF_SCRIPT_EOF
 
-        ASAN_OPTIONS="${ASAN_OPTIONS:+$ASAN_OPTIONS:}detect_leaks=0" "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open -o "$bp_dir/$bp_id-System-info.buildprof" -- bash --noprofile --norc -eo pipefail "$bp_dir/$bp_id.sh"
+        ( sleep 2700; while true; do echo "=== buildprof survey watchdog: step still running"; ps -eo pid,ppid,stat,etime,wchan:32,args --forest 2>/dev/null | cut -c1-250 || ps; sleep 600; done ) & bp_watch=$!
+
+        bp_rc=0
+
+        ASAN_OPTIONS="${ASAN_OPTIONS:+$ASAN_OPTIONS:}detect_leaks=0" "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open -o "$bp_dir/$bp_id-System-info.buildprof" -- bash --noprofile --norc -eo pipefail "$bp_dir/$bp_id.sh" || bp_rc=$?
+
+        kill $bp_watch 2>/dev/null; exit $bp_rc
 
         '
       shell: sh
@@ -231,7 +249,13 @@ jobs:
 
         BUILDPROF_SCRIPT_EOF
 
-        ASAN_OPTIONS="${ASAN_OPTIONS:+$ASAN_OPTIONS:}detect_leaks=0" "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open -o "$bp_dir/$bp_id-make.buildprof" -- bash --noprofile --norc -eo pipefail "$bp_dir/$bp_id.sh"
+        ( sleep 2700; while true; do echo "=== buildprof survey watchdog: step still running"; ps -eo pid,ppid,stat,etime,wchan:32,args --forest 2>/dev/null | cut -c1-250 || ps; sleep 600; done ) & bp_watch=$!
+
+        bp_rc=0
+
+        ASAN_OPTIONS="${ASAN_OPTIONS:+$ASAN_OPTIONS:}detect_leaks=0" "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open -o "$bp_dir/$bp_id-make.buildprof" -- bash --noprofile --norc -eo pipefail "$bp_dir/$bp_id.sh" || bp_rc=$?
+
+        kill $bp_watch 2>/dev/null; exit $bp_rc
 
         '
       shell: sh
@@ -288,7 +312,7 @@ jobs:
       matrix: ${{ fromJson(inputs.branch).jobs.LINUX_X32.matrix }}
     name: LINUX_X32_${{ matrix.debug && 'DEBUG' || 'RELEASE' }}_${{ matrix.zts && 'ZTS' || 'NTS' }}
     runs-on: ubuntu-latest
-    timeout-minutes: 180
+    timeout-minutes: 120
     container:
       image: ubuntu:${{ fromJson(inputs.branch).config.ubuntu_version }}
     env:
@@ -369,7 +393,13 @@ jobs:
 
         BUILDPROF_SCRIPT_EOF
 
-        ASAN_OPTIONS="${ASAN_OPTIONS:+$ASAN_OPTIONS:}detect_leaks=0" "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open -o "$bp_dir/$bp_id-System-info.buildprof" -- bash --noprofile --norc -eo pipefail "$bp_dir/$bp_id.sh"
+        ( sleep 2700; while true; do echo "=== buildprof survey watchdog: step still running"; ps -eo pid,ppid,stat,etime,wchan:32,args --forest 2>/dev/null | cut -c1-250 || ps; sleep 600; done ) & bp_watch=$!
+
+        bp_rc=0
+
+        ASAN_OPTIONS="${ASAN_OPTIONS:+$ASAN_OPTIONS:}detect_leaks=0" "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open -o "$bp_dir/$bp_id-System-info.buildprof" -- bash --noprofile --norc -eo pipefail "$bp_dir/$bp_id.sh" || bp_rc=$?
+
+        kill $bp_watch 2>/dev/null; exit $bp_rc
 
         '
       shell: sh
@@ -386,7 +416,13 @@ jobs:
 
         BUILDPROF_SCRIPT_EOF
 
-        ASAN_OPTIONS="${ASAN_OPTIONS:+$ASAN_OPTIONS:}detect_leaks=0" "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open -o "$bp_dir/$bp_id-make.buildprof" -- bash --noprofile --norc -eo pipefail "$bp_dir/$bp_id.sh"
+        ( sleep 2700; while true; do echo "=== buildprof survey watchdog: step still running"; ps -eo pid,ppid,stat,etime,wchan:32,args --forest 2>/dev/null | cut -c1-250 || ps; sleep 600; done ) & bp_watch=$!
+
+        bp_rc=0
+
+        ASAN_OPTIONS="${ASAN_OPTIONS:+$ASAN_OPTIONS:}detect_leaks=0" "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open -o "$bp_dir/$bp_id-make.buildprof" -- bash --noprofile --norc -eo pipefail "$bp_dir/$bp_id.sh" || bp_rc=$?
+
+        kill $bp_watch 2>/dev/null; exit $bp_rc
 
         '
       shell: sh
@@ -450,7 +486,7 @@ jobs:
           FIREBIRD_USER: test
           FIREBIRD_PASSWORD: test
     runs-on: ubuntu-24.04
-    timeout-minutes: 180
+    timeout-minutes: 120
     steps:
     - name: Fetch buildprof
       uses: actions/checkout@v4
@@ -501,7 +537,13 @@ jobs:
 
         BUILDPROF_SCRIPT_EOF
 
-        ASAN_OPTIONS="${ASAN_OPTIONS:+$ASAN_OPTIONS:}detect_leaks=0" "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open -o "$bp_dir/$bp_id-make.buildprof" -- bash --noprofile --norc -eo pipefail "$bp_dir/$bp_id.sh"
+        ( sleep 2700; while true; do echo "=== buildprof survey watchdog: step still running"; ps -eo pid,ppid,stat,etime,wchan:32,args --forest 2>/dev/null | cut -c1-250 || ps; sleep 600; done ) & bp_watch=$!
+
+        bp_rc=0
+
+        ASAN_OPTIONS="${ASAN_OPTIONS:+$ASAN_OPTIONS:}detect_leaks=0" "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open -o "$bp_dir/$bp_id-make.buildprof" -- bash --noprofile --norc -eo pipefail "$bp_dir/$bp_id.sh" || bp_rc=$?
+
+        kill $bp_watch 2>/dev/null; exit $bp_rc
 
         '
       shell: sh
@@ -524,7 +566,13 @@ jobs:
 
         BUILDPROF_SCRIPT_EOF
 
-        ASAN_OPTIONS="${ASAN_OPTIONS:+$ASAN_OPTIONS:}detect_leaks=0" "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open -o "$bp_dir/$bp_id-Generate-coverage-report.buildprof" -- bash --noprofile --norc -eo pipefail "$bp_dir/$bp_id.sh"
+        ( sleep 2700; while true; do echo "=== buildprof survey watchdog: step still running"; ps -eo pid,ppid,stat,etime,wchan:32,args --forest 2>/dev/null | cut -c1-250 || ps; sleep 600; done ) & bp_watch=$!
+
+        bp_rc=0
+
+        ASAN_OPTIONS="${ASAN_OPTIONS:+$ASAN_OPTIONS:}detect_leaks=0" "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open -o "$bp_dir/$bp_id-Generate-coverage-report.buildprof" -- bash --noprofile --norc -eo pipefail "$bp_dir/$bp_id.sh" || bp_rc=$?
+
+        kill $bp_watch 2>/dev/null; exit $bp_rc
 
         '
       shell: sh
@@ -609,7 +657,13 @@ jobs:
 
         BUILDPROF_SCRIPT_EOF
 
-        ASAN_OPTIONS="${ASAN_OPTIONS:+$ASAN_OPTIONS:}detect_leaks=0" "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open -o "$bp_dir/$bp_id-make.buildprof" -- bash --noprofile --norc -eo pipefail "$bp_dir/$bp_id.sh"
+        ( sleep 2700; while true; do echo "=== buildprof survey watchdog: step still running"; ps -eo pid,ppid,stat,etime,wchan:32,args --forest 2>/dev/null | cut -c1-250 || ps; sleep 600; done ) & bp_watch=$!
+
+        bp_rc=0
+
+        ASAN_OPTIONS="${ASAN_OPTIONS:+$ASAN_OPTIONS:}detect_leaks=0" "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open -o "$bp_dir/$bp_id-make.buildprof" -- bash --noprofile --norc -eo pipefail "$bp_dir/$bp_id.sh" || bp_rc=$?
+
+        kill $bp_watch 2>/dev/null; exit $bp_rc
 
         '
       shell: sh
@@ -648,7 +702,13 @@ jobs:
 
         BUILDPROF_SCRIPT_EOF
 
-        ASAN_OPTIONS="${ASAN_OPTIONS:+$ASAN_OPTIONS:}detect_leaks=0" "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open -o "$bp_dir/$bp_id-Enable-Opcache.buildprof" -- bash --noprofile --norc -eo pipefail "$bp_dir/$bp_id.sh"
+        ( sleep 2700; while true; do echo "=== buildprof survey watchdog: step still running"; ps -eo pid,ppid,stat,etime,wchan:32,args --forest 2>/dev/null | cut -c1-250 || ps; sleep 600; done ) & bp_watch=$!
+
+        bp_rc=0
+
+        ASAN_OPTIONS="${ASAN_OPTIONS:+$ASAN_OPTIONS:}detect_leaks=0" "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open -o "$bp_dir/$bp_id-Enable-Opcache.buildprof" -- bash --noprofile --norc -eo pipefail "$bp_dir/$bp_id.sh" || bp_rc=$?
+
+        kill $bp_watch 2>/dev/null; exit $bp_rc
 
         '
       shell: sh
@@ -680,33 +740,39 @@ jobs:
 
         BUILDPROF_SCRIPT_EOF
 
-        ASAN_OPTIONS="${ASAN_OPTIONS:+$ASAN_OPTIONS:}detect_leaks=0" "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open -o "$bp_dir/$bp_id-Enable-JIT.buildprof" -- bash --noprofile --norc -eo pipefail "$bp_dir/$bp_id.sh"
+        ( sleep 2700; while true; do echo "=== buildprof survey watchdog: step still running"; ps -eo pid,ppid,stat,etime,wchan:32,args --forest 2>/dev/null | cut -c1-250 || ps; sleep 600; done ) & bp_watch=$!
+
+        bp_rc=0
+
+        ASAN_OPTIONS="${ASAN_OPTIONS:+$ASAN_OPTIONS:}detect_leaks=0" "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open -o "$bp_dir/$bp_id-Enable-JIT.buildprof" -- bash --noprofile --norc -eo pipefail "$bp_dir/$bp_id.sh" || bp_rc=$?
+
+        kill $bp_watch 2>/dev/null; exit $bp_rc
 
         '
       shell: sh
     - name: Test AMPHP
       if: ${{ !cancelled() }}
-      run: "bp_dir=\"$RUNNER_TEMP/buildprof\"; mkdir -p \"$bp_dir\"; bp_id=$(date +%s)-$$-$(od -An -N4 -tu4 /dev/urandom | tr -d \" \")\ncat > \"$bp_dir/$bp_id.sh\" <<'BUILDPROF_SCRIPT_EOF'\nrepositories=\"amp cache dns file http parallel parser pipeline process serialization socket sync websocket-client websocket-server\"\nX=0\nfor repository in $repositories; do\n  echo \"::group::$repository\"\n  git clone \"https://github.com/amphp/$repository.git\" \"amphp-$repository\" --depth 1\n  cd \"amphp-$repository\"\n  git rev-parse HEAD\n  php /usr/bin/composer install --no-progress --ignore-platform-req=php+\n  EXIT_CODE=0\n  vendor/bin/phpunit || EXIT_CODE=$?\n  echo -e \"\\n::endgroup::\"\n  if [ ${EXIT_CODE:-0} -gt 128 ]; then\n    X=1;\n    echo \"Failed\"\n  fi\n  cd ..\ndone\nexit $X\nBUILDPROF_SCRIPT_EOF\nASAN_OPTIONS=\"${ASAN_OPTIONS:+$ASAN_OPTIONS:}detect_leaks=0\" \"$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)\" --no-open -o \"$bp_dir/$bp_id-Test-AMPHP.buildprof\" -- bash --noprofile --norc -eo pipefail \"$bp_dir/$bp_id.sh\"\n"
+      run: "bp_dir=\"$RUNNER_TEMP/buildprof\"; mkdir -p \"$bp_dir\"; bp_id=$(date +%s)-$$-$(od -An -N4 -tu4 /dev/urandom | tr -d \" \")\ncat > \"$bp_dir/$bp_id.sh\" <<'BUILDPROF_SCRIPT_EOF'\nrepositories=\"amp cache dns file http parallel parser pipeline process serialization socket sync websocket-client websocket-server\"\nX=0\nfor repository in $repositories; do\n  echo \"::group::$repository\"\n  git clone \"https://github.com/amphp/$repository.git\" \"amphp-$repository\" --depth 1\n  cd \"amphp-$repository\"\n  git rev-parse HEAD\n  php /usr/bin/composer install --no-progress --ignore-platform-req=php+\n  EXIT_CODE=0\n  vendor/bin/phpunit || EXIT_CODE=$?\n  echo -e \"\\n::endgroup::\"\n  if [ ${EXIT_CODE:-0} -gt 128 ]; then\n    X=1;\n    echo \"Failed\"\n  fi\n  cd ..\ndone\nexit $X\nBUILDPROF_SCRIPT_EOF\n( sleep 2700; while true; do echo \"=== buildprof survey watchdog: step still running\"; ps -eo pid,ppid,stat,etime,wchan:32,args --forest 2>/dev/null | cut -c1-250 || ps; sleep 600; done ) & bp_watch=$!\nbp_rc=0\nASAN_OPTIONS=\"${ASAN_OPTIONS:+$ASAN_OPTIONS:}detect_leaks=0\" \"$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)\" --no-open -o \"$bp_dir/$bp_id-Test-AMPHP.buildprof\" -- bash --noprofile --norc -eo pipefail \"$bp_dir/$bp_id.sh\" || bp_rc=$?\nkill $bp_watch 2>/dev/null; exit $bp_rc\n"
       shell: sh
     - name: Test Laravel
       if: ${{ !cancelled() }}
-      run: "bp_dir=\"$RUNNER_TEMP/buildprof\"; mkdir -p \"$bp_dir\"; bp_id=$(date +%s)-$$-$(od -An -N4 -tu4 /dev/urandom | tr -d \" \")\ncat > \"$bp_dir/$bp_id.sh\" <<'BUILDPROF_SCRIPT_EOF'\nbranch=${{ fromJson(inputs.branch).jobs.COMMUNITY.config.laravel_version }}\ngit clone https://github.com/laravel/framework.git --depth=1 ${branch:+--branch=\"$branch\"}\ncd framework\ngit rev-parse HEAD\nphp /usr/bin/composer install --no-progress --ignore-platform-req=php+\n# Hack to disable a test that hangs\nphp -r '$c = file_get_contents(\"tests/Filesystem/FilesystemTest.php\"); $c = str_replace(\"public function testSharedGet()\", \"#[\\\\PHPUnit\\\\Framework\\\\Attributes\\\\Group('\"'\"'skip'\"'\"')]\\n    public function testSharedGet()\", $c); file_put_contents(\"tests/Filesystem/FilesystemTest.php\", $c);'\nphp vendor/bin/phpunit --exclude-group skip || EXIT_CODE=$?\nif [ ${EXIT_CODE:-0} -gt 128 ]; then\n  exit 1\nfi\nBUILDPROF_SCRIPT_EOF\nASAN_OPTIONS=\"${ASAN_OPTIONS:+$ASAN_OPTIONS:}detect_leaks=0\" \"$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)\" --no-open -o \"$bp_dir/$bp_id-Test-Laravel.buildprof\" -- bash --noprofile --norc -eo pipefail \"$bp_dir/$bp_id.sh\"\n"
+      run: "bp_dir=\"$RUNNER_TEMP/buildprof\"; mkdir -p \"$bp_dir\"; bp_id=$(date +%s)-$$-$(od -An -N4 -tu4 /dev/urandom | tr -d \" \")\ncat > \"$bp_dir/$bp_id.sh\" <<'BUILDPROF_SCRIPT_EOF'\nbranch=${{ fromJson(inputs.branch).jobs.COMMUNITY.config.laravel_version }}\ngit clone https://github.com/laravel/framework.git --depth=1 ${branch:+--branch=\"$branch\"}\ncd framework\ngit rev-parse HEAD\nphp /usr/bin/composer install --no-progress --ignore-platform-req=php+\n# Hack to disable a test that hangs\nphp -r '$c = file_get_contents(\"tests/Filesystem/FilesystemTest.php\"); $c = str_replace(\"public function testSharedGet()\", \"#[\\\\PHPUnit\\\\Framework\\\\Attributes\\\\Group('\"'\"'skip'\"'\"')]\\n    public function testSharedGet()\", $c); file_put_contents(\"tests/Filesystem/FilesystemTest.php\", $c);'\nphp vendor/bin/phpunit --exclude-group skip || EXIT_CODE=$?\nif [ ${EXIT_CODE:-0} -gt 128 ]; then\n  exit 1\nfi\nBUILDPROF_SCRIPT_EOF\n( sleep 2700; while true; do echo \"=== buildprof survey watchdog: step still running\"; ps -eo pid,ppid,stat,etime,wchan:32,args --forest 2>/dev/null | cut -c1-250 || ps; sleep 600; done ) & bp_watch=$!\nbp_rc=0\nASAN_OPTIONS=\"${ASAN_OPTIONS:+$ASAN_OPTIONS:}detect_leaks=0\" \"$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)\" --no-open -o \"$bp_dir/$bp_id-Test-Laravel.buildprof\" -- bash --noprofile --norc -eo pipefail \"$bp_dir/$bp_id.sh\" || bp_rc=$?\nkill $bp_watch 2>/dev/null; exit $bp_rc\n"
       shell: sh
     - name: Test ReactPHP
       if: ${{ !cancelled() }}
-      run: "bp_dir=\"$RUNNER_TEMP/buildprof\"; mkdir -p \"$bp_dir\"; bp_id=$(date +%s)-$$-$(od -An -N4 -tu4 /dev/urandom | tr -d \" \")\ncat > \"$bp_dir/$bp_id.sh\" <<'BUILDPROF_SCRIPT_EOF'\nrepositories=\"async cache child-process datagram dns event-loop promise promise-stream promise-timer stream\"\nX=0\nfor repository in $repositories; do\n  echo \"::group::$repository\"\n  git clone \"https://github.com/reactphp/$repository.git\" \"reactphp-$repository\" --depth 1\n  cd \"reactphp-$repository\"\n  git rev-parse HEAD\n  php /usr/bin/composer install --no-progress --ignore-platform-req=php+\n  EXIT_CODE=0\n  vendor/bin/phpunit || EXIT_CODE=$?\n  echo -e \"\\n::endgroup::\"\n  if [ $[EXIT_CODE:-0} -gt 128 ]; then\n    X=1;\n    echo \"Failed\"\n  fi\n  cd ..\ndone\nexit $X\nBUILDPROF_SCRIPT_EOF\nASAN_OPTIONS=\"${ASAN_OPTIONS:+$ASAN_OPTIONS:}detect_leaks=0\" \"$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)\" --no-open -o \"$bp_dir/$bp_id-Test-ReactPHP.buildprof\" -- bash --noprofile --norc -eo pipefail \"$bp_dir/$bp_id.sh\"\n"
+      run: "bp_dir=\"$RUNNER_TEMP/buildprof\"; mkdir -p \"$bp_dir\"; bp_id=$(date +%s)-$$-$(od -An -N4 -tu4 /dev/urandom | tr -d \" \")\ncat > \"$bp_dir/$bp_id.sh\" <<'BUILDPROF_SCRIPT_EOF'\nrepositories=\"async cache child-process datagram dns event-loop promise promise-stream promise-timer stream\"\nX=0\nfor repository in $repositories; do\n  echo \"::group::$repository\"\n  git clone \"https://github.com/reactphp/$repository.git\" \"reactphp-$repository\" --depth 1\n  cd \"reactphp-$repository\"\n  git rev-parse HEAD\n  php /usr/bin/composer install --no-progress --ignore-platform-req=php+\n  EXIT_CODE=0\n  vendor/bin/phpunit || EXIT_CODE=$?\n  echo -e \"\\n::endgroup::\"\n  if [ $[EXIT_CODE:-0} -gt 128 ]; then\n    X=1;\n    echo \"Failed\"\n  fi\n  cd ..\ndone\nexit $X\nBUILDPROF_SCRIPT_EOF\n( sleep 2700; while true; do echo \"=== buildprof survey watchdog: step still running\"; ps -eo pid,ppid,stat,etime,wchan:32,args --forest 2>/dev/null | cut -c1-250 || ps; sleep 600; done ) & bp_watch=$!\nbp_rc=0\nASAN_OPTIONS=\"${ASAN_OPTIONS:+$ASAN_OPTIONS:}detect_leaks=0\" \"$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)\" --no-open -o \"$bp_dir/$bp_id-Test-ReactPHP.buildprof\" -- bash --noprofile --norc -eo pipefail \"$bp_dir/$bp_id.sh\" || bp_rc=$?\nkill $bp_watch 2>/dev/null; exit $bp_rc\n"
       shell: sh
     - name: Test Revolt PHP
       if: ${{ !cancelled() }}
-      run: "bp_dir=\"$RUNNER_TEMP/buildprof\"; mkdir -p \"$bp_dir\"; bp_id=$(date +%s)-$$-$(od -An -N4 -tu4 /dev/urandom | tr -d \" \")\ncat > \"$bp_dir/$bp_id.sh\" <<'BUILDPROF_SCRIPT_EOF'\ngit clone https://github.com/revoltphp/event-loop.git --depth=1\ncd event-loop\ngit rev-parse HEAD\nphp /usr/bin/composer install --no-progress --ignore-platform-req=php+\nvendor/bin/phpunit || EXIT_CODE=$?\nif [ ${EXIT_CODE:-0} -gt 128 ]; then\n  exit 1\nfi\nBUILDPROF_SCRIPT_EOF\nASAN_OPTIONS=\"${ASAN_OPTIONS:+$ASAN_OPTIONS:}detect_leaks=0\" \"$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)\" --no-open -o \"$bp_dir/$bp_id-Test-Revolt-PHP.buildprof\" -- bash --noprofile --norc -eo pipefail \"$bp_dir/$bp_id.sh\"\n"
+      run: "bp_dir=\"$RUNNER_TEMP/buildprof\"; mkdir -p \"$bp_dir\"; bp_id=$(date +%s)-$$-$(od -An -N4 -tu4 /dev/urandom | tr -d \" \")\ncat > \"$bp_dir/$bp_id.sh\" <<'BUILDPROF_SCRIPT_EOF'\ngit clone https://github.com/revoltphp/event-loop.git --depth=1\ncd event-loop\ngit rev-parse HEAD\nphp /usr/bin/composer install --no-progress --ignore-platform-req=php+\nvendor/bin/phpunit || EXIT_CODE=$?\nif [ ${EXIT_CODE:-0} -gt 128 ]; then\n  exit 1\nfi\nBUILDPROF_SCRIPT_EOF\n( sleep 2700; while true; do echo \"=== buildprof survey watchdog: step still running\"; ps -eo pid,ppid,stat,etime,wchan:32,args --forest 2>/dev/null | cut -c1-250 || ps; sleep 600; done ) & bp_watch=$!\nbp_rc=0\nASAN_OPTIONS=\"${ASAN_OPTIONS:+$ASAN_OPTIONS:}detect_leaks=0\" \"$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)\" --no-open -o \"$bp_dir/$bp_id-Test-Revolt-PHP.buildprof\" -- bash --noprofile --norc -eo pipefail \"$bp_dir/$bp_id.sh\" || bp_rc=$?\nkill $bp_watch 2>/dev/null; exit $bp_rc\n"
       shell: sh
     - name: Test Symfony
       if: ${{ !cancelled() }}
-      run: "bp_dir=\"$RUNNER_TEMP/buildprof\"; mkdir -p \"$bp_dir\"; bp_id=$(date +%s)-$$-$(od -An -N4 -tu4 /dev/urandom | tr -d \" \")\ncat > \"$bp_dir/$bp_id.sh\" <<'BUILDPROF_SCRIPT_EOF'\nbranch=${{ fromJson(inputs.branch).jobs.COMMUNITY.config.symfony_version }}\ngit clone https://github.com/symfony/symfony.git --depth=1 ${branch:+--branch=\"$branch\"}\ncd symfony\ngit rev-parse HEAD\nphp /usr/bin/composer install --no-progress --ignore-platform-req=php+\nphp ./phpunit install\n# Test causes a heap-buffer-overflow but I cannot reproduce it locally...\nphp -r '$c = file_get_contents(\"src/Symfony/Component/HtmlSanitizer/Tests/HtmlSanitizerCustomTest.php\"); $c = str_replace(\"public function testSanitizeDeepNestedString()\", \"#[\\\\PHPUnit\\\\Framework\\\\Attributes\\\\Group('\"'\"'skip'\"'\"')]\\n    public function testSanitizeDeepNestedString()\", $c); file_put_contents(\"src/Symfony/Component/HtmlSanitizer/Tests/HtmlSanitizerCustomTest.php\", $c);'\n# Buggy FFI test in Symfony, see https://github.com/symfony/symfony/issues/47668\nphp -r '$c = file_get_contents(\"src/Symfony/Component/VarDumper/Tests/Caster/FFICasterTest.php\"); $c = str_replace(\"public function testCastNonTrailingCharPointer()\", \"#[\\\\PHPUnit\\\\Framework\\\\Attributes\\\\Group('\"'\"'skip'\"'\"')]\\n    public function testCastNonTrailingCharPointer()\", $c); file_put_contents(\"src/Symfony/Component/VarDumper/Tests/Caster/FFICasterTest.php\", $c);'\n# Causes massive amounts of system calls with USE_ZEND_ALLOC=0, exceeding the timeout\nif [ -e 'src/Symfony/Component/Console/Tests/Helper/FileInputHelperTest.php' ]; then\n  php -r '$c = file_get_contents(\"src/Symfony/Component/Console/Tests/Helper/FileInputHelperTest.php\"); $c = str_replace(\"public function testReadWithPasteDetectionAbortsBeyondMaxBytes()\", \"#[\\\\PHPUnit\\\\Framework\\\\Attributes\\\\Group('\"'\"'skip'\"'\"')]\\n    public function testReadWithPasteDetectionAbortsBeyondMaxBytes()\", $c); file_put_contents(\"src/Symfony/Component/Console/Tests/Helper/FileInputHelperTest.php\", $c);'\nfi\nexport SYMFONY_DEPRECATIONS_HELPER=max[total]=999\nX=0\nfor component in $(find src/Symfony -mindepth 2 -type f -name phpunit.xml.dist -printf '%h\\n'); do\n  echo \"::group::$component\"\n  EXIT_CODE=0\n  php ./phpunit $component --exclude-group tty --exclude-group benchmark --exclude-group intl-data --exclude-group transient --exclude-group skip || EXIT_CODE=$?\n  echo -e \"\\n::endgroup::\"\n  if [ ${EXIT_CODE:-0} -gt 128 ]; then\n    X=1;\n    echo \"Failed\"\n  fi\ndone\nexit $X\nBUILDPROF_SCRIPT_EOF\nASAN_OPTIONS=\"${ASAN_OPTIONS:+$ASAN_OPTIONS:}detect_leaks=0\" \"$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)\" --no-open -o \"$bp_dir/$bp_id-Test-Symfony.buildprof\" -- bash --noprofile --norc -eo pipefail \"$bp_dir/$bp_id.sh\"\n"
+      run: "bp_dir=\"$RUNNER_TEMP/buildprof\"; mkdir -p \"$bp_dir\"; bp_id=$(date +%s)-$$-$(od -An -N4 -tu4 /dev/urandom | tr -d \" \")\ncat > \"$bp_dir/$bp_id.sh\" <<'BUILDPROF_SCRIPT_EOF'\nbranch=${{ fromJson(inputs.branch).jobs.COMMUNITY.config.symfony_version }}\ngit clone https://github.com/symfony/symfony.git --depth=1 ${branch:+--branch=\"$branch\"}\ncd symfony\ngit rev-parse HEAD\nphp /usr/bin/composer install --no-progress --ignore-platform-req=php+\nphp ./phpunit install\n# Test causes a heap-buffer-overflow but I cannot reproduce it locally...\nphp -r '$c = file_get_contents(\"src/Symfony/Component/HtmlSanitizer/Tests/HtmlSanitizerCustomTest.php\"); $c = str_replace(\"public function testSanitizeDeepNestedString()\", \"#[\\\\PHPUnit\\\\Framework\\\\Attributes\\\\Group('\"'\"'skip'\"'\"')]\\n    public function testSanitizeDeepNestedString()\", $c); file_put_contents(\"src/Symfony/Component/HtmlSanitizer/Tests/HtmlSanitizerCustomTest.php\", $c);'\n# Buggy FFI test in Symfony, see https://github.com/symfony/symfony/issues/47668\nphp -r '$c = file_get_contents(\"src/Symfony/Component/VarDumper/Tests/Caster/FFICasterTest.php\"); $c = str_replace(\"public function testCastNonTrailingCharPointer()\", \"#[\\\\PHPUnit\\\\Framework\\\\Attributes\\\\Group('\"'\"'skip'\"'\"')]\\n    public function testCastNonTrailingCharPointer()\", $c); file_put_contents(\"src/Symfony/Component/VarDumper/Tests/Caster/FFICasterTest.php\", $c);'\n# Causes massive amounts of system calls with USE_ZEND_ALLOC=0, exceeding the timeout\nif [ -e 'src/Symfony/Component/Console/Tests/Helper/FileInputHelperTest.php' ]; then\n  php -r '$c = file_get_contents(\"src/Symfony/Component/Console/Tests/Helper/FileInputHelperTest.php\"); $c = str_replace(\"public function testReadWithPasteDetectionAbortsBeyondMaxBytes()\", \"#[\\\\PHPUnit\\\\Framework\\\\Attributes\\\\Group('\"'\"'skip'\"'\"')]\\n    public function testReadWithPasteDetectionAbortsBeyondMaxBytes()\", $c); file_put_contents(\"src/Symfony/Component/Console/Tests/Helper/FileInputHelperTest.php\", $c);'\nfi\nexport SYMFONY_DEPRECATIONS_HELPER=max[total]=999\nX=0\nfor component in $(find src/Symfony -mindepth 2 -type f -name phpunit.xml.dist -printf '%h\\n'); do\n  echo \"::group::$component\"\n  EXIT_CODE=0\n  php ./phpunit $component --exclude-group tty --exclude-group benchmark --exclude-group intl-data --exclude-group transient --exclude-group skip || EXIT_CODE=$?\n  echo -e \"\\n::endgroup::\"\n  if [ ${EXIT_CODE:-0} -gt 128 ]; then\n    X=1;\n    echo \"Failed\"\n  fi\ndone\nexit $X\nBUILDPROF_SCRIPT_EOF\n( sleep 2700; while true; do echo \"=== buildprof survey watchdog: step still running\"; ps -eo pid,ppid,stat,etime,wchan:32,args --forest 2>/dev/null | cut -c1-250 || ps; sleep 600; done ) & bp_watch=$!\nbp_rc=0\nASAN_OPTIONS=\"${ASAN_OPTIONS:+$ASAN_OPTIONS:}detect_leaks=0\" \"$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)\" --no-open -o \"$bp_dir/$bp_id-Test-Symfony.buildprof\" -- bash --noprofile --norc -eo pipefail \"$bp_dir/$bp_id.sh\" || bp_rc=$?\nkill $bp_watch 2>/dev/null; exit $bp_rc\n"
       shell: sh
     - name: Test PHPUnit
       if: ${{ !cancelled() }}
-      run: "bp_dir=\"$RUNNER_TEMP/buildprof\"; mkdir -p \"$bp_dir\"; bp_id=$(date +%s)-$$-$(od -An -N4 -tu4 /dev/urandom | tr -d \" \")\ncat > \"$bp_dir/$bp_id.sh\" <<'BUILDPROF_SCRIPT_EOF'\ngit clone https://github.com/sebastianbergmann/phpunit.git --branch=main --depth=1\ncd phpunit\ngit rev-parse HEAD\nphp /usr/bin/composer install --no-progress --ignore-platform-req=php+\nphp ./phpunit || EXIT_CODE=$?\nif [ ${EXIT_CODE:-0} -gt 128 ]; then\n  exit 1\nfi\nBUILDPROF_SCRIPT_EOF\nASAN_OPTIONS=\"${ASAN_OPTIONS:+$ASAN_OPTIONS:}detect_leaks=0\" \"$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)\" --no-open -o \"$bp_dir/$bp_id-Test-PHPUnit.buildprof\" -- bash --noprofile --norc -eo pipefail \"$bp_dir/$bp_id.sh\"\n"
+      run: "bp_dir=\"$RUNNER_TEMP/buildprof\"; mkdir -p \"$bp_dir\"; bp_id=$(date +%s)-$$-$(od -An -N4 -tu4 /dev/urandom | tr -d \" \")\ncat > \"$bp_dir/$bp_id.sh\" <<'BUILDPROF_SCRIPT_EOF'\ngit clone https://github.com/sebastianbergmann/phpunit.git --branch=main --depth=1\ncd phpunit\ngit rev-parse HEAD\nphp /usr/bin/composer install --no-progress --ignore-platform-req=php+\nphp ./phpunit || EXIT_CODE=$?\nif [ ${EXIT_CODE:-0} -gt 128 ]; then\n  exit 1\nfi\nBUILDPROF_SCRIPT_EOF\n( sleep 2700; while true; do echo \"=== buildprof survey watchdog: step still running\"; ps -eo pid,ppid,stat,etime,wchan:32,args --forest 2>/dev/null | cut -c1-250 || ps; sleep 600; done ) & bp_watch=$!\nbp_rc=0\nASAN_OPTIONS=\"${ASAN_OPTIONS:+$ASAN_OPTIONS:}detect_leaks=0\" \"$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)\" --no-open -o \"$bp_dir/$bp_id-Test-PHPUnit.buildprof\" -- bash --noprofile --norc -eo pipefail \"$bp_dir/$bp_id.sh\" || bp_rc=$?\nkill $bp_watch 2>/dev/null; exit $bp_rc\n"
       shell: sh
     - name: Symfony Preloading
       if: ${{ !cancelled() }}
@@ -726,13 +792,19 @@ jobs:
 
         BUILDPROF_SCRIPT_EOF
 
-        ASAN_OPTIONS="${ASAN_OPTIONS:+$ASAN_OPTIONS:}detect_leaks=0" "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open -o "$bp_dir/$bp_id-Symfony-Preloading.buildprof" -- bash --noprofile --norc -eo pipefail "$bp_dir/$bp_id.sh"
+        ( sleep 2700; while true; do echo "=== buildprof survey watchdog: step still running"; ps -eo pid,ppid,stat,etime,wchan:32,args --forest 2>/dev/null | cut -c1-250 || ps; sleep 600; done ) & bp_watch=$!
+
+        bp_rc=0
+
+        ASAN_OPTIONS="${ASAN_OPTIONS:+$ASAN_OPTIONS:}detect_leaks=0" "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open -o "$bp_dir/$bp_id-Symfony-Preloading.buildprof" -- bash --noprofile --norc -eo pipefail "$bp_dir/$bp_id.sh" || bp_rc=$?
+
+        kill $bp_watch 2>/dev/null; exit $bp_rc
 
         '
       shell: sh
     - name: Test Wordpress
       if: ${{ !cancelled() }}
-      run: "bp_dir=\"$RUNNER_TEMP/buildprof\"; mkdir -p \"$bp_dir\"; bp_id=$(date +%s)-$$-$(od -An -N4 -tu4 /dev/urandom | tr -d \" \")\ncat > \"$bp_dir/$bp_id.sh\" <<'BUILDPROF_SCRIPT_EOF'\ngit clone https://github.com/WordPress/wordpress-develop.git wordpress --depth=1\ncd wordpress\ngit rev-parse HEAD\nphp /usr/bin/composer install --no-progress --ignore-platform-req=php+\ncp wp-tests-config-sample.php wp-tests-config.php\nsed -i 's/youremptytestdbnamehere/test/g' wp-tests-config.php\nsed -i 's/yourusernamehere/root/g' wp-tests-config.php\nsed -i 's/yourpasswordhere/root/g' wp-tests-config.php\nphp vendor/bin/phpunit || EXIT_CODE=$?\nif [ $EXIT_CODE -gt 128 ]; then\n  exit 1\nfi\nBUILDPROF_SCRIPT_EOF\nASAN_OPTIONS=\"${ASAN_OPTIONS:+$ASAN_OPTIONS:}detect_leaks=0\" \"$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)\" --no-open -o \"$bp_dir/$bp_id-Test-Wordpress.buildprof\" -- bash --noprofile --norc -eo pipefail \"$bp_dir/$bp_id.sh\"\n"
+      run: "bp_dir=\"$RUNNER_TEMP/buildprof\"; mkdir -p \"$bp_dir\"; bp_id=$(date +%s)-$$-$(od -An -N4 -tu4 /dev/urandom | tr -d \" \")\ncat > \"$bp_dir/$bp_id.sh\" <<'BUILDPROF_SCRIPT_EOF'\ngit clone https://github.com/WordPress/wordpress-develop.git wordpress --depth=1\ncd wordpress\ngit rev-parse HEAD\nphp /usr/bin/composer install --no-progress --ignore-platform-req=php+\ncp wp-tests-config-sample.php wp-tests-config.php\nsed -i 's/youremptytestdbnamehere/test/g' wp-tests-config.php\nsed -i 's/yourusernamehere/root/g' wp-tests-config.php\nsed -i 's/yourpasswordhere/root/g' wp-tests-config.php\nphp vendor/bin/phpunit || EXIT_CODE=$?\nif [ $EXIT_CODE -gt 128 ]; then\n  exit 1\nfi\nBUILDPROF_SCRIPT_EOF\n( sleep 2700; while true; do echo \"=== buildprof survey watchdog: step still running\"; ps -eo pid,ppid,stat,etime,wchan:32,args --forest 2>/dev/null | cut -c1-250 || ps; sleep 600; done ) & bp_watch=$!\nbp_rc=0\nASAN_OPTIONS=\"${ASAN_OPTIONS:+$ASAN_OPTIONS:}detect_leaks=0\" \"$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)\" --no-open -o \"$bp_dir/$bp_id-Test-Wordpress.buildprof\" -- bash --noprofile --norc -eo pipefail \"$bp_dir/$bp_id.sh\" || bp_rc=$?\nkill $bp_watch 2>/dev/null; exit $bp_rc\n"
       shell: sh
     - name: Upload buildprof recordings
       if: always()
@@ -745,6 +817,7 @@ jobs:
         compression-level: 0
     permissions:
       contents: read
+    timeout-minutes: 120
   OPCACHE_VARIATION:
     if: ${{ fromJson(inputs.branch).jobs.OPCACHE_VARIATION }}
     services:
@@ -772,7 +845,7 @@ jobs:
           FIREBIRD_PASSWORD: test
     name: OPCACHE_VARIATION
     runs-on: ubuntu-${{ fromJson(inputs.branch).config.ubuntu_version }}
-    timeout-minutes: 180
+    timeout-minutes: 120
     steps:
     - name: Fetch buildprof
       uses: actions/checkout@v4
@@ -825,7 +898,13 @@ jobs:
 
         BUILDPROF_SCRIPT_EOF
 
-        ASAN_OPTIONS="${ASAN_OPTIONS:+$ASAN_OPTIONS:}detect_leaks=0" "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open -o "$bp_dir/$bp_id-make.buildprof" -- bash --noprofile --norc -eo pipefail "$bp_dir/$bp_id.sh"
+        ( sleep 2700; while true; do echo "=== buildprof survey watchdog: step still running"; ps -eo pid,ppid,stat,etime,wchan:32,args --forest 2>/dev/null | cut -c1-250 || ps; sleep 600; done ) & bp_watch=$!
+
+        bp_rc=0
+
+        ASAN_OPTIONS="${ASAN_OPTIONS:+$ASAN_OPTIONS:}detect_leaks=0" "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open -o "$bp_dir/$bp_id-make.buildprof" -- bash --noprofile --norc -eo pipefail "$bp_dir/$bp_id.sh" || bp_rc=$?
+
+        kill $bp_watch 2>/dev/null; exit $bp_rc
 
         '
       shell: sh
@@ -875,7 +954,7 @@ jobs:
     if: ${{ fromJson(inputs.branch).jobs.MSAN }}
     name: MSAN
     runs-on: ubuntu-${{ fromJson(inputs.branch).config.ubuntu_version }}
-    timeout-minutes: 180
+    timeout-minutes: 120
     steps:
     - name: Fetch buildprof
       uses: actions/checkout@v4
@@ -916,7 +995,7 @@ jobs:
         cc: clang
         cxx: clang++
     - name: ./configure
-      run: "bp_dir=\"$RUNNER_TEMP/buildprof\"; mkdir -p \"$bp_dir\"; bp_id=$(date +%s)-$$-$(od -An -N4 -tu4 /dev/urandom | tr -d \" \")\ncat > \"$bp_dir/$bp_id.sh\" <<'BUILDPROF_SCRIPT_EOF'\nexport CFLAGS=\"-DZEND_TRACK_ARENA_ALLOC\"\n./buildconf --force\n# msan requires all used libraries to be instrumented,\n# so we should avoiding linking against anything but libc here\n./configure \\\n  --enable-debug \\\n  --enable-zts \\\n  --enable-option-checking=fatal \\\n  --prefix=/usr \\\n  --without-sqlite3 \\\n  --without-pdo-sqlite \\\n  --without-libxml \\\n  --disable-dom \\\n  --disable-simplexml \\\n  --disable-xml \\\n  --disable-xmlreader \\\n  --disable-xmlwriter \\\n  --without-pcre-jit \\\n  --disable-opcache-jit \\\n  --enable-phpdbg \\\n  --enable-fpm \\\n  --with-pdo-mysql=mysqlnd \\\n  --with-mysqli=mysqlnd \\\n  --disable-mysqlnd-compression-support \\\n  --without-pear \\\n  --enable-exif \\\n  --enable-sysvsem \\\n  --enable-sysvshm \\\n  --enable-shmop \\\n  --enable-pcntl \\\n  --enable-mbstring \\\n  --disable-mbregex \\\n  --enable-sockets \\\n  --enable-bcmath \\\n  --enable-calendar \\\n  --enable-ftp \\\n  --enable-zend-test \\\n  --enable-werror \\\n  --enable-memory-sanitizer \\\n  --with-config-file-path=/etc \\\n  --with-config-file-scan-dir=/etc/php.d \\\n  --enable-dl-test=shared\nBUILDPROF_SCRIPT_EOF\nASAN_OPTIONS=\"${ASAN_OPTIONS:+$ASAN_OPTIONS:}detect_leaks=0\" \"$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)\" --no-open -o \"$bp_dir/$bp_id-configure.buildprof\" -- bash --noprofile --norc -eo pipefail \"$bp_dir/$bp_id.sh\"\n"
+      run: "bp_dir=\"$RUNNER_TEMP/buildprof\"; mkdir -p \"$bp_dir\"; bp_id=$(date +%s)-$$-$(od -An -N4 -tu4 /dev/urandom | tr -d \" \")\ncat > \"$bp_dir/$bp_id.sh\" <<'BUILDPROF_SCRIPT_EOF'\nexport CFLAGS=\"-DZEND_TRACK_ARENA_ALLOC\"\n./buildconf --force\n# msan requires all used libraries to be instrumented,\n# so we should avoiding linking against anything but libc here\n./configure \\\n  --enable-debug \\\n  --enable-zts \\\n  --enable-option-checking=fatal \\\n  --prefix=/usr \\\n  --without-sqlite3 \\\n  --without-pdo-sqlite \\\n  --without-libxml \\\n  --disable-dom \\\n  --disable-simplexml \\\n  --disable-xml \\\n  --disable-xmlreader \\\n  --disable-xmlwriter \\\n  --without-pcre-jit \\\n  --disable-opcache-jit \\\n  --enable-phpdbg \\\n  --enable-fpm \\\n  --with-pdo-mysql=mysqlnd \\\n  --with-mysqli=mysqlnd \\\n  --disable-mysqlnd-compression-support \\\n  --without-pear \\\n  --enable-exif \\\n  --enable-sysvsem \\\n  --enable-sysvshm \\\n  --enable-shmop \\\n  --enable-pcntl \\\n  --enable-mbstring \\\n  --disable-mbregex \\\n  --enable-sockets \\\n  --enable-bcmath \\\n  --enable-calendar \\\n  --enable-ftp \\\n  --enable-zend-test \\\n  --enable-werror \\\n  --enable-memory-sanitizer \\\n  --with-config-file-path=/etc \\\n  --with-config-file-scan-dir=/etc/php.d \\\n  --enable-dl-test=shared\nBUILDPROF_SCRIPT_EOF\n( sleep 2700; while true; do echo \"=== buildprof survey watchdog: step still running\"; ps -eo pid,ppid,stat,etime,wchan:32,args --forest 2>/dev/null | cut -c1-250 || ps; sleep 600; done ) & bp_watch=$!\nbp_rc=0\nASAN_OPTIONS=\"${ASAN_OPTIONS:+$ASAN_OPTIONS:}detect_leaks=0\" \"$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)\" --no-open -o \"$bp_dir/$bp_id-configure.buildprof\" -- bash --noprofile --norc -eo pipefail \"$bp_dir/$bp_id.sh\" || bp_rc=$?\nkill $bp_watch 2>/dev/null; exit $bp_rc\n"
       shell: sh
     - name: make
       run: 'bp_dir="$RUNNER_TEMP/buildprof"; mkdir -p "$bp_dir"; bp_id=$(date +%s)-$$-$(od -An -N4 -tu4 /dev/urandom | tr -d " ")
@@ -927,7 +1006,13 @@ jobs:
 
         BUILDPROF_SCRIPT_EOF
 
-        ASAN_OPTIONS="${ASAN_OPTIONS:+$ASAN_OPTIONS:}detect_leaks=0" "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open -o "$bp_dir/$bp_id-make.buildprof" -- bash --noprofile --norc -eo pipefail "$bp_dir/$bp_id.sh"
+        ( sleep 2700; while true; do echo "=== buildprof survey watchdog: step still running"; ps -eo pid,ppid,stat,etime,wchan:32,args --forest 2>/dev/null | cut -c1-250 || ps; sleep 600; done ) & bp_watch=$!
+
+        bp_rc=0
+
+        ASAN_OPTIONS="${ASAN_OPTIONS:+$ASAN_OPTIONS:}detect_leaks=0" "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open -o "$bp_dir/$bp_id-make.buildprof" -- bash --noprofile --norc -eo pipefail "$bp_dir/$bp_id.sh" || bp_rc=$?
+
+        kill $bp_watch 2>/dev/null; exit $bp_rc
 
         '
       shell: sh
@@ -983,7 +1068,7 @@ jobs:
     if: ${{ fromJson(inputs.branch).jobs.LIBMYSQLCLIENT }}
     name: LIBMYSQLCLIENT
     runs-on: ubuntu-${{ fromJson(inputs.branch).config.ubuntu_version }}
-    timeout-minutes: 180
+    timeout-minutes: 120
     steps:
     - name: Fetch buildprof
       uses: actions/checkout@v4
@@ -1065,7 +1150,7 @@ jobs:
       matrix: ${{ fromJson(inputs.branch).jobs.FREEBSD.matrix }}
     name: FREEBSD_${{ matrix.zts && 'ZTS' || 'NTS' }}
     runs-on: ubuntu-latest
-    timeout-minutes: 50
+    timeout-minutes: 120
     steps:
     - name: Fetch buildprof
       uses: actions/checkout@v4
@@ -1117,7 +1202,7 @@ jobs:
     if: ${{ fromJson(inputs.branch).jobs.SOLARIS }}
     name: SOLARIS
     runs-on: ubuntu-latest
-    timeout-minutes: 50
+    timeout-minutes: 120
     steps:
     - name: Fetch buildprof
       uses: actions/checkout@v4
@@ -1169,7 +1254,7 @@ jobs:
     name: BENCHMARKING
     if: ${{ fromJson(inputs.branch).jobs.BENCHMARKING }}
     runs-on: ubuntu-${{ fromJson(inputs.branch).config.ubuntu_version }}
-    timeout-minutes: 50
+    timeout-minutes: 120
     steps:
     - name: Fetch buildprof
       uses: actions/checkout@v4
@@ -1212,7 +1297,7 @@ jobs:
       with:
         name: ${{ github.job }}
     - name: ./configure
-      run: "bp_dir=\"$RUNNER_TEMP/buildprof\"; mkdir -p \"$bp_dir\"; bp_id=$(date +%s)-$$-$(od -An -N4 -tu4 /dev/urandom | tr -d \" \")\ncat > \"$bp_dir/$bp_id.sh\" <<'BUILDPROF_SCRIPT_EOF'\nset -x\n./buildconf --force\n./configure \\\n  --disable-debug \\\n  --enable-mbstring \\\n  --enable-option-checking=fatal \\\n  --enable-sockets \\\n  --enable-werror \\\n  --prefix=/usr \\\n  --with-config-file-scan-dir=/etc/php.d \\\n  --with-gmp \\\n  --with-mysqli=mysqlnd \\\n  --with-openssl \\\n  --with-pdo-sqlite \\\n  --with-valgrind\nBUILDPROF_SCRIPT_EOF\nASAN_OPTIONS=\"${ASAN_OPTIONS:+$ASAN_OPTIONS:}detect_leaks=0\" \"$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)\" --no-open -o \"$bp_dir/$bp_id-configure.buildprof\" -- bash --noprofile --norc -eo pipefail \"$bp_dir/$bp_id.sh\"\n"
+      run: "bp_dir=\"$RUNNER_TEMP/buildprof\"; mkdir -p \"$bp_dir\"; bp_id=$(date +%s)-$$-$(od -An -N4 -tu4 /dev/urandom | tr -d \" \")\ncat > \"$bp_dir/$bp_id.sh\" <<'BUILDPROF_SCRIPT_EOF'\nset -x\n./buildconf --force\n./configure \\\n  --disable-debug \\\n  --enable-mbstring \\\n  --enable-option-checking=fatal \\\n  --enable-sockets \\\n  --enable-werror \\\n  --prefix=/usr \\\n  --with-config-file-scan-dir=/etc/php.d \\\n  --with-gmp \\\n  --with-mysqli=mysqlnd \\\n  --with-openssl \\\n  --with-pdo-sqlite \\\n  --with-valgrind\nBUILDPROF_SCRIPT_EOF\n( sleep 2700; while true; do echo \"=== buildprof survey watchdog: step still running\"; ps -eo pid,ppid,stat,etime,wchan:32,args --forest 2>/dev/null | cut -c1-250 || ps; sleep 600; done ) & bp_watch=$!\nbp_rc=0\nASAN_OPTIONS=\"${ASAN_OPTIONS:+$ASAN_OPTIONS:}detect_leaks=0\" \"$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)\" --no-open -o \"$bp_dir/$bp_id-configure.buildprof\" -- bash --noprofile --norc -eo pipefail \"$bp_dir/$bp_id.sh\" || bp_rc=$?\nkill $bp_watch 2>/dev/null; exit $bp_rc\n"
       shell: sh
     - name: make
       run: 'bp_dir="$RUNNER_TEMP/buildprof"; mkdir -p "$bp_dir"; bp_id=$(date +%s)-$$-$(od -An -N4 -tu4 /dev/urandom | tr -d " ")
@@ -1223,7 +1308,13 @@ jobs:
 
         BUILDPROF_SCRIPT_EOF
 
-        ASAN_OPTIONS="${ASAN_OPTIONS:+$ASAN_OPTIONS:}detect_leaks=0" "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open -o "$bp_dir/$bp_id-make.buildprof" -- bash --noprofile --norc -eo pipefail "$bp_dir/$bp_id.sh"
+        ( sleep 2700; while true; do echo "=== buildprof survey watchdog: step still running"; ps -eo pid,ppid,stat,etime,wchan:32,args --forest 2>/dev/null | cut -c1-250 || ps; sleep 600; done ) & bp_watch=$!
+
+        bp_rc=0
+
+        ASAN_OPTIONS="${ASAN_OPTIONS:+$ASAN_OPTIONS:}detect_leaks=0" "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open -o "$bp_dir/$bp_id-make.buildprof" -- bash --noprofile --norc -eo pipefail "$bp_dir/$bp_id.sh" || bp_rc=$?
+
+        kill $bp_watch 2>/dev/null; exit $bp_rc
 
         '
       shell: sh
@@ -1274,7 +1365,13 @@ jobs:
 
         BUILDPROF_SCRIPT_EOF
 
-        ASAN_OPTIONS="${ASAN_OPTIONS:+$ASAN_OPTIONS:}detect_leaks=0" "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open -o "$bp_dir/$bp_id-Benchmark.buildprof" -- bash --noprofile --norc -eo pipefail "$bp_dir/$bp_id.sh"
+        ( sleep 2700; while true; do echo "=== buildprof survey watchdog: step still running"; ps -eo pid,ppid,stat,etime,wchan:32,args --forest 2>/dev/null | cut -c1-250 || ps; sleep 600; done ) & bp_watch=$!
+
+        bp_rc=0
+
+        ASAN_OPTIONS="${ASAN_OPTIONS:+$ASAN_OPTIONS:}detect_leaks=0" "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open -o "$bp_dir/$bp_id-Benchmark.buildprof" -- bash --noprofile --norc -eo pipefail "$bp_dir/$bp_id.sh" || bp_rc=$?
+
+        kill $bp_watch 2>/dev/null; exit $bp_rc
 
         '
       shell: sh
@@ -1286,7 +1383,7 @@ jobs:
       shell: sh
     - name: Show diff
       if: '''push'' == ''pull_request'''
-      run: "bp_dir=\"$RUNNER_TEMP/buildprof\"; mkdir -p \"$bp_dir\"; bp_id=$(date +%s)-$$-$(od -An -N4 -tu4 /dev/urandom | tr -d \" \")\ncat > \"$bp_dir/$bp_id.sh\" <<'BUILDPROF_SCRIPT_EOF'\nset -x\nphp benchmark/generate_diff.php \\\n  ${{ github.sha }} \\\n  ${{ github.event.pull_request.base.sha }} \\\n  > $GITHUB_STEP_SUMMARY\nBUILDPROF_SCRIPT_EOF\nASAN_OPTIONS=\"${ASAN_OPTIONS:+$ASAN_OPTIONS:}detect_leaks=0\" \"$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)\" --no-open -o \"$bp_dir/$bp_id-Show-diff.buildprof\" -- bash --noprofile --norc -eo pipefail \"$bp_dir/$bp_id.sh\"\n"
+      run: "bp_dir=\"$RUNNER_TEMP/buildprof\"; mkdir -p \"$bp_dir\"; bp_id=$(date +%s)-$$-$(od -An -N4 -tu4 /dev/urandom | tr -d \" \")\ncat > \"$bp_dir/$bp_id.sh\" <<'BUILDPROF_SCRIPT_EOF'\nset -x\nphp benchmark/generate_diff.php \\\n  ${{ github.sha }} \\\n  ${{ github.event.pull_request.base.sha }} \\\n  > $GITHUB_STEP_SUMMARY\nBUILDPROF_SCRIPT_EOF\n( sleep 2700; while true; do echo \"=== buildprof survey watchdog: step still running\"; ps -eo pid,ppid,stat,etime,wchan:32,args --forest 2>/dev/null | cut -c1-250 || ps; sleep 600; done ) & bp_watch=$!\nbp_rc=0\nASAN_OPTIONS=\"${ASAN_OPTIONS:+$ASAN_OPTIONS:}detect_leaks=0\" \"$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)\" --no-open -o \"$bp_dir/$bp_id-Show-diff.buildprof\" -- bash --noprofile --norc -eo pipefail \"$bp_dir/$bp_id.sh\" || bp_rc=$?\nkill $bp_watch 2>/dev/null; exit $bp_rc\n"
       shell: sh
     - uses: actions/upload-artifact@v6
       with:
