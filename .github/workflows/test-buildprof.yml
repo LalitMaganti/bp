@@ -1,0 +1,26 @@
+name: test buildprof from a branch
+on:
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: Buildprof branch or commit
+        default: ci-recording-fixes
+permissions:
+  contents: read
+jobs:
+  test:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          repository: LalitMaganti/buildprof
+          ref: ${{ inputs.ref }}
+          persist-credentials: false
+      - run: cargo build --locked
+      - run: python3 -m pip install --user pytest perfetto
+      - name: CI recording tests as the runner user
+        run: python3 -m pytest -v tests/conformance/test_ci_recording.py
+      - name: CI recording tests as root
+        run: sudo -E env "PATH=$PATH" BUILDPROF_TEST_USER=runner python3 -m pytest -v tests/conformance/test_ci_recording.py
+      - name: Process tree and CLI tests
+        run: python3 -m pytest -q tests/conformance/test_process_tree.py tests/conformance/test_cli.py
