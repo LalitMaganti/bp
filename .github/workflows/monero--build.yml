@@ -114,9 +114,7 @@ jobs:
     - name: Wrap upstream composite actions
       shell: sh
       working-directory: ${{ github.workspace }}
-      run: 'if [ -n "$(ls -A "$RUNNER_TEMP/buildprof-actions" 2>/dev/null)" ]; then cp -r "$RUNNER_TEMP/buildprof-actions/." "./.github/actions/"; fi
-
-        '
+      run: "if [ -n \"$(ls -A \"$RUNNER_TEMP/buildprof-actions\" 2>/dev/null)\" ]; then\n  cp -r \"$RUNNER_TEMP/buildprof-actions/.\" \"./.github/actions/\"\n  (cd \".\" && git ls-files -m .github/actions | xargs -r git update-index --assume-unchanged) 2>/dev/null || true\nfi\n"
     - name: restore ccache
       uses: actions/cache/restore@v5
       id: ccache-restore
@@ -308,9 +306,7 @@ jobs:
     - name: Wrap upstream composite actions
       shell: sh
       working-directory: ${{ github.workspace }}
-      run: 'if [ -n "$(ls -A "$RUNNER_TEMP/buildprof-actions" 2>/dev/null)" ]; then cp -r "$RUNNER_TEMP/buildprof-actions/." "./.github/actions/"; fi
-
-        '
+      run: "if [ -n \"$(ls -A \"$RUNNER_TEMP/buildprof-actions\" 2>/dev/null)\" ]; then\n  cp -r \"$RUNNER_TEMP/buildprof-actions/.\" \"./.github/actions/\"\n  (cd \".\" && git ls-files -m .github/actions | xargs -r git update-index --assume-unchanged) 2>/dev/null || true\nfi\n"
     - name: restore ccache
       uses: actions/cache/restore@v5
       id: ccache-restore
@@ -538,9 +534,7 @@ jobs:
     - name: Wrap upstream composite actions
       shell: sh
       working-directory: ${{ github.workspace }}
-      run: 'if [ -n "$(ls -A "$RUNNER_TEMP/buildprof-actions" 2>/dev/null)" ]; then cp -r "$RUNNER_TEMP/buildprof-actions/." "./.github/actions/"; fi
-
-        '
+      run: "if [ -n \"$(ls -A \"$RUNNER_TEMP/buildprof-actions\" 2>/dev/null)\" ]; then\n  cp -r \"$RUNNER_TEMP/buildprof-actions/.\" \"./.github/actions/\"\n  (cd \".\" && git ls-files -m .github/actions | xargs -r git update-index --assume-unchanged) 2>/dev/null || true\nfi\n"
     - name: restore ccache
       uses: actions/cache/restore@v5
       id: ccache-restore
@@ -709,9 +703,7 @@ jobs:
     - name: Wrap upstream composite actions
       shell: sh
       working-directory: ${{ github.workspace }}
-      run: 'if [ -n "$(ls -A "$RUNNER_TEMP/buildprof-actions" 2>/dev/null)" ]; then cp -r "$RUNNER_TEMP/buildprof-actions/." "./.github/actions/"; fi
-
-        '
+      run: "if [ -n \"$(ls -A \"$RUNNER_TEMP/buildprof-actions\" 2>/dev/null)\" ]; then\n  cp -r \"$RUNNER_TEMP/buildprof-actions/.\" \"./.github/actions/\"\n  (cd \".\" && git ls-files -m .github/actions | xargs -r git update-index --assume-unchanged) 2>/dev/null || true\nfi\n"
     - name: build image
       run: 'bp_dir="$RUNNER_TEMP/buildprof"; mkdir -p "$bp_dir"; bp_id=$(date +%s)-$$-$(od -An -N4 -tu4 /dev/urandom | tr -d " ")
 
@@ -859,9 +851,7 @@ jobs:
     - name: Wrap upstream composite actions
       shell: sh
       working-directory: ${{ github.workspace }}
-      run: 'if [ -n "$(ls -A "$RUNNER_TEMP/buildprof-actions" 2>/dev/null)" ]; then cp -r "$RUNNER_TEMP/buildprof-actions/." "./.github/actions/"; fi
-
-        '
+      run: "if [ -n \"$(ls -A \"$RUNNER_TEMP/buildprof-actions\" 2>/dev/null)\" ]; then\n  cp -r \"$RUNNER_TEMP/buildprof-actions/.\" \"./.github/actions/\"\n  (cd \".\" && git ls-files -m .github/actions | xargs -r git update-index --assume-unchanged) 2>/dev/null || true\nfi\n"
     - name: archive
       run: 'bp_dir="$RUNNER_TEMP/buildprof"; mkdir -p "$bp_dir"; bp_id=$(date +%s)-$$-$(od -An -N4 -tu4 /dev/urandom | tr -d " ")
 

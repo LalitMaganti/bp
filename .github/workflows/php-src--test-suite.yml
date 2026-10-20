@@ -50,9 +50,7 @@ jobs:
     - name: Wrap upstream composite actions
       shell: sh
       working-directory: ${{ github.workspace }}
-      run: 'if [ -n "$(ls -A "$RUNNER_TEMP/buildprof-actions" 2>/dev/null)" ]; then cp -r "$RUNNER_TEMP/buildprof-actions/." "./.github/actions/"; fi
-
-        '
+      run: "if [ -n \"$(ls -A \"$RUNNER_TEMP/buildprof-actions\" 2>/dev/null)\" ]; then\n  cp -r \"$RUNNER_TEMP/buildprof-actions/.\" \"./.github/actions/\"\n  (cd \".\" && git ls-files -m .github/actions | xargs -r git update-index --assume-unchanged) 2>/dev/null || true\nfi\n"
     - name: apk
       uses: ./.github/actions/apk
     - name: System info
@@ -198,9 +196,7 @@ jobs:
     - name: Wrap upstream composite actions
       shell: sh
       working-directory: ${{ github.workspace }}
-      run: 'if [ -n "$(ls -A "$RUNNER_TEMP/buildprof-actions" 2>/dev/null)" ]; then cp -r "$RUNNER_TEMP/buildprof-actions/." "./.github/actions/"; fi
-
-        '
+      run: "if [ -n \"$(ls -A \"$RUNNER_TEMP/buildprof-actions\" 2>/dev/null)\" ]; then\n  cp -r \"$RUNNER_TEMP/buildprof-actions/.\" \"./.github/actions/\"\n  (cd \".\" && git ls-files -m .github/actions | xargs -r git update-index --assume-unchanged) 2>/dev/null || true\nfi\n"
     - name: Create MSSQL container
       uses: ./.github/actions/setup-mssql
     - name: apt
@@ -377,9 +373,7 @@ jobs:
     - name: Wrap upstream composite actions
       shell: sh
       working-directory: ${{ github.workspace }}
-      run: 'if [ -n "$(ls -A "$RUNNER_TEMP/buildprof-actions" 2>/dev/null)" ]; then cp -r "$RUNNER_TEMP/buildprof-actions/." "./.github/actions/"; fi
-
-        '
+      run: "if [ -n \"$(ls -A \"$RUNNER_TEMP/buildprof-actions\" 2>/dev/null)\" ]; then\n  cp -r \"$RUNNER_TEMP/buildprof-actions/.\" \"./.github/actions/\"\n  (cd \".\" && git ls-files -m .github/actions | xargs -r git update-index --assume-unchanged) 2>/dev/null || true\nfi\n"
     - name: apt
       uses: ./.github/actions/apt-x32
     - name: ccache
@@ -531,9 +525,7 @@ jobs:
     - name: Wrap upstream composite actions
       shell: sh
       working-directory: ${{ github.workspace }}
-      run: 'if [ -n "$(ls -A "$RUNNER_TEMP/buildprof-actions" 2>/dev/null)" ]; then cp -r "$RUNNER_TEMP/buildprof-actions/." "./.github/actions/"; fi
-
-        '
+      run: "if [ -n \"$(ls -A \"$RUNNER_TEMP/buildprof-actions\" 2>/dev/null)\" ]; then\n  cp -r \"$RUNNER_TEMP/buildprof-actions/.\" \"./.github/actions/\"\n  (cd \".\" && git ls-files -m .github/actions | xargs -r git update-index --assume-unchanged) 2>/dev/null || true\nfi\n"
     - name: Create MSSQL container
       uses: ./.github/actions/setup-mssql
     - name: apt
@@ -672,9 +664,7 @@ jobs:
     - name: Wrap upstream composite actions
       shell: sh
       working-directory: ${{ github.workspace }}
-      run: 'if [ -n "$(ls -A "$RUNNER_TEMP/buildprof-actions" 2>/dev/null)" ]; then cp -r "$RUNNER_TEMP/buildprof-actions/." "./.github/actions/"; fi
-
-        '
+      run: "if [ -n \"$(ls -A \"$RUNNER_TEMP/buildprof-actions\" 2>/dev/null)\" ]; then\n  cp -r \"$RUNNER_TEMP/buildprof-actions/.\" \"./.github/actions/\"\n  (cd \".\" && git ls-files -m .github/actions | xargs -r git update-index --assume-unchanged) 2>/dev/null || true\nfi\n"
     - name: apt
       uses: ./.github/actions/apt-x64
     - name: ccache
@@ -930,9 +920,7 @@ jobs:
     - name: Wrap upstream composite actions
       shell: sh
       working-directory: ${{ github.workspace }}
-      run: 'if [ -n "$(ls -A "$RUNNER_TEMP/buildprof-actions" 2>/dev/null)" ]; then cp -r "$RUNNER_TEMP/buildprof-actions/." "./.github/actions/"; fi
-
-        '
+      run: "if [ -n \"$(ls -A \"$RUNNER_TEMP/buildprof-actions\" 2>/dev/null)\" ]; then\n  cp -r \"$RUNNER_TEMP/buildprof-actions/.\" \"./.github/actions/\"\n  (cd \".\" && git ls-files -m .github/actions | xargs -r git update-index --assume-unchanged) 2>/dev/null || true\nfi\n"
     - name: Create MSSQL container
       uses: ./.github/actions/setup-mssql
     - name: apt
@@ -1043,9 +1031,7 @@ jobs:
     - name: Wrap upstream composite actions
       shell: sh
       working-directory: ${{ github.workspace }}
-      run: 'if [ -n "$(ls -A "$RUNNER_TEMP/buildprof-actions" 2>/dev/null)" ]; then cp -r "$RUNNER_TEMP/buildprof-actions/." "./.github/actions/"; fi
-
-        '
+      run: "if [ -n \"$(ls -A \"$RUNNER_TEMP/buildprof-actions\" 2>/dev/null)\" ]; then\n  cp -r \"$RUNNER_TEMP/buildprof-actions/.\" \"./.github/actions/\"\n  (cd \".\" && git ls-files -m .github/actions | xargs -r git update-index --assume-unchanged) 2>/dev/null || true\nfi\n"
     - name: apt
       uses: ./.github/actions/apt-x64
     - name: ccache
@@ -1191,9 +1177,7 @@ jobs:
     - name: Wrap upstream composite actions
       shell: sh
       working-directory: ${{ github.workspace }}
-      run: 'if [ -n "$(ls -A "$RUNNER_TEMP/buildprof-actions" 2>/dev/null)" ]; then cp -r "$RUNNER_TEMP/buildprof-actions/." "./.github/actions/"; fi
-
-        '
+      run: "if [ -n \"$(ls -A \"$RUNNER_TEMP/buildprof-actions\" 2>/dev/null)\" ]; then\n  cp -r \"$RUNNER_TEMP/buildprof-actions/.\" \"./.github/actions/\"\n  (cd \".\" && git ls-files -m .github/actions | xargs -r git update-index --assume-unchanged) 2>/dev/null || true\nfi\n"
     - name: apt
       run: 'bp_dir="$RUNNER_TEMP/buildprof"; mkdir -p "$bp_dir"; bp_id=$(date +%s)-$$-$(od -An -N4 -tu4 /dev/urandom | tr -d " ")
 
@@ -1306,9 +1290,7 @@ jobs:
     - name: Wrap upstream composite actions
       shell: sh
       working-directory: ${{ github.workspace }}
-      run: 'if [ -n "$(ls -A "$RUNNER_TEMP/buildprof-actions" 2>/dev/null)" ]; then cp -r "$RUNNER_TEMP/buildprof-actions/." "./.github/actions/"; fi
-
-        '
+      run: "if [ -n \"$(ls -A \"$RUNNER_TEMP/buildprof-actions\" 2>/dev/null)\" ]; then\n  cp -r \"$RUNNER_TEMP/buildprof-actions/.\" \"./.github/actions/\"\n  (cd \".\" && git ls-files -m .github/actions | xargs -r git update-index --assume-unchanged) 2>/dev/null || true\nfi\n"
     - name: Disable ASLR
       run: 'bp_dir="$RUNNER_TEMP/buildprof"; mkdir -p "$bp_dir"; bp_id=$(date +%s)-$$-$(od -An -N4 -tu4 /dev/urandom | tr -d " ")
 

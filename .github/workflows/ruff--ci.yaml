@@ -68,9 +68,7 @@ jobs:
     - name: Wrap upstream composite actions
       shell: sh
       working-directory: ${{ github.workspace }}
-      run: 'if [ -n "$(ls -A "$RUNNER_TEMP/buildprof-actions" 2>/dev/null)" ]; then cp -r "$RUNNER_TEMP/buildprof-actions/." "./.github/actions/"; fi
-
-        '
+      run: "if [ -n \"$(ls -A \"$RUNNER_TEMP/buildprof-actions\" 2>/dev/null)\" ]; then\n  cp -r \"$RUNNER_TEMP/buildprof-actions/.\" \"./.github/actions/\"\n  (cd \".\" && git ls-files -m .github/actions | xargs -r git update-index --assume-unchanged) 2>/dev/null || true\nfi\n"
     - name: Fetch full history without tags
       env:
         GH_TOKEN: ${{ github.token }}
@@ -209,9 +207,7 @@ jobs:
     - name: Wrap upstream composite actions
       shell: sh
       working-directory: ${{ github.workspace }}
-      run: 'if [ -n "$(ls -A "$RUNNER_TEMP/buildprof-actions" 2>/dev/null)" ]; then cp -r "$RUNNER_TEMP/buildprof-actions/." "./.github/actions/"; fi
-
-        '
+      run: "if [ -n \"$(ls -A \"$RUNNER_TEMP/buildprof-actions\" 2>/dev/null)\" ]; then\n  cp -r \"$RUNNER_TEMP/buildprof-actions/.\" \"./.github/actions/\"\n  (cd \".\" && git ls-files -m .github/actions | xargs -r git update-index --assume-unchanged) 2>/dev/null || true\nfi\n"
     - name: Install Rust toolchain
       run: 'bp_dir="$RUNNER_TEMP/buildprof"; mkdir -p "$bp_dir"; bp_id=$(date +%s)-$$-$(od -An -N4 -tu4 /dev/urandom | tr -d " ")
 
@@ -297,9 +293,7 @@ jobs:
     - name: Wrap upstream composite actions
       shell: sh
       working-directory: ${{ github.workspace }}
-      run: 'if [ -n "$(ls -A "$RUNNER_TEMP/buildprof-actions" 2>/dev/null)" ]; then cp -r "$RUNNER_TEMP/buildprof-actions/." "./.github/actions/"; fi
-
-        '
+      run: "if [ -n \"$(ls -A \"$RUNNER_TEMP/buildprof-actions\" 2>/dev/null)\" ]; then\n  cp -r \"$RUNNER_TEMP/buildprof-actions/.\" \"./.github/actions/\"\n  (cd \".\" && git ls-files -m .github/actions | xargs -r git update-index --assume-unchanged) 2>/dev/null || true\nfi\n"
     - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e
       with:
         go-version: 1.27.3
@@ -359,9 +353,7 @@ jobs:
     - name: Wrap upstream composite actions
       shell: sh
       working-directory: ${{ github.workspace }}
-      run: 'if [ -n "$(ls -A "$RUNNER_TEMP/buildprof-actions" 2>/dev/null)" ]; then cp -r "$RUNNER_TEMP/buildprof-actions/." "./.github/actions/"; fi
-
-        '
+      run: "if [ -n \"$(ls -A \"$RUNNER_TEMP/buildprof-actions\" 2>/dev/null)\" ]; then\n  cp -r \"$RUNNER_TEMP/buildprof-actions/.\" \"./.github/actions/\"\n  (cd \".\" && git ls-files -m .github/actions | xargs -r git update-index --assume-unchanged) 2>/dev/null || true\nfi\n"
     - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6
       with:
         save-if: ${{ 'refs/heads/main' == 'refs/heads/main' }}
@@ -473,9 +465,7 @@ jobs:
     - name: Wrap upstream composite actions
       shell: sh
       working-directory: ${{ github.workspace }}
-      run: 'if [ -n "$(ls -A "$RUNNER_TEMP/buildprof-actions" 2>/dev/null)" ]; then cp -r "$RUNNER_TEMP/buildprof-actions/." "./.github/actions/"; fi
-
-        '
+      run: "if [ -n \"$(ls -A \"$RUNNER_TEMP/buildprof-actions\" 2>/dev/null)\" ]; then\n  cp -r \"$RUNNER_TEMP/buildprof-actions/.\" \"./.github/actions/\"\n  (cd \".\" && git ls-files -m .github/actions | xargs -r git update-index --assume-unchanged) 2>/dev/null || true\nfi\n"
     - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6
       with:
         workspaces: . -> target/hawk
@@ -571,9 +561,7 @@ jobs:
     - name: Wrap upstream composite actions
       shell: sh
       working-directory: ${{ github.workspace }}
-      run: 'if [ -n "$(ls -A "$RUNNER_TEMP/buildprof-actions" 2>/dev/null)" ]; then cp -r "$RUNNER_TEMP/buildprof-actions/." "./.github/actions/"; fi
-
-        '
+      run: "if [ -n \"$(ls -A \"$RUNNER_TEMP/buildprof-actions\" 2>/dev/null)\" ]; then\n  cp -r \"$RUNNER_TEMP/buildprof-actions/.\" \"./.github/actions/\"\n  (cd \".\" && git ls-files -m .github/actions | xargs -r git update-index --assume-unchanged) 2>/dev/null || true\nfi\n"
     - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6
       with:
         save-if: ${{ 'refs/heads/main' == 'refs/heads/main' }}
@@ -647,9 +635,7 @@ jobs:
     - name: Wrap upstream composite actions
       shell: sh
       working-directory: ${{ github.workspace }}
-      run: 'if [ -n "$(ls -A "$RUNNER_TEMP/buildprof-actions" 2>/dev/null)" ]; then cp -r "$RUNNER_TEMP/buildprof-actions/." "./.github/actions/"; fi
-
-        '
+      run: "if [ -n \"$(ls -A \"$RUNNER_TEMP/buildprof-actions\" 2>/dev/null)\" ]; then\n  cp -r \"$RUNNER_TEMP/buildprof-actions/.\" \"./.github/actions/\"\n  (cd \".\" && git ls-files -m .github/actions | xargs -r git update-index --assume-unchanged) 2>/dev/null || true\nfi\n"
     - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6
       with:
         shared-key: ruff-linux-debug
@@ -922,9 +908,7 @@ jobs:
     - name: Wrap upstream composite actions
       shell: sh
       working-directory: ${{ github.workspace }}
-      run: 'if [ -n "$(ls -A "$RUNNER_TEMP/buildprof-actions" 2>/dev/null)" ]; then cp -r "$RUNNER_TEMP/buildprof-actions/." "./.github/actions/"; fi
-
-        '
+      run: "if [ -n \"$(ls -A \"$RUNNER_TEMP/buildprof-actions\" 2>/dev/null)\" ]; then\n  cp -r \"$RUNNER_TEMP/buildprof-actions/.\" \"./.github/actions/\"\n  (cd \".\" && git ls-files -m .github/actions | xargs -r git update-index --assume-unchanged) 2>/dev/null || true\nfi\n"
     - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6
       with:
         save-if: ${{ 'refs/heads/main' == 'refs/heads/main' }}
@@ -1043,9 +1027,7 @@ jobs:
     - name: Wrap upstream composite actions
       shell: sh
       working-directory: ${{ github.workspace }}
-      run: 'if [ -n "$(ls -A "$RUNNER_TEMP/buildprof-actions" 2>/dev/null)" ]; then cp -r "$RUNNER_TEMP/buildprof-actions/." "./.github/actions/"; fi
-
-        '
+      run: "if [ -n \"$(ls -A \"$RUNNER_TEMP/buildprof-actions\" 2>/dev/null)\" ]; then\n  cp -r \"$RUNNER_TEMP/buildprof-actions/.\" \"./.github/actions/\"\n  (cd \".\" && git ls-files -m .github/actions | xargs -r git update-index --assume-unchanged) 2>/dev/null || true\nfi\n"
     - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6
       with:
         save-if: ${{ 'refs/heads/main' == 'refs/heads/main' }}
@@ -1169,9 +1151,7 @@ jobs:
     - name: Wrap upstream composite actions
       shell: sh
       working-directory: ${{ github.workspace }}
-      run: 'if [ -n "$(ls -A "$RUNNER_TEMP/buildprof-actions" 2>/dev/null)" ]; then cp -r "$RUNNER_TEMP/buildprof-actions/." "./.github/actions/"; fi
-
-        '
+      run: "if [ -n \"$(ls -A \"$RUNNER_TEMP/buildprof-actions\" 2>/dev/null)\" ]; then\n  cp -r \"$RUNNER_TEMP/buildprof-actions/.\" \"./.github/actions/\"\n  (cd \".\" && git ls-files -m .github/actions | xargs -r git update-index --assume-unchanged) 2>/dev/null || true\nfi\n"
     - uses: SebRollen/toml-action@b1b3628f55fc3a28208d4203ada8b737e9687876
       id: msrv
       with:
@@ -1273,9 +1253,7 @@ jobs:
     - name: Wrap upstream composite actions
       shell: sh
       working-directory: ${{ github.workspace }}
-      run: 'if [ -n "$(ls -A "$RUNNER_TEMP/buildprof-actions" 2>/dev/null)" ]; then cp -r "$RUNNER_TEMP/buildprof-actions/." "./.github/actions/"; fi
-
-        '
+      run: "if [ -n \"$(ls -A \"$RUNNER_TEMP/buildprof-actions\" 2>/dev/null)\" ]; then\n  cp -r \"$RUNNER_TEMP/buildprof-actions/.\" \"./.github/actions/\"\n  (cd \".\" && git ls-files -m .github/actions | xargs -r git update-index --assume-unchanged) 2>/dev/null || true\nfi\n"
     - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6
       with:
         workspaces: fuzz -> target
@@ -1394,9 +1372,7 @@ jobs:
     - name: Wrap upstream composite actions
       shell: sh
       working-directory: ${{ github.workspace }}
-      run: 'if [ -n "$(ls -A "$RUNNER_TEMP/buildprof-actions" 2>/dev/null)" ]; then cp -r "$RUNNER_TEMP/buildprof-actions/." "./.github/actions/"; fi
-
-        '
+      run: "if [ -n \"$(ls -A \"$RUNNER_TEMP/buildprof-actions\" 2>/dev/null)\" ]; then\n  cp -r \"$RUNNER_TEMP/buildprof-actions/.\" \"./.github/actions/\"\n  (cd \".\" && git ls-files -m .github/actions | xargs -r git update-index --assume-unchanged) 2>/dev/null || true\nfi\n"
     - uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884
       with:
         version: 0.13.4
@@ -1499,9 +1475,7 @@ jobs:
     - name: Wrap upstream composite actions
       shell: sh
       working-directory: ${{ github.workspace }}
-      run: 'if [ -n "$(ls -A "$RUNNER_TEMP/buildprof-actions" 2>/dev/null)" ]; then cp -r "$RUNNER_TEMP/buildprof-actions/." "./.github/actions/"; fi
-
-        '
+      run: "if [ -n \"$(ls -A \"$RUNNER_TEMP/buildprof-actions\" 2>/dev/null)\" ]; then\n  cp -r \"$RUNNER_TEMP/buildprof-actions/.\" \"./.github/actions/\"\n  (cd \".\" && git ls-files -m .github/actions | xargs -r git update-index --assume-unchanged) 2>/dev/null || true\nfi\n"
     - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6
       with:
         save-if: ${{ 'refs/heads/main' == 'refs/heads/main' }}
@@ -1761,9 +1735,7 @@ jobs:
     - name: Wrap upstream composite actions
       shell: sh
       working-directory: ${{ github.workspace }}
-      run: 'if [ -n "$(ls -A "$RUNNER_TEMP/buildprof-actions" 2>/dev/null)" ]; then cp -r "$RUNNER_TEMP/buildprof-actions/." "./.github/actions/"; fi
-
-        '
+      run: "if [ -n \"$(ls -A \"$RUNNER_TEMP/buildprof-actions\" 2>/dev/null)\" ]; then\n  cp -r \"$RUNNER_TEMP/buildprof-actions/.\" \"./.github/actions/\"\n  (cd \".\" && git ls-files -m .github/actions | xargs -r git update-index --assume-unchanged) 2>/dev/null || true\nfi\n"
     - uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884
       with:
         python-version: ${{ env.PYTHON_VERSION }}
@@ -1825,9 +1797,7 @@ jobs:
     - name: Wrap upstream composite actions
       shell: sh
       working-directory: ${{ github.workspace }}
-      run: 'if [ -n "$(ls -A "$RUNNER_TEMP/buildprof-actions" 2>/dev/null)" ]; then cp -r "$RUNNER_TEMP/buildprof-actions/." "./.github/actions/"; fi
-
-        '
+      run: "if [ -n \"$(ls -A \"$RUNNER_TEMP/buildprof-actions\" 2>/dev/null)\" ]; then\n  cp -r \"$RUNNER_TEMP/buildprof-actions/.\" \"./.github/actions/\"\n  (cd \".\" && git ls-files -m .github/actions | xargs -r git update-index --assume-unchanged) 2>/dev/null || true\nfi\n"
     - name: Build comparison version
       run: 'bp_dir="$RUNNER_TEMP/buildprof"; mkdir -p "$bp_dir"; bp_id=$(date +%s)-$$-$(od -An -N4 -tu4 /dev/urandom | tr -d " ")
 
@@ -2082,9 +2052,7 @@ jobs:
     - name: Wrap upstream composite actions
       shell: sh
       working-directory: ${{ github.workspace }}
-      run: 'if [ -n "$(ls -A "$RUNNER_TEMP/buildprof-actions" 2>/dev/null)" ]; then cp -r "$RUNNER_TEMP/buildprof-actions/." "./.github/actions/"; fi
-
-        '
+      run: "if [ -n \"$(ls -A \"$RUNNER_TEMP/buildprof-actions\" 2>/dev/null)\" ]; then\n  cp -r \"$RUNNER_TEMP/buildprof-actions/.\" \"./.github/actions/\"\n  (cd \".\" && git ls-files -m .github/actions | xargs -r git update-index --assume-unchanged) 2>/dev/null || true\nfi\n"
     - name: Fetch full history without tags
       env:
         GH_TOKEN: ${{ github.token }}
@@ -2192,9 +2160,7 @@ jobs:
     - name: Wrap upstream composite actions
       shell: sh
       working-directory: ${{ github.workspace }}
-      run: 'if [ -n "$(ls -A "$RUNNER_TEMP/buildprof-actions" 2>/dev/null)" ]; then cp -r "$RUNNER_TEMP/buildprof-actions/." "./.github/actions/"; fi
-
-        '
+      run: "if [ -n \"$(ls -A \"$RUNNER_TEMP/buildprof-actions\" 2>/dev/null)\" ]; then\n  cp -r \"$RUNNER_TEMP/buildprof-actions/.\" \"./.github/actions/\"\n  (cd \".\" && git ls-files -m .github/actions | xargs -r git update-index --assume-unchanged) 2>/dev/null || true\nfi\n"
     - uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884
       with:
         version: 0.13.4
@@ -2323,9 +2289,7 @@ jobs:
     - name: Wrap upstream composite actions
       shell: sh
       working-directory: ${{ github.workspace }}
-      run: 'if [ -n "$(ls -A "$RUNNER_TEMP/buildprof-actions" 2>/dev/null)" ]; then cp -r "$RUNNER_TEMP/buildprof-actions/." "./.github/actions/"; fi
-
-        '
+      run: "if [ -n \"$(ls -A \"$RUNNER_TEMP/buildprof-actions\" 2>/dev/null)\" ]; then\n  cp -r \"$RUNNER_TEMP/buildprof-actions/.\" \"./.github/actions/\"\n  (cd \".\" && git ls-files -m .github/actions | xargs -r git update-index --assume-unchanged) 2>/dev/null || true\nfi\n"
     - uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884
       with:
         version: 0.13.4
@@ -2399,9 +2363,7 @@ jobs:
     - name: Wrap upstream composite actions
       shell: sh
       working-directory: ${{ github.workspace }}
-      run: 'if [ -n "$(ls -A "$RUNNER_TEMP/buildprof-actions" 2>/dev/null)" ]; then cp -r "$RUNNER_TEMP/buildprof-actions/." "./.github/actions/"; fi
-
-        '
+      run: "if [ -n \"$(ls -A \"$RUNNER_TEMP/buildprof-actions\" 2>/dev/null)\" ]; then\n  cp -r \"$RUNNER_TEMP/buildprof-actions/.\" \"./.github/actions/\"\n  (cd \".\" && git ls-files -m .github/actions | xargs -r git update-index --assume-unchanged) 2>/dev/null || true\nfi\n"
     - uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884
       with:
         version: 0.13.4
@@ -2518,9 +2480,7 @@ jobs:
     - name: Wrap upstream composite actions
       shell: sh
       working-directory: ${{ github.workspace }}
-      run: 'if [ -n "$(ls -A "$RUNNER_TEMP/buildprof-actions" 2>/dev/null)" ]; then cp -r "$RUNNER_TEMP/buildprof-actions/." "./.github/actions/"; fi
-
-        '
+      run: "if [ -n \"$(ls -A \"$RUNNER_TEMP/buildprof-actions\" 2>/dev/null)\" ]; then\n  cp -r \"$RUNNER_TEMP/buildprof-actions/.\" \"./.github/actions/\"\n  (cd \".\" && git ls-files -m .github/actions | xargs -r git update-index --assume-unchanged) 2>/dev/null || true\nfi\n"
     - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97
       with:
         python-version: ${{ env.PYTHON_VERSION }}
@@ -2642,9 +2602,7 @@ jobs:
     - name: Wrap upstream composite actions
       shell: sh
       working-directory: ${{ github.workspace }}
-      run: 'if [ -n "$(ls -A "$RUNNER_TEMP/buildprof-actions" 2>/dev/null)" ]; then cp -r "$RUNNER_TEMP/buildprof-actions/." "./.github/actions/"; fi
-
-        '
+      run: "if [ -n \"$(ls -A \"$RUNNER_TEMP/buildprof-actions\" 2>/dev/null)\" ]; then\n  cp -r \"$RUNNER_TEMP/buildprof-actions/.\" \"./.github/actions/\"\n  (cd \".\" && git ls-files -m .github/actions | xargs -r git update-index --assume-unchanged) 2>/dev/null || true\nfi\n"
     - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97
       with:
         python-version: ${{ env.PYTHON_VERSION }}
@@ -2738,9 +2696,7 @@ jobs:
     - name: Wrap upstream composite actions
       shell: sh
       working-directory: ${{ github.workspace }}
-      run: 'if [ -n "$(ls -A "$RUNNER_TEMP/buildprof-actions" 2>/dev/null)" ]; then cp -r "$RUNNER_TEMP/buildprof-actions/." "./.github/actions/"; fi
-
-        '
+      run: "if [ -n \"$(ls -A \"$RUNNER_TEMP/buildprof-actions\" 2>/dev/null)\" ]; then\n  cp -r \"$RUNNER_TEMP/buildprof-actions/.\" \"./.github/actions/\"\n  (cd \".\" && git ls-files -m .github/actions | xargs -r git update-index --assume-unchanged) 2>/dev/null || true\nfi\n"
     - uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884
       with:
         version: 0.13.4
@@ -2804,9 +2760,7 @@ jobs:
     - name: Wrap upstream composite actions
       shell: sh
       working-directory: ${{ github.workspace }}
-      run: 'if [ -n "$(ls -A "$RUNNER_TEMP/buildprof-actions" 2>/dev/null)" ]; then cp -r "$RUNNER_TEMP/buildprof-actions/." "./.github/actions/"; fi
-
-        '
+      run: "if [ -n \"$(ls -A \"$RUNNER_TEMP/buildprof-actions\" 2>/dev/null)\" ]; then\n  cp -r \"$RUNNER_TEMP/buildprof-actions/.\" \"./.github/actions/\"\n  (cd \".\" && git ls-files -m .github/actions | xargs -r git update-index --assume-unchanged) 2>/dev/null || true\nfi\n"
     - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6
       with:
         save-if: ${{ 'refs/heads/main' == 'refs/heads/main' }}
@@ -2960,9 +2914,7 @@ jobs:
     - name: Wrap upstream composite actions
       shell: sh
       working-directory: ${{ github.workspace }}
-      run: 'if [ -n "$(ls -A "$RUNNER_TEMP/buildprof-actions" 2>/dev/null)" ]; then cp -r "$RUNNER_TEMP/buildprof-actions/." "./.github/actions/"; fi
-
-        '
+      run: "if [ -n \"$(ls -A \"$RUNNER_TEMP/buildprof-actions\" 2>/dev/null)\" ]; then\n  cp -r \"$RUNNER_TEMP/buildprof-actions/.\" \"./.github/actions/\"\n  (cd \".\" && git ls-files -m .github/actions | xargs -r git update-index --assume-unchanged) 2>/dev/null || true\nfi\n"
     - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6
       with:
         save-if: ${{ 'refs/heads/main' == 'refs/heads/main' }}
@@ -3092,9 +3044,7 @@ jobs:
     - name: Wrap upstream composite actions
       shell: sh
       working-directory: ${{ github.workspace }}
-      run: 'if [ -n "$(ls -A "$RUNNER_TEMP/buildprof-actions" 2>/dev/null)" ]; then cp -r "$RUNNER_TEMP/buildprof-actions/." "./.github/actions/"; fi
-
-        '
+      run: "if [ -n \"$(ls -A \"$RUNNER_TEMP/buildprof-actions\" 2>/dev/null)\" ]; then\n  cp -r \"$RUNNER_TEMP/buildprof-actions/.\" \"./.github/actions/\"\n  (cd \".\" && git ls-files -m .github/actions | xargs -r git update-index --assume-unchanged) 2>/dev/null || true\nfi\n"
     - name: Install Rust toolchain
       run: 'bp_dir="$RUNNER_TEMP/buildprof"; mkdir -p "$bp_dir"; bp_id=$(date +%s)-$$-$(od -An -N4 -tu4 /dev/urandom | tr -d " ")
 
@@ -3284,9 +3234,7 @@ jobs:
     - name: Wrap upstream composite actions
       shell: sh
       working-directory: ${{ github.workspace }}
-      run: 'if [ -n "$(ls -A "$RUNNER_TEMP/buildprof-actions" 2>/dev/null)" ]; then cp -r "$RUNNER_TEMP/buildprof-actions/." "./.github/actions/"; fi
-
-        '
+      run: "if [ -n \"$(ls -A \"$RUNNER_TEMP/buildprof-actions\" 2>/dev/null)\" ]; then\n  cp -r \"$RUNNER_TEMP/buildprof-actions/.\" \"./.github/actions/\"\n  (cd \".\" && git ls-files -m .github/actions | xargs -r git update-index --assume-unchanged) 2>/dev/null || true\nfi\n"
     - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6
       with:
         save-if: ${{ 'refs/heads/main' == 'refs/heads/main' }}
@@ -3388,9 +3336,7 @@ jobs:
     - name: Wrap upstream composite actions
       shell: sh
       working-directory: ${{ github.workspace }}
-      run: 'if [ -n "$(ls -A "$RUNNER_TEMP/buildprof-actions" 2>/dev/null)" ]; then cp -r "$RUNNER_TEMP/buildprof-actions/." "./.github/actions/"; fi
-
-        '
+      run: "if [ -n \"$(ls -A \"$RUNNER_TEMP/buildprof-actions\" 2>/dev/null)\" ]; then\n  cp -r \"$RUNNER_TEMP/buildprof-actions/.\" \"./.github/actions/\"\n  (cd \".\" && git ls-files -m .github/actions | xargs -r git update-index --assume-unchanged) 2>/dev/null || true\nfi\n"
     - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6
       with:
         save-if: ${{ 'refs/heads/main' == 'refs/heads/main' }}
@@ -3535,9 +3481,7 @@ jobs:
     - name: Wrap upstream composite actions
       shell: sh
       working-directory: ${{ github.workspace }}
-      run: 'if [ -n "$(ls -A "$RUNNER_TEMP/buildprof-actions" 2>/dev/null)" ]; then cp -r "$RUNNER_TEMP/buildprof-actions/." "./.github/actions/"; fi
-
-        '
+      run: "if [ -n \"$(ls -A \"$RUNNER_TEMP/buildprof-actions\" 2>/dev/null)\" ]; then\n  cp -r \"$RUNNER_TEMP/buildprof-actions/.\" \"./.github/actions/\"\n  (cd \".\" && git ls-files -m .github/actions | xargs -r git update-index --assume-unchanged) 2>/dev/null || true\nfi\n"
     - uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884
       with:
         version: 0.13.4
@@ -3623,9 +3567,7 @@ jobs:
     - name: Wrap upstream composite actions
       shell: sh
       working-directory: ${{ github.workspace }}
-      run: 'if [ -n "$(ls -A "$RUNNER_TEMP/buildprof-actions" 2>/dev/null)" ]; then cp -r "$RUNNER_TEMP/buildprof-actions/." "./.github/actions/"; fi
-
-        '
+      run: "if [ -n \"$(ls -A \"$RUNNER_TEMP/buildprof-actions\" 2>/dev/null)\" ]; then\n  cp -r \"$RUNNER_TEMP/buildprof-actions/.\" \"./.github/actions/\"\n  (cd \".\" && git ls-files -m .github/actions | xargs -r git update-index --assume-unchanged) 2>/dev/null || true\nfi\n"
     - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6
       with:
         save-if: ${{ 'refs/heads/main' == 'refs/heads/main' }}
