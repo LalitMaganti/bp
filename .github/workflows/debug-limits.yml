@@ -1,18 +1,23 @@
-name: debug stack limit under buildprof
+name: debug environment under buildprof
 on: workflow_dispatch
 permissions:
   contents: read
 jobs:
-  limits:
+  env:
     runs-on: ubuntu-24.04
+    env:
+      TMPDIR: /tmp/custom-tmpdir
     steps:
       - uses: actions/checkout@v4
         with:
           sparse-checkout: .buildprof
           persist-credentials: false
       - run: |
+          mkdir -p /tmp/custom-tmpdir
           cp .buildprof/buildprof-x86_64 "$RUNNER_TEMP/bp" && chmod +x "$RUNNER_TEMP/bp"
+          env | sort > "$RUNNER_TEMP/plain.env"
+          "$RUNNER_TEMP/bp" --no-open -o "$RUNNER_TEMP/a.buildprof" -- sh -c 'env | sort' 2>/dev/null | grep -v '^$' | grep -v Recorded > "$RUNNER_TEMP/bp.env"
           sudo setcap cap_sys_ptrace,cap_sys_admin+ep "$RUNNER_TEMP/bp"
-          echo "step shell: soft $(ulimit -S -s) hard $(ulimit -H -s)"; grep 'Max stack' /proc/$$/limits
-          "$RUNNER_TEMP/bp" --no-open -o "$RUNNER_TEMP/t.buildprof" -- sh -c 'echo "under buildprof: soft $(ulimit -S -s) hard $(ulimit -H -s)"; grep "Max stack" /proc/self/limits' 2>&1 | grep -v '^$'
-          sh -c 'echo "sh child: soft $(ulimit -S -s)"; grep "Max stack" /proc/$PPID/limits'
+          "$RUNNER_TEMP/bp" --no-open -o "$RUNNER_TEMP/b.buildprof" -- sh -c 'env | sort' 2>/dev/null | grep -v '^$' | grep -v Recorded > "$RUNNER_TEMP/cap.env"
+          echo "== plain vs buildprof"; diff "$RUNNER_TEMP/plain.env" "$RUNNER_TEMP/bp.env" | grep -v -E '^[<>] _=|^[0-9]' || true
+          echo "== plain vs setcap buildprof"; diff "$RUNNER_TEMP/plain.env" "$RUNNER_TEMP/cap.env" | grep -v -E '^[<>] _=|^[0-9]' || true
