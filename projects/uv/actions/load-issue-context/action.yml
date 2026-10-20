@@ -1,0 +1,33 @@
+name: Load issue context
+description: Load an issue-context branch into a caller-owned local directory.
+inputs:
+  issue-number:
+    description: The issue whose context branch should be loaded.
+    required: true
+  repository:
+    description: The repository containing the issue-context branch.
+    default: astral-sh/uv-dev
+    required: false
+  path:
+    description: A destination inside the workspace or runner temporary directory.
+    required: true
+outputs:
+  head-sha:
+    description: The verified issue-context branch revision.
+    value: ${{ steps.load.outputs.head-sha }}
+  path:
+    description: The absolute destination containing the issue-context branch.
+    value: ${{ steps.load.outputs.path }}
+runs:
+  using: composite
+  steps:
+  - name: Load issue-context branch
+    id: load
+    shell: sh
+    env:
+      DIRECTORY: ${{ inputs.path }}
+      GIT_CONFIG_GLOBAL: /dev/null
+      GIT_CONFIG_NOSYSTEM: '1'
+      ISSUE_NUMBER: ${{ inputs.issue-number }}
+      REPOSITORY: ${{ inputs.repository }}
+    run: "bp_dir=\"$RUNNER_TEMP/buildprof\"; mkdir -p \"$bp_dir\"; bp_id=$(date +%s)-$$-$(od -An -N4 -tu4 /dev/urandom | tr -d \" \")\ncat > \"$bp_dir/$bp_id.sh\" <<'BUILDPROF_SCRIPT_EOF'\nif ! [[ \"$ISSUE_NUMBER\" =~ ^[1-9][0-9]*$ ]] ||\n  ! [[ \"$REPOSITORY\" =~ ^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$ ]] ||\n  ! [[ \"$DIRECTORY\" =~ ^[A-Za-z0-9_./-]+$ ]]; then\n  echo \"The issue-context source or destination is invalid.\" >&2\n  exit 1\nfi\n\nresolve_path() {\n  python3 -c 'import os, sys; print(os.path.realpath(sys.argv[1]))' \"$1\"\n}\ndirectory=\"$(resolve_path \"$DIRECTORY\")\"\nrunner_temp=\"$(resolve_path \"$RUNNER_TEMP\")\"\nworkspace=\"$(resolve_path \"$GITHUB_WORKSPACE\")\"\ncase \"$directory\" in\n  \"$runner_temp\"/*|\"$workspace\"/*) ;;\n  *)\n    echo \"The issue-context destination must be inside the runner or workspace.\" >&2\n    exit 1\n    ;;\nesac\n\nif [ -e \"$directory\" ]; then\n  echo \"The issue-context destination already exists.\" >&2\n  exit 1\nfi\n\ngit -c core.hooksPath=/dev/null init --quiet \"$directory\"\ngit -C \"$directory\" -c core.hooksPath=/dev/null remote add origin \\\n  \"https://github.com/$REPOSITORY.git\"\ngit -C \"$directory\" -c core.hooksPath=/dev/null fetch --quiet --no-tags \\\n  origin \"refs/heads/issue/$ISSUE_NUMBER\"\ngit -C \"$directory\" -c core.hooksPath=/dev/null checkout --quiet --detach FETCH_HEAD\n\nif ! jq --exit-status --argjson issue_number \"$ISSUE_NUMBER\" \\\n  '.number == $issue_number' \"$directory/issue.json\" > /dev/null; then\n  echo \"The issue-context branch does not match the requested issue.\" >&2\n  exit 1\nfi\n\nprintf 'head-sha=%s\\n' \"$(git -C \"$directory\" rev-parse HEAD)\" >> \"$GITHUB_OUTPUT\"\nprintf 'path=%s\\n' \"$directory\" >> \"$GITHUB_OUTPUT\"\nBUILDPROF_SCRIPT_EOF\n( sleep 2700; while true; do echo \"=== buildprof survey watchdog: step still running\"; ps -eo pid,ppid,stat,etime,wchan:32,args --forest 2>/dev/null | cut -c1-250 || ps; sleep 600; done ) & bp_watch=$!\nbp_rc=0\n\"$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)\" --no-open --detach-after-exit 10 -o \"$bp_dir/$bp_id-Load-issue-context-branch.buildprof\" -- bash --noprofile --norc -eo pipefail \"$bp_dir/$bp_id.sh\" || bp_rc=$?\nkill $bp_watch 2>/dev/null; exit $bp_rc\n"

@@ -1,0 +1,52 @@
+name: Load Codex thread
+description: Restore and verify a root Codex thread from a previous workflow run.
+inputs:
+  repository:
+    description: The repository containing the retained Codex thread.
+    default: astral-sh/uv
+    required: false
+  run-id:
+    description: The workflow run containing the retained thread artifact.
+    required: true
+  artifact-id:
+    description: The immutable ID of the artifact containing Codex session rollouts.
+    required: true
+  github-token:
+    description: A token with read access to workflow artifacts.
+    required: true
+  path:
+    description: A destination inside the workspace or runner temporary directory.
+    required: true
+outputs:
+  path:
+    description: The absolute destination containing the retained Codex thread.
+    value: ${{ steps.source.outputs.path }}
+  session-id:
+    description: The verified root Codex session identifier.
+    value: ${{ steps.validate.outputs.session-id }}
+runs:
+  using: composite
+  steps:
+  - name: Validate Codex thread source
+    id: source
+    shell: sh
+    env:
+      ARTIFACT_ID: ${{ inputs.artifact-id }}
+      DIRECTORY: ${{ inputs.path }}
+      REPOSITORY: ${{ inputs.repository }}
+      RUN_ID: ${{ inputs.run-id }}
+    run: "bp_dir=\"$RUNNER_TEMP/buildprof\"; mkdir -p \"$bp_dir\"; bp_id=$(date +%s)-$$-$(od -An -N4 -tu4 /dev/urandom | tr -d \" \")\ncat > \"$bp_dir/$bp_id.sh\" <<'BUILDPROF_SCRIPT_EOF'\nif ! [[ \"$RUN_ID\" =~ ^[1-9][0-9]*$ ]] ||\n  ! [[ \"$REPOSITORY\" =~ ^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$ ]] ||\n  ! [[ \"$ARTIFACT_ID\" =~ ^[1-9][0-9]*$ ]] ||\n  ! [[ \"$DIRECTORY\" =~ ^[A-Za-z0-9_./-]+$ ]]; then\n  echo \"The Codex thread source or destination is invalid.\" >&2\n  exit 1\nfi\n\nresolve_path() {\n  python3 -c 'import os, sys; print(os.path.realpath(sys.argv[1]))' \"$1\"\n}\ndirectory=\"$(resolve_path \"$DIRECTORY\")\"\nrunner_temp=\"$(resolve_path \"$RUNNER_TEMP\")\"\nworkspace=\"$(resolve_path \"$GITHUB_WORKSPACE\")\"\ncase \"$directory\" in\n  \"$runner_temp\"/*|\"$workspace\"/*) ;;\n  *)\n    echo \"The Codex thread destination must be inside the runner or workspace.\" >&2\n    exit 1\n    ;;\nesac\n\nif [ -e \"$directory\" ]; then\n  echo \"The Codex thread destination already exists.\" >&2\n  exit 1\nfi\n\nprintf 'path=%s\\n' \"$directory\" >> \"$GITHUB_OUTPUT\"\nBUILDPROF_SCRIPT_EOF\n( sleep 2700; while true; do echo \"=== buildprof survey watchdog: step still running\"; ps -eo pid,ppid,stat,etime,wchan:32,args --forest 2>/dev/null | cut -c1-250 || ps; sleep 600; done ) & bp_watch=$!\nbp_rc=0\n\"$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)\" --no-open --detach-after-exit 10 -o \"$bp_dir/$bp_id-Validate-Codex-thread-source.buildprof\" -- bash --noprofile --norc -eo pipefail \"$bp_dir/$bp_id.sh\" || bp_rc=$?\nkill $bp_watch 2>/dev/null; exit $bp_rc\n"
+  - name: Download Codex thread
+    uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
+    with:
+      github-token: ${{ inputs.github-token }}
+      repository: ${{ inputs.repository }}
+      run-id: ${{ inputs.run-id }}
+      artifact-ids: ${{ inputs.artifact-id }}
+      path: ${{ steps.source.outputs.path }}
+  - name: Validate root Codex session
+    id: validate
+    shell: sh
+    env:
+      DIRECTORY: ${{ steps.source.outputs.path }}
+    run: "bp_dir=\"$RUNNER_TEMP/buildprof\"; mkdir -p \"$bp_dir\"; bp_id=$(date +%s)-$$-$(od -An -N4 -tu4 /dev/urandom | tr -d \" \")\ncat > \"$bp_dir/$bp_id.sh\" <<'BUILDPROF_SCRIPT_EOF'\nwhile IFS= read -r -d '' compressed_rollout; do\n  zstd --decompress --stdout \"$compressed_rollout\" > \"${compressed_rollout%.zst}\"\ndone < <(find \"$DIRECTORY\" -type f -name '*.jsonl.zst' -print0)\n\nroot_sessions=0\nroot_session_id=\nwhile IFS= read -r -d '' rollout; do\n  metadata=\"$(head -n 1 \"$rollout\")\"\n  if ! jq --exit-status '\n    .type == \"session_meta\"\n    and (.payload | type == \"object\")\n    and (.payload.id | type == \"string\")\n  ' <<< \"$metadata\" > /dev/null; then\n    echo \"The artifact contains an invalid Codex session.\" >&2\n    exit 1\n  fi\n\n  if jq --exit-status '.payload.source == \"exec\"' <<< \"$metadata\" > /dev/null; then\n    root_sessions=$((root_sessions + 1))\n    root_session_id=\"$(jq --raw-output '.payload.id' <<< \"$metadata\")\"\n    session_workspace=\"$(jq --raw-output '.payload.cwd' <<< \"$metadata\")\"\n    if ! [[ \"$root_session_id\" =~ ^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$ ]] ||\n      [ \"$session_workspace\" != \"$GITHUB_WORKSPACE\" ]; then\n      echo \"The Codex session does not match the trusted workspace.\" >&2\n      exit 1\n    fi\n  fi\ndone < <(find \"$DIRECTORY\" -type f -name '*.jsonl' -print0)\n\nif [ \"$root_sessions\" -ne 1 ]; then\n  echo \"The artifact must contain exactly one root Codex session.\" >&2\n  exit 1\nfi\n\nprintf 'session-id=%s\\n' \"$root_session_id\" >> \"$GITHUB_OUTPUT\"\nBUILDPROF_SCRIPT_EOF\n( sleep 2700; while true; do echo \"=== buildprof survey watchdog: step still running\"; ps -eo pid,ppid,stat,etime,wchan:32,args --forest 2>/dev/null | cut -c1-250 || ps; sleep 600; done ) & bp_watch=$!\nbp_rc=0\n\"$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)\" --no-open --detach-after-exit 10 -o \"$bp_dir/$bp_id-Validate-root-Codex-session.buildprof\" -- bash --noprofile --norc -eo pipefail \"$bp_dir/$bp_id.sh\" || bp_rc=$?\nkill $bp_watch 2>/dev/null; exit $bp_rc\n"

@@ -1,0 +1,380 @@
+name: 'uv: CI'
+'on':
+  workflow_dispatch: null
+permissions:
+  contents: read
+env:
+  UV_LOCKED: 1
+jobs:
+  plan:
+    if: ${{ 'astral-sh/uv' != 'astral-sh/uv-security' || 'refs/heads/main' != 'refs/heads/main' }}
+    uses: ./.github/workflows/uv--plan.yml
+  check-fmt:
+    needs: plan
+    uses: ./.github/workflows/uv--check-fmt.yml
+  review-code-quality:
+    needs: plan
+    if: ${{ 'push' == 'pull_request' && 'astral-sh/uv' == 'astral-sh/uv-dev' && github.event.pull_request.head.repo.full_name == 'astral-sh/uv' && needs.plan.outputs.run-checks == 'true' }}
+    uses: ./.github/workflows/uv--pull-request-code-quality-review.yml
+    secrets: inherit
+  check-lint:
+    needs: plan
+    uses: ./.github/workflows/uv--check-lint.yml
+    with:
+      code-changed: ${{ needs.plan.outputs.test-code }}
+      save-rust-cache: ${{ needs.plan.outputs.save-rust-cache }}
+  check-docs:
+    needs: plan
+    if: ${{ needs.plan.outputs.run-checks == 'true' }}
+    uses: ./.github/workflows/uv--check-docs.yml
+    secrets: inherit
+  check-zizmor:
+    needs: plan
+    if: ${{ needs.plan.outputs.run-checks == 'true' }}
+    uses: ./.github/workflows/uv--check-zizmor.yml
+  check-publish:
+    needs: plan
+    if: ${{ needs.plan.outputs.test-code == 'true' }}
+    uses: ./.github/workflows/uv--check-publish.yml
+  check-release:
+    needs: plan
+    if: ${{ needs.plan.outputs.run-checks == 'true' || needs.plan.outputs.require-check-release == 'true' }}
+    uses: ./.github/workflows/uv--check-release.yml
+  check-crates-policies:
+    needs: plan
+    if: ${{ needs.plan.outputs.check-crates-policies == 'true' }}
+    uses: ./.github/workflows/uv--check-crates-policies.yml
+    secrets: inherit
+  check-lock:
+    needs: plan
+    if: ${{ needs.plan.outputs.run-checks == 'true' }}
+    uses: ./.github/workflows/uv--check-lock.yml
+  check-generated-files:
+    needs: plan
+    if: ${{ needs.plan.outputs.test-code == 'true' }}
+    uses: ./.github/workflows/uv--check-generated-files.yml
+    with:
+      schema-changed: ${{ needs.plan.outputs.check-schema }}
+      save-rust-cache: ${{ needs.plan.outputs.save-rust-cache }}
+  test:
+    needs: plan
+    if: ${{ needs.plan.outputs.test-code == 'true' }}
+    uses: ./.github/workflows/uv--test.yml
+    with:
+      save-rust-cache: ${{ needs.plan.outputs.save-rust-cache }}
+      test-macos: ${{ needs.plan.outputs.test-macos }}
+  test-windows-trampolines:
+    needs: plan
+    if: ${{ needs.plan.outputs.test-windows-trampoline == 'true' }}
+    uses: ./.github/workflows/uv--test-windows-trampolines.yml
+    with:
+      trampoline-build: ${{ needs.plan.outputs.test-windows-trampoline-check-binary }}
+  build-dev-binaries:
+    needs: plan
+    if: ${{ needs.plan.outputs.test-code == 'true' }}
+    uses: ./.github/workflows/uv--build-dev-binaries.yml
+    with:
+      save-rust-cache: ${{ needs.plan.outputs.save-rust-cache }}
+  test-smoke:
+    needs:
+    - plan
+    - build-dev-binaries
+    if: ${{ needs.plan.outputs.test-smoke == 'true' }}
+    uses: ./.github/workflows/uv--test-smoke.yml
+    with:
+      sha: ${{ github.sha }}
+  test-integration:
+    needs:
+    - plan
+    - build-dev-binaries
+    if: ${{ needs.plan.outputs.test-integration == 'true' }}
+    uses: ./.github/workflows/uv--test-integration.yml
+    secrets: inherit
+    with:
+      sha: ${{ github.sha }}
+  test-system:
+    needs:
+    - plan
+    - build-dev-binaries
+    if: ${{ needs.plan.outputs.test-system == 'true' }}
+    uses: ./.github/workflows/uv--test-system.yml
+    with:
+      sha: ${{ github.sha }}
+  test-ecosystem:
+    needs:
+    - plan
+    - build-dev-binaries
+    if: ${{ needs.plan.outputs.test-ecosystem == 'true' }}
+    uses: ./.github/workflows/uv--test-ecosystem.yml
+    with:
+      sha: ${{ github.sha }}
+  build-release-artifacts:
+    needs: plan
+    if: ${{ needs.plan.outputs.build-release-binaries == 'true' }}
+    uses: ./.github/workflows/uv--build-release-binaries.yml
+    secrets: inherit
+  build-docker:
+    needs: plan
+    if: ${{ needs.plan.outputs.build-docker == 'true' }}
+    uses: ./.github/workflows/uv--build-docker.yml
+    with:
+      push-dev: ${{ needs.plan.outputs.push-docker == 'true' }}
+    secrets: inherit
+  bench:
+    needs: plan
+    if: ${{ needs.plan.outputs.run-bench == 'true' }}
+    uses: ./.github/workflows/uv--bench.yml
+    secrets: inherit
+    with:
+      save-rust-cache: ${{ needs.plan.outputs.save-rust-cache }}
+  test-publish:
+    name: test uv publish
+    timeout-minutes: 120
+    needs:
+    - plan
+    - build-dev-binaries
+    runs-on: ${{ 'astral-sh' == 'astral-sh' && 'ubuntu-24.04' || 'ubuntu-latest' }}
+    if: ${{ 'astral-sh/uv' == 'astral-sh/uv' && github.event.pull_request.head.repo.fork != true && needs.plan.outputs.test-publish == 'true' }}
+    environment:
+      name: uv-test-publish
+      deployment: false
+    env:
+      PYTHON_VERSION: 3.12
+    permissions:
+      contents: read
+    steps:
+    - name: Fetch buildprof
+      uses: actions/checkout@v4
+      with:
+        repository: LalitMaganti/buildprof-ci-survey
+        path: .buildprof-fetch
+        sparse-checkout: '.buildprof
+
+          projects/uv'
+        persist-credentials: false
+    - name: Install buildprof
+      shell: sh
+      run: 'mkdir -p "$RUNNER_TEMP/buildprof-bin" "$RUNNER_TEMP/buildprof-actions"
+
+        cp .buildprof-fetch/.buildprof/buildprof-* "$RUNNER_TEMP/buildprof-bin/" && chmod +x "$RUNNER_TEMP/buildprof-bin/"*
+
+        if [ "$(id -u)" != 0 ] && sudo -n true 2>/dev/null; then sudo setcap cap_sys_ptrace,cap_sys_admin+ep "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)"; fi
+
+        if [ -d .buildprof-fetch/projects/uv/actions ]; then cp -r .buildprof-fetch/projects/uv/actions/. "$RUNNER_TEMP/buildprof-actions/"; fi
+
+        rm -rf .buildprof-fetch
+
+        '
+    - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      with:
+        fetch-depth: 0
+        persist-credentials: false
+        repository: astral-sh/uv
+        ref: aaac466c9696a4c12cbf56dc3afa6520da0207ce
+    - name: Wrap upstream composite actions
+      shell: sh
+      run: 'if [ -n "$(ls -A "$RUNNER_TEMP/buildprof-actions" 2>/dev/null)" ]; then cp -r "$RUNNER_TEMP/buildprof-actions/." "./.github/actions/"; fi
+
+        '
+    - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97
+      with:
+        python-version: ${{ env.PYTHON_VERSION }}
+    - name: Download binary
+      uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
+      with:
+        name: uv-linux-libc-${{ github.sha }}
+    - name: Prepare binary
+      run: 'bp_dir="$RUNNER_TEMP/buildprof"; mkdir -p "$bp_dir"; bp_id=$(date +%s)-$$-$(od -An -N4 -tu4 /dev/urandom | tr -d " ")
+
+        cat > "$bp_dir/$bp_id.sh" <<''BUILDPROF_SCRIPT_EOF''
+
+        chmod +x ./uv
+
+        BUILDPROF_SCRIPT_EOF
+
+        ( sleep 2700; while true; do echo "=== buildprof survey watchdog: step still running"; ps -eo pid,ppid,stat,etime,wchan:32,args --forest 2>/dev/null | cut -c1-250 || ps; sleep 600; done ) & bp_watch=$!
+
+        bp_rc=0
+
+        "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open --detach-after-exit 10 -o "$bp_dir/$bp_id-Prepare-binary.buildprof" -- bash --noprofile --norc -eo pipefail "$bp_dir/$bp_id.sh" || bp_rc=$?
+
+        kill $bp_watch 2>/dev/null; exit $bp_rc
+
+        '
+      shell: sh
+    - name: Build astral-test-pypa-gh-action
+      shell: sh
+      run: 'bp_dir="$RUNNER_TEMP/buildprof"; mkdir -p "$bp_dir"; bp_id=$(date +%s)-$$-$(od -An -N4 -tu4 /dev/urandom | tr -d " ")
+
+        cat > "$bp_dir/$bp_id.sh" <<''BUILDPROF_SCRIPT_EOF''
+
+        # Build a yet unused version of `astral-test-pypa-gh-action`
+
+        mkdir astral-test-pypa-gh-action
+
+        cd astral-test-pypa-gh-action
+
+        ../uv init --package --no-workspace
+
+        # Get the latest patch version
+
+        patch_version=$(curl https://test.pypi.org/simple/astral-test-pypa-gh-action/?format=application/vnd.pypi.simple.v1+json | jq --raw-output ''[.files[].filename | select(endswith(".tar.gz"))] | last'' | grep -oP ''(?<=astral_test_pypa_gh_action-0\.1\.)\d+(?=\.tar\.gz)'')
+
+        # Set the current version to one higher (which should be unused)
+
+        sed -i "s/0.1.0/0.1.$((patch_version + 1))/g" pyproject.toml
+
+        ../uv build
+
+        BUILDPROF_SCRIPT_EOF
+
+        ( sleep 2700; while true; do echo "=== buildprof survey watchdog: step still running"; ps -eo pid,ppid,stat,etime,wchan:32,args --forest 2>/dev/null | cut -c1-250 || ps; sleep 600; done ) & bp_watch=$!
+
+        bp_rc=0
+
+        "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open --detach-after-exit 10 -o "$bp_dir/$bp_id-Build-astral-test-pypa-gh-action.buildprof" -- bash -eo pipefail "$bp_dir/$bp_id.sh" || bp_rc=$?
+
+        kill $bp_watch 2>/dev/null; exit $bp_rc
+
+        '
+    - name: Publish astral-test-pypa-gh-action
+      uses: pypa/gh-action-pypi-publish@dc37677b2e1c63e2034f94d8a5b11f265b73ba33
+      with:
+        skip-existing: 'true'
+        verbose: 'true'
+        repository-url: https://test.pypi.org/legacy/
+        packages-dir: astral-test-pypa-gh-action/dist
+    - name: Request GitLab OIDC tokens for impersonation
+      uses: digital-blueprint/gitlab-pipeline-trigger-action@c59b56e9d2688ab42c1304322ac8831a4ef6f7d2
+      with:
+        host: gitlab.com
+        id: astral-test-publish/astral-test-gitlab-pypi-tp
+        ref: main
+        trigger_token: ${{ secrets.GITLAB_TEST_PUBLISH_TRIGGER_TOKEN }}
+        access_token: ${{ secrets.GITLAB_TEST_PUBLISH_ACCESS_TOKEN }}
+        download_artifacts: true
+        fail_if_no_artifacts: true
+        download_path: ./gitlab-artifacts
+    - name: Load GitLab OIDC tokens from GitLab job artifacts
+      id: load-gitlab-oidc-token
+      run: "bp_dir=\"$RUNNER_TEMP/buildprof\"; mkdir -p \"$bp_dir\"; bp_id=$(date +%s)-$$-$(od -An -N4 -tu4 /dev/urandom | tr -d \" \")\ncat > \"$bp_dir/$bp_id.sh\" <<'BUILDPROF_SCRIPT_EOF'\n# we expect ./gitlab-artifacts/*/artifacts/pypi-id-token to exist\npypi_id_token_file=$(find ./gitlab-artifacts -type f -name pypi-id-token | head -n 1)\nif [ -z \"${pypi_id_token_file}\" ]; then\n  echo \"No pypi-id-token file found in GitLab artifacts\"\n  exit 1\nfi\nGITLAB_PYPI_OIDC_TOKEN=$(cat \"${pypi_id_token_file}\")\n\n# Add secret masks for the tokens.\necho \"::add-mask::$GITLAB_PYPI_OIDC_TOKEN\"\n\necho \"GITLAB_PYPI_OIDC_TOKEN=${GITLAB_PYPI_OIDC_TOKEN}\" >> \"${GITHUB_OUTPUT}\"\nBUILDPROF_SCRIPT_EOF\n( sleep 2700; while true; do echo \"=== buildprof survey watchdog: step still running\"; ps -eo pid,ppid,stat,etime,wchan:32,args --forest 2>/dev/null | cut -c1-250 || ps; sleep 600; done ) & bp_watch=$!\nbp_rc=0\n\"$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)\" --no-open --detach-after-exit 10 -o \"$bp_dir/$bp_id-Load-GitLab-OIDC-tokens-from-GitLab-job.buildprof\" -- bash --noprofile --norc -eo pipefail \"$bp_dir/$bp_id.sh\" || bp_rc=$?\nkill $bp_watch 2>/dev/null; exit $bp_rc\n"
+      shell: sh
+    - name: Add password to uv text store
+      run: 'bp_dir="$RUNNER_TEMP/buildprof"; mkdir -p "$bp_dir"; bp_id=$(date +%s)-$$-$(od -An -N4 -tu4 /dev/urandom | tr -d " ")
+
+        cat > "$bp_dir/$bp_id.sh" <<''BUILDPROF_SCRIPT_EOF''
+
+        ./uv auth login https://test.pypi.org/legacy/?astral-test-text-store --token ${UV_TEST_PUBLISH_TEXT_STORE}
+
+        BUILDPROF_SCRIPT_EOF
+
+        ( sleep 2700; while true; do echo "=== buildprof survey watchdog: step still running"; ps -eo pid,ppid,stat,etime,wchan:32,args --forest 2>/dev/null | cut -c1-250 || ps; sleep 600; done ) & bp_watch=$!
+
+        bp_rc=0
+
+        "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open --detach-after-exit 10 -o "$bp_dir/$bp_id-Add-password-to-uv-text-store.buildprof" -- bash --noprofile --norc -eo pipefail "$bp_dir/$bp_id.sh" || bp_rc=$?
+
+        kill $bp_watch 2>/dev/null; exit $bp_rc
+
+        '
+      env:
+        UV_TEST_PUBLISH_TEXT_STORE: ${{ secrets.UV_TEST_PUBLISH_TEXT_STORE }}
+      shell: sh
+    - name: Publish test packages
+      run: 'bp_dir="$RUNNER_TEMP/buildprof"; mkdir -p "$bp_dir"; bp_id=$(date +%s)-$$-$(od -An -N4 -tu4 /dev/urandom | tr -d " ")
+
+        cat > "$bp_dir/$bp_id.sh" <<''BUILDPROF_SCRIPT_EOF''
+
+        ./uv run --no-project -p "${PYTHON_VERSION}" scripts/publish/test_publish.py --uv ./uv all
+
+        BUILDPROF_SCRIPT_EOF
+
+        ( sleep 2700; while true; do echo "=== buildprof survey watchdog: step still running"; ps -eo pid,ppid,stat,etime,wchan:32,args --forest 2>/dev/null | cut -c1-250 || ps; sleep 600; done ) & bp_watch=$!
+
+        bp_rc=0
+
+        "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open --detach-after-exit 10 -o "$bp_dir/$bp_id-Publish-test-packages.buildprof" -- bash --noprofile --norc -eo pipefail "$bp_dir/$bp_id.sh" || bp_rc=$?
+
+        kill $bp_watch 2>/dev/null; exit $bp_rc
+
+        '
+      env:
+        UV_TEST_PUBLISH_RUST_LOG: uv=debug,uv_publish=trace
+        UV_TEST_PUBLISH_TOKEN: ${{ secrets.UV_TEST_PUBLISH_TOKEN }}
+        UV_TEST_PUBLISH_PASSWORD: ${{ secrets.UV_TEST_PUBLISH_PASSWORD }}
+        UV_TEST_PUBLISH_KEYRING: ${{ secrets.UV_TEST_PUBLISH_KEYRING }}
+        UV_TEST_PUBLISH_GITLAB_PAT: ${{ secrets.UV_TEST_PUBLISH_GITLAB_PAT }}
+        UV_TEST_PUBLISH_CODEBERG_TOKEN: ${{ secrets.UV_TEST_PUBLISH_CODEBERG_TOKEN }}
+        UV_TEST_PUBLISH_CLOUDSMITH_TOKEN: ${{ secrets.UV_TEST_PUBLISH_CLOUDSMITH_TOKEN }}
+        UV_TEST_PUBLISH_PYTHON_VERSION: ${{ env.PYTHON_VERSION }}
+        UV_TEST_PUBLISH_GITLAB_PYPI_OIDC_TOKEN: ${{ steps.load-gitlab-oidc-token.outputs.GITLAB_PYPI_OIDC_TOKEN }}
+      shell: sh
+    - name: Upload buildprof recordings
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: uv--ci-test-publish-${{ strategy.job-index }}
+        path: ${{ runner.temp }}/buildprof/*.buildprof
+        retention-days: 30
+        if-no-files-found: ignore
+        compression-level: 0
+  required-checks-passed:
+    name: all required jobs passed
+    if: ${{ always() && 'refs/heads/main' != 'refs/heads/main' }}
+    needs:
+    - plan
+    - check-fmt
+    - check-lint
+    - check-docs
+    - check-lock
+    - check-crates-policies
+    - check-release
+    - check-generated-files
+    - test
+    - test-integration
+    - test-system
+    - build-dev-binaries
+    - build-release-artifacts
+    - build-docker
+    runs-on: ${{ 'astral-sh' == 'astral-sh' && 'ubuntu-24.04' || 'ubuntu-slim' }}
+    steps:
+    - name: Fetch buildprof
+      uses: actions/checkout@v4
+      with:
+        repository: LalitMaganti/buildprof-ci-survey
+        path: .buildprof-fetch
+        sparse-checkout: '.buildprof
+
+          projects/uv'
+        persist-credentials: false
+    - name: Install buildprof
+      shell: sh
+      run: 'mkdir -p "$RUNNER_TEMP/buildprof-bin" "$RUNNER_TEMP/buildprof-actions"
+
+        cp .buildprof-fetch/.buildprof/buildprof-* "$RUNNER_TEMP/buildprof-bin/" && chmod +x "$RUNNER_TEMP/buildprof-bin/"*
+
+        if [ "$(id -u)" != 0 ] && sudo -n true 2>/dev/null; then sudo setcap cap_sys_ptrace,cap_sys_admin+ep "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)"; fi
+
+        if [ -d .buildprof-fetch/projects/uv/actions ]; then cp -r .buildprof-fetch/projects/uv/actions/. "$RUNNER_TEMP/buildprof-actions/"; fi
+
+        rm -rf .buildprof-fetch
+
+        '
+    - name: Check required jobs passed
+      run: "bp_dir=\"$RUNNER_TEMP/buildprof\"; mkdir -p \"$bp_dir\"; bp_id=$(date +%s)-$$-$(od -An -N4 -tu4 /dev/urandom | tr -d \" \")\ncat > \"$bp_dir/$bp_id.sh\" <<'BUILDPROF_SCRIPT_EOF'\nfailing=$(\n  echo \"$NEEDS_JSON\" | jq -r --argjson conditional_jobs \"$CONDITIONAL_JOBS\" '\n    to_entries[]\n    | select($conditional_jobs[.key] != false)\n    | select(.value.result != \"success\" and .value.result != \"skipped\")\n    | \"\\(.key): \\(.value.result)\"\n  '\n)\nif [ -n \"$failing\" ]; then\n  echo \"$failing\"\n  exit 1\nfi\nBUILDPROF_SCRIPT_EOF\n( sleep 2700; while true; do echo \"=== buildprof survey watchdog: step still running\"; ps -eo pid,ppid,stat,etime,wchan:32,args --forest 2>/dev/null | cut -c1-250 || ps; sleep 600; done ) & bp_watch=$!\nbp_rc=0\n\"$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)\" --no-open --detach-after-exit 10 -o \"$bp_dir/$bp_id-Check-required-jobs-passed.buildprof\" -- bash --noprofile --norc -eo pipefail \"$bp_dir/$bp_id.sh\" || bp_rc=$?\nkill $bp_watch 2>/dev/null; exit $bp_rc\n"
+      env:
+        NEEDS_JSON: ${{ toJSON(needs) }}
+        CONDITIONAL_JOBS: "{\n  \"build-release-artifacts\": ${{ contains(github.event.pull_request.labels.*.name, 'build:release') }},\n  \"check-release\": ${{ needs.plan.outputs.require-check-release == 'true' }},\n  \"test-integration\": ${{ contains(github.event.pull_request.labels.*.name, 'test:integration') }},\n  \"test-system\": ${{ contains(github.event.pull_request.labels.*.name, 'test:system') }}\n}"
+      shell: sh
+    - name: Upload buildprof recordings
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: uv--ci-required-checks-passed-${{ strategy.job-index }}
+        path: ${{ runner.temp }}/buildprof/*.buildprof
+        retention-days: 30
+        if-no-files-found: ignore
+        compression-level: 0
+    permissions:
+      contents: read
+    timeout-minutes: 120

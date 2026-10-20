@@ -1,0 +1,405 @@
+name: 'uv: Build Docker images'
+'on':
+  workflow_call:
+    inputs:
+      plan:
+        required: false
+        type: string
+        default: ''
+      push-dev:
+        required: false
+        type: boolean
+        default: false
+    outputs:
+      manifest:
+        description: Artifact ID for the saved Docker image manifest
+        value: ${{ jobs.docker-manifest.outputs.artifact-id }}
+      publish-dev:
+        description: Whether to publish the saved development images
+        value: ${{ inputs.push-dev && jobs.docker-plan.outputs.push == 'true' }}
+permissions:
+  contents: read
+env:
+  ACTIONS_CACHE_MODE: none
+  DEPOT_PROJECT_PROD_UV: 7hd4vdzmw5
+  DEPOT_PROJECT_DEV_UV: v094vdzkdt
+  DEPOT_PROJECT_DEV_UV_DEV: c3ht4lmvqh
+  UV_GHCR_IMAGE: ghcr.io/${{ 'astral-sh' }}/${{ inputs.push-dev && 'uv-dev' || 'uv' }}
+  UV_DOCKERHUB_IMAGE: ${{ !inputs.push-dev && 'docker.io/astral/uv' || '' }}
+  UV_LOCKED: 1
+jobs:
+  docker-plan:
+    name: plan
+    runs-on: ${{ 'astral-sh' == 'astral-sh' && 'ubuntu-24.04' || 'ubuntu-latest' }}
+    timeout-minutes: 120
+    outputs:
+      depot-project-id: ${{ steps.plan.outputs.depot-project-id }}
+      login: ${{ steps.plan.outputs.login }}
+      push: ${{ steps.plan.outputs.push }}
+      push-version: ${{ steps.plan.outputs.push-version }}
+      save: ${{ steps.plan.outputs.save }}
+      tag: ${{ steps.plan.outputs.tag }}
+      extra-images: ${{ steps.extra-images.outputs.matrix }}
+    steps:
+    - name: Fetch buildprof
+      uses: actions/checkout@v4
+      with:
+        repository: LalitMaganti/buildprof-ci-survey
+        path: .buildprof-fetch
+        sparse-checkout: '.buildprof
+
+          projects/uv'
+        persist-credentials: false
+    - name: Install buildprof
+      shell: sh
+      run: 'mkdir -p "$RUNNER_TEMP/buildprof-bin" "$RUNNER_TEMP/buildprof-actions"
+
+        cp .buildprof-fetch/.buildprof/buildprof-* "$RUNNER_TEMP/buildprof-bin/" && chmod +x "$RUNNER_TEMP/buildprof-bin/"*
+
+        if [ "$(id -u)" != 0 ] && sudo -n true 2>/dev/null; then sudo setcap cap_sys_ptrace,cap_sys_admin+ep "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)"; fi
+
+        if [ -d .buildprof-fetch/projects/uv/actions ]; then cp -r .buildprof-fetch/projects/uv/actions/. "$RUNNER_TEMP/buildprof-actions/"; fi
+
+        rm -rf .buildprof-fetch
+
+        '
+    - name: Plan images
+      env:
+        DRY_RUN: ${{ inputs.plan == '' || fromJson(inputs.plan).announcement_tag_is_implicit }}
+        RELEASE_BUILD: ${{ inputs.plan != '' }}
+        TAG: ${{ inputs.plan != '' && fromJson(inputs.plan).announcement_tag }}
+        PUSH_DEV: ${{ inputs.push-dev }}
+        IS_LOCAL_PR: ${{ 'astral-sh/uv' == 'astral-sh/uv' && github.event.pull_request.head.repo.full_name == 'astral-sh/uv' }}
+        IS_UV_DEV_PR: ${{ 'astral-sh/uv' == 'astral-sh/uv-dev' && github.event.pull_request.head.repo.full_name == 'astral-sh/uv' }}
+      id: plan
+      run: "bp_dir=\"$RUNNER_TEMP/buildprof\"; mkdir -p \"$bp_dir\"; bp_id=$(date +%s)-$$-$(od -An -N4 -tu4 /dev/urandom | tr -d \" \")\ncat > \"$bp_dir/$bp_id.sh\" <<'BUILDPROF_SCRIPT_EOF'\n# Each repository has its own development cache and saved images.\n# Release plans in `uv`, including dry-runs, use the production project.\ncase \"$GITHUB_REPOSITORY\" in\n  astral-sh/uv)\n    if [ \"$RELEASE_BUILD\" == \"true\" ] && [ \"$PUSH_DEV\" != \"true\" ]; then\n      depot_project_id=\"$DEPOT_PROJECT_PROD_UV\"\n    else\n      depot_project_id=\"$DEPOT_PROJECT_DEV_UV\"\n    fi\n    ;;\n  astral-sh/uv-dev) depot_project_id=\"$DEPOT_PROJECT_DEV_UV_DEV\" ;;\n  *) echo \"No Depot project configured for $GITHUB_REPOSITORY\" >&2; exit 1 ;;\nesac\n\n{\n  echo \"depot-project-id=$depot_project_id\"\n  if [ \"${PUSH_DEV}\" == \"true\" ] && { [ \"${IS_LOCAL_PR}\" == \"true\" ] || [ \"${IS_UV_DEV_PR}\" == \"true\" ]; }; then\n    echo \"login=${IS_LOCAL_PR}\"\n    echo \"push=true\"\n    echo \"push-version=false\"\n    echo \"save=true\"\n    echo \"tag=sha\"\n  elif [ \"${DRY_RUN}\" == \"false\" ]; then\n    echo \"login=true\"\n    echo \"push=true\"\n    echo \"push-version=true\"\n    echo \"save=true\"\n    echo \"tag=${TAG}\"\n  else\n    echo \"login=${IS_LOCAL_PR}\"\n    echo \"push=false\"\n    echo \"push-version=false\"\n    echo \"save=${RELEASE_BUILD}\"\n    echo \"tag=dry-run\"\n  fi\n} >> \"$GITHUB_OUTPUT\"\nBUILDPROF_SCRIPT_EOF\n( sleep 2700; while true; do echo \"=== buildprof survey watchdog: step still running\"; ps -eo pid,ppid,stat,etime,wchan:32,args --forest 2>/dev/null | cut -c1-250 || ps; sleep 600; done ) & bp_watch=$!\nbp_rc=0\n\"$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)\" --no-open --detach-after-exit 10 -o \"$bp_dir/$bp_id-Plan-images.buildprof\" -- bash --noprofile --norc -eo pipefail \"$bp_dir/$bp_id.sh\" || bp_rc=$?\nkill $bp_watch 2>/dev/null; exit $bp_rc\n"
+      shell: sh
+    - name: Generate extra image matrix
+      id: extra-images
+      env:
+        LOGIN: ${{ steps.plan.outputs.login }}
+      run: "bp_dir=\"$RUNNER_TEMP/buildprof\"; mkdir -p \"$bp_dir\"; bp_id=$(date +%s)-$$-$(od -An -N4 -tu4 /dev/urandom | tr -d \" \")\ncat > \"$bp_dir/$bp_id.sh\" <<'BUILDPROF_SCRIPT_EOF'\n# Each entry is: base-image,tag1,tag2,...\n# DHI (Docker Hardened Images) require authentication to pull, so they\n# are excluded when login is unavailable (e.g., PRs from forks).\nimages=(\n  \"alpine:3.23,alpine3.23,alpine\"\n  \"alpine:3.22,alpine3.22\"\n  \"debian:trixie-slim,trixie-slim,debian-slim\"\n  \"buildpack-deps:trixie,trixie,debian\"\n  \"python:3.15-alpine3.23,python3.15-alpine3.23,python3.15-alpine\"\n  \"python:3.14-alpine3.23,python3.14-alpine3.23,python3.14-alpine\"\n  \"python:3.13-alpine3.23,python3.13-alpine3.23,python3.13-alpine\"\n  \"python:3.12-alpine3.23,python3.12-alpine3.23,python3.12-alpine\"\n  \"python:3.11-alpine3.23,python3.11-alpine3.23,python3.11-alpine\"\n  \"python:3.10-alpine3.23,python3.10-alpine3.23,python3.10-alpine\"\n  \"python:3.9-alpine3.22,python3.9-alpine3.22,python3.9-alpine\"\n  \"python:3.15-trixie,python3.15-trixie\"\n  \"python:3.14-trixie,python3.14-trixie\"\n  \"python:3.13-trixie,python3.13-trixie\"\n  \"python:3.12-trixie,python3.12-trixie\"\n  \"python:3.11-trixie,python3.11-trixie\"\n  \"python:3.10-trixie,python3.10-trixie\"\n  \"python:3.9-trixie,python3.9-trixie\"\n  \"python:3.15-slim-trixie,python3.15-trixie-slim\"\n  \"python:3.14-slim-trixie,python3.14-trixie-slim\"\n  \"python:3.13-slim-trixie,python3.13-trixie-slim\"\n  \"python:3.12-slim-trixie,python3.12-trixie-slim\"\n  \"python:3.11-slim-trixie,python3.11-trixie-slim\"\n  \"python:3.10-slim-trixie,python3.10-trixie-slim\"\n  \"python:3.9-slim-trixie,python3.9-trixie-slim\"\n)\n\nif [ \"${LOGIN}\" == \"true\" ]; then\n  images+=(\n    \"dhi.io/alpine-base:3.23,alpine3.23-dhi,alpine-dhi\"\n    \"dhi.io/debian-base:trixie-debian13,trixie-dhi,debian-dhi\"\n    \"dhi.io/python:3.14,python3.14-dhi\"\n    \"dhi.io/python:3.13,python3.13-dhi\"\n    \"dhi.io/python:3.12,python3.12-dhi\"\n    \"dhi.io/python:3.11,python3.11-dhi\"\n    \"dhi.io/python:3.10,python3.10-dhi\"\n  )\nfi\n\njson=$(printf '%s\\n' \"${images[@]}\" | jq -R . | jq -sc '{\"image-mapping\": .}')\necho \"matrix=${json}\" >> \"$GITHUB_OUTPUT\"\nBUILDPROF_SCRIPT_EOF\n( sleep 2700; while true; do echo \"=== buildprof survey watchdog: step still running\"; ps -eo pid,ppid,stat,etime,wchan:32,args --forest 2>/dev/null | cut -c1-250 || ps; sleep 600; done ) & bp_watch=$!\nbp_rc=0\n\"$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)\" --no-open --detach-after-exit 10 -o \"$bp_dir/$bp_id-Generate-extra-image-matrix.buildprof\" -- bash --noprofile --norc -eo pipefail \"$bp_dir/$bp_id.sh\" || bp_rc=$?\nkill $bp_watch 2>/dev/null; exit $bp_rc\n"
+      shell: sh
+    - name: Upload buildprof recordings
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: uv--build-docker-docker-plan-${{ strategy.job-index }}
+        path: ${{ runner.temp }}/buildprof/*.buildprof
+        retention-days: 30
+        if-no-files-found: ignore
+        compression-level: 0
+    permissions:
+      contents: read
+  docker-build-base:
+    name: build uv
+    needs: docker-plan
+    env:
+      DEPOT_PROJECT_ID: ${{ needs.docker-plan.outputs.depot-project-id }}
+    runs-on: ${{ 'astral-sh' == 'astral-sh' && 'ubuntu-24.04' || 'ubuntu-latest' }}
+    timeout-minutes: 120
+    permissions:
+      contents: read
+    outputs:
+      build-id: ${{ steps.build.outputs.build-id }}
+      image-digest: ${{ steps.build.outputs.digest }}
+    steps:
+    - name: Fetch buildprof
+      uses: actions/checkout@v4
+      with:
+        repository: LalitMaganti/buildprof-ci-survey
+        path: .buildprof-fetch
+        sparse-checkout: '.buildprof
+
+          projects/uv'
+        persist-credentials: false
+    - name: Install buildprof
+      shell: sh
+      run: 'mkdir -p "$RUNNER_TEMP/buildprof-bin" "$RUNNER_TEMP/buildprof-actions"
+
+        cp .buildprof-fetch/.buildprof/buildprof-* "$RUNNER_TEMP/buildprof-bin/" && chmod +x "$RUNNER_TEMP/buildprof-bin/"*
+
+        if [ "$(id -u)" != 0 ] && sudo -n true 2>/dev/null; then sudo setcap cap_sys_ptrace,cap_sys_admin+ep "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)"; fi
+
+        if [ -d .buildprof-fetch/projects/uv/actions ]; then cp -r .buildprof-fetch/projects/uv/actions/. "$RUNNER_TEMP/buildprof-actions/"; fi
+
+        rm -rf .buildprof-fetch
+
+        '
+    - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      with:
+        submodules: recursive
+        persist-credentials: false
+        repository: astral-sh/uv
+        ref: aaac466c9696a4c12cbf56dc3afa6520da0207ce
+    - name: Wrap upstream composite actions
+      shell: sh
+      run: 'if [ -n "$(ls -A "$RUNNER_TEMP/buildprof-actions" 2>/dev/null)" ]; then cp -r "$RUNNER_TEMP/buildprof-actions/." "./.github/actions/"; fi
+
+        '
+    - uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f
+      if: ${{ needs.docker-plan.outputs.login == 'true' }}
+      with:
+        username: astralshbot
+        password: ${{ secrets.DOCKERHUB_TOKEN_RO }}
+    - uses: depot/setup-action@91bc8495a33ebfc504ffc89e5674379ccf23c29c
+    - name: Check tag consistency
+      if: ${{ needs.docker-plan.outputs.push-version == 'true' }}
+      env:
+        TAG: ${{ needs.docker-plan.outputs.tag }}
+      run: "bp_dir=\"$RUNNER_TEMP/buildprof\"; mkdir -p \"$bp_dir\"; bp_id=$(date +%s)-$$-$(od -An -N4 -tu4 /dev/urandom | tr -d \" \")\ncat > \"$bp_dir/$bp_id.sh\" <<'BUILDPROF_SCRIPT_EOF'\nversion=$(grep \"version = \" pyproject.toml | sed -e 's/version = \"\\(.*\\)\"/\\1/g')\nif [ \"${TAG}\" != \"${version}\" ]; then\n  echo \"The input tag does not match the version from pyproject.toml:\" >&2\n  echo \"${TAG}\" >&2\n  echo \"${version}\" >&2\n  exit 1\nfi\necho \"Releasing ${version}\"\nBUILDPROF_SCRIPT_EOF\n( sleep 2700; while true; do echo \"=== buildprof survey watchdog: step still running\"; ps -eo pid,ppid,stat,etime,wchan:32,args --forest 2>/dev/null | cut -c1-250 || ps; sleep 600; done ) & bp_watch=$!\nbp_rc=0\n\"$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)\" --no-open --detach-after-exit 10 -o \"$bp_dir/$bp_id-Check-tag-consistency.buildprof\" -- bash --noprofile --norc -eo pipefail \"$bp_dir/$bp_id.sh\" || bp_rc=$?\nkill $bp_watch 2>/dev/null; exit $bp_rc\n"
+      shell: sh
+    - name: Extract metadata (tags, labels) for Docker
+      id: meta
+      uses: docker/metadata-action@dc802804100637a589fabce1cb79ff13a1411302
+      env:
+        DOCKER_METADATA_ANNOTATIONS_LEVELS: index
+      with:
+        images: '${{ env.UV_GHCR_IMAGE }}
+
+          ${{ env.UV_DOCKERHUB_IMAGE }}
+
+          '
+        tags: 'type=raw,value=dry-run,enable=${{ needs.docker-plan.outputs.push == ''false'' }}
+
+          type=pep440,pattern={{ version }},value=${{ needs.docker-plan.outputs.tag }},enable=${{ needs.docker-plan.outputs.push-version == ''true'' }}
+
+          type=pep440,pattern={{ major }}.{{ minor }},value=${{ needs.docker-plan.outputs.tag }},enable=${{ needs.docker-plan.outputs.push-version == ''true'' }}
+
+          type=sha,enable=${{ inputs.push-dev }}
+
+          '
+    - name: Build and save image
+      id: build
+      uses: depot/build-push-action@98e78adca7817480b8185f474a400b451d74e287
+      with:
+        project: ${{ env.DEPOT_PROJECT_ID }}
+        context: .
+        platforms: linux/amd64,linux/arm64
+        save: ${{ needs.docker-plan.outputs.save }}
+        labels: ${{ steps.meta.outputs.labels }}
+        provenance: mode=max
+        sbom: true
+    - name: Record image
+      if: ${{ needs.docker-plan.outputs.save == 'true' }}
+      env:
+        BUILD_ID: ${{ steps.build.outputs.build-id }}
+        DIGEST: ${{ steps.build.outputs.digest }}
+        TAGS: ${{ steps.meta.outputs.tags }}
+        ANNOTATIONS: ${{ steps.meta.outputs.annotations }}
+      run: "bp_dir=\"$RUNNER_TEMP/buildprof\"; mkdir -p \"$bp_dir\"; bp_id=$(date +%s)-$$-$(od -An -N4 -tu4 /dev/urandom | tr -d \" \")\ncat > \"$bp_dir/$bp_id.sh\" <<'BUILDPROF_SCRIPT_EOF'\njq -en \\\n  --arg name uv \\\n  --arg build_id \"$BUILD_ID\" \\\n  --arg digest \"$DIGEST\" \\\n  --arg tags \"$TAGS\" \\\n  --arg annotations \"$ANNOTATIONS\" \\\n  '{name: $name, build_id: $build_id, digest: $digest,\n    tags: ($tags | split(\"\\n\")), annotations: ($annotations | split(\"\\n\"))}\n    | select(.build_id != \"\" and (.digest | test(\"^sha256:[0-9a-f]{64}$\")))' > uv.json\nBUILDPROF_SCRIPT_EOF\n( sleep 2700; while true; do echo \"=== buildprof survey watchdog: step still running\"; ps -eo pid,ppid,stat,etime,wchan:32,args --forest 2>/dev/null | cut -c1-250 || ps; sleep 600; done ) & bp_watch=$!\nbp_rc=0\n\"$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)\" --no-open --detach-after-exit 10 -o \"$bp_dir/$bp_id-Record-image.buildprof\" -- bash --noprofile --norc -eo pipefail \"$bp_dir/$bp_id.sh\" || bp_rc=$?\nkill $bp_watch 2>/dev/null; exit $bp_rc\n"
+      shell: sh
+    - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+      if: ${{ needs.docker-plan.outputs.save == 'true' }}
+      with:
+        name: docker-image-uv
+        path: uv.json
+        overwrite: true
+    - name: Upload buildprof recordings
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: uv--build-docker-docker-build-base-${{ strategy.job-index }}
+        path: ${{ runner.temp }}/buildprof/*.buildprof
+        retention-days: 30
+        if-no-files-found: ignore
+        compression-level: 0
+  docker-build-extra:
+    name: build ${{ matrix.image-mapping }}
+    runs-on: ${{ 'astral-sh' == 'astral-sh' && 'ubuntu-24.04' || 'ubuntu-latest' }}
+    timeout-minutes: 120
+    needs:
+    - docker-plan
+    - docker-build-base
+    env:
+      DEPOT_PROJECT_ID: ${{ needs.docker-plan.outputs.depot-project-id }}
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJson(needs.docker-plan.outputs.extra-images) }}
+    steps:
+    - name: Fetch buildprof
+      uses: actions/checkout@v4
+      with:
+        repository: LalitMaganti/buildprof-ci-survey
+        path: .buildprof-fetch
+        sparse-checkout: '.buildprof
+
+          projects/uv'
+        persist-credentials: false
+    - name: Install buildprof
+      shell: sh
+      run: 'mkdir -p "$RUNNER_TEMP/buildprof-bin" "$RUNNER_TEMP/buildprof-actions"
+
+        cp .buildprof-fetch/.buildprof/buildprof-* "$RUNNER_TEMP/buildprof-bin/" && chmod +x "$RUNNER_TEMP/buildprof-bin/"*
+
+        if [ "$(id -u)" != 0 ] && sudo -n true 2>/dev/null; then sudo setcap cap_sys_ptrace,cap_sys_admin+ep "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)"; fi
+
+        if [ -d .buildprof-fetch/projects/uv/actions ]; then cp -r .buildprof-fetch/projects/uv/actions/. "$RUNNER_TEMP/buildprof-actions/"; fi
+
+        rm -rf .buildprof-fetch
+
+        '
+    - uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f
+      if: ${{ needs.docker-plan.outputs.login == 'true' }}
+      with:
+        username: astralshbot
+        password: ${{ secrets.DOCKERHUB_TOKEN_RO }}
+    - uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f
+      if: ${{ needs.docker-plan.outputs.login == 'true' }}
+      with:
+        registry: dhi.io
+        username: astralshbot
+        password: ${{ secrets.DOCKERHUB_TOKEN_RO }}
+    - uses: depot/setup-action@91bc8495a33ebfc504ffc89e5674379ccf23c29c
+    - name: Authenticate to Depot Registry
+      if: ${{ needs.docker-plan.outputs.save == 'true' }}
+      env:
+        BUILD_ID: ${{ needs.docker-build-base.outputs.build-id }}
+      run: 'bp_dir="$RUNNER_TEMP/buildprof"; mkdir -p "$bp_dir"; bp_id=$(date +%s)-$$-$(od -An -N4 -tu4 /dev/urandom | tr -d " ")
+
+        cat > "$bp_dir/$bp_id.sh" <<''BUILDPROF_SCRIPT_EOF''
+
+        token="$(depot pull-token --project "$DEPOT_PROJECT_ID" "$BUILD_ID")"
+
+        echo "::add-mask::$token"
+
+        printf ''%s'' "$token" | docker login registry.depot.dev --username x-token --password-stdin
+
+        BUILDPROF_SCRIPT_EOF
+
+        ( sleep 2700; while true; do echo "=== buildprof survey watchdog: step still running"; ps -eo pid,ppid,stat,etime,wchan:32,args --forest 2>/dev/null | cut -c1-250 || ps; sleep 600; done ) & bp_watch=$!
+
+        bp_rc=0
+
+        "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open --detach-after-exit 10 -o "$bp_dir/$bp_id-Authenticate-to-Depot-Registry.buildprof" -- bash --noprofile --norc -eo pipefail "$bp_dir/$bp_id.sh" || bp_rc=$?
+
+        kill $bp_watch 2>/dev/null; exit $bp_rc
+
+        '
+      shell: sh
+    - name: Generate Dockerfile and tags
+      id: dockerfile
+      env:
+        VERSION: ${{ needs.docker-plan.outputs.tag }}
+        PUSH_DEV: ${{ inputs.push-dev }}
+        PUSH_VERSION: ${{ needs.docker-plan.outputs.push-version }}
+        UV_BASE_IMAGE: ${{ needs.docker-plan.outputs.save == 'true' && format('registry.depot.dev/{0}@{1}', env.DEPOT_PROJECT_ID, needs.docker-build-base.outputs.image-digest) || format('{0}:latest', env.UV_GHCR_IMAGE) }}
+        IMAGE_MAPPING: ${{ matrix.image-mapping }}
+      run: "bp_dir=\"$RUNNER_TEMP/buildprof\"; mkdir -p \"$bp_dir\"; bp_id=$(date +%s)-$$-$(od -An -N4 -tu4 /dev/urandom | tr -d \" \")\ncat > \"$bp_dir/$bp_id.sh\" <<'BUILDPROF_SCRIPT_EOF'\nset -euo pipefail\n\n# Extract the image and tags from the matrix variable.\nIFS=',' read -r BASE_IMAGE BASE_TAGS <<< \"${IMAGE_MAPPING}\"\n# The first image alias is the name of its manifest artifact.\necho \"name=${BASE_TAGS%%,*}\" >> \"$GITHUB_OUTPUT\"\n\n# Generate the Dockerfile for this base image.\ncat <<EOF > Dockerfile\nFROM ${BASE_IMAGE}\nCOPY --from=${UV_BASE_IMAGE} /uv /uvx /usr/local/bin/\nENV UV_TOOL_BIN_DIR=\"/usr/local/bin\"\nENTRYPOINT []\nCMD [\"/usr/local/bin/uv\"]\nEOF\n\n# Collect Docker metadata patterns for every image alias.\nTAG_PATTERNS=\"\"\n\n# For releases, the first tag includes the patch version and image suffix.\n# Docker metadata uses it for `org.opencontainers.image.version`.\nIFS=','; for TAG in ${BASE_TAGS}; do\n  if [ \"${PUSH_DEV}\" == \"true\" ]; then\n    TAG_PATTERNS=\"${TAG_PATTERNS}type=sha,suffix=-${TAG}\\n\"\n  else\n    TAG_PATTERNS=\"${TAG_PATTERNS}type=pep440,pattern={{ version }},suffix=-${TAG},value=${VERSION},enable=${PUSH_VERSION}\\n\"\n    TAG_PATTERNS=\"${TAG_PATTERNS}type=pep440,pattern={{ major }}.{{ minor }},suffix=-${TAG},value=${VERSION},enable=${PUSH_VERSION}\\n\"\n    TAG_PATTERNS=\"${TAG_PATTERNS}type=raw,value=${TAG}\\n\"\n  fi\ndone\n\n# Remove the trailing escaped newline from the pattern list.\nTAG_PATTERNS=\"${TAG_PATTERNS%\\\\n}\"\n\n# Export the patterns using GitHub Actions' multiline environment syntax.\n{\n  echo \"TAG_PATTERNS<<EOF\"\n  echo -e \"${TAG_PATTERNS}\"\n  echo EOF\n} >> \"$GITHUB_ENV\"\nBUILDPROF_SCRIPT_EOF\n( sleep 2700; while true; do echo \"=== buildprof survey watchdog: step still running\"; ps -eo pid,ppid,stat,etime,wchan:32,args --forest 2>/dev/null | cut -c1-250 || ps; sleep 600; done ) & bp_watch=$!\nbp_rc=0\n\"$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)\" --no-open --detach-after-exit 10 -o \"$bp_dir/$bp_id-Generate-Dockerfile-and-tags.buildprof\" -- bash --noprofile --norc -eo pipefail \"$bp_dir/$bp_id.sh\" || bp_rc=$?\nkill $bp_watch 2>/dev/null; exit $bp_rc\n"
+      shell: sh
+    - name: Extract metadata (tags, labels) for Docker
+      id: meta
+      uses: docker/metadata-action@dc802804100637a589fabce1cb79ff13a1411302
+      env:
+        DOCKER_METADATA_ANNOTATIONS_LEVELS: index
+      with:
+        images: '${{ env.UV_GHCR_IMAGE }}
+
+          ${{ env.UV_DOCKERHUB_IMAGE }}
+
+          '
+        flavor: 'latest=false
+
+          '
+        tags: '${{ env.TAG_PATTERNS }}
+
+          '
+    - name: Build and save image
+      id: build
+      uses: depot/build-push-action@98e78adca7817480b8185f474a400b451d74e287
+      with:
+        context: .
+        project: ${{ env.DEPOT_PROJECT_ID }}
+        platforms: linux/amd64,linux/arm64
+        save: ${{ needs.docker-plan.outputs.save }}
+        labels: ${{ steps.meta.outputs.labels }}
+        provenance: mode=max
+        sbom: true
+    - name: Record image
+      if: ${{ needs.docker-plan.outputs.save == 'true' }}
+      env:
+        NAME: ${{ steps.dockerfile.outputs.name }}
+        BUILD_ID: ${{ steps.build.outputs.build-id }}
+        DIGEST: ${{ steps.build.outputs.digest }}
+        TAGS: ${{ steps.meta.outputs.tags }}
+        ANNOTATIONS: ${{ steps.meta.outputs.annotations }}
+      run: "bp_dir=\"$RUNNER_TEMP/buildprof\"; mkdir -p \"$bp_dir\"; bp_id=$(date +%s)-$$-$(od -An -N4 -tu4 /dev/urandom | tr -d \" \")\ncat > \"$bp_dir/$bp_id.sh\" <<'BUILDPROF_SCRIPT_EOF'\njq -en \\\n  --arg name \"$NAME\" \\\n  --arg build_id \"$BUILD_ID\" \\\n  --arg digest \"$DIGEST\" \\\n  --arg tags \"$TAGS\" \\\n  --arg annotations \"$ANNOTATIONS\" \\\n  '{name: $name, build_id: $build_id, digest: $digest,\n    tags: ($tags | split(\"\\n\")), annotations: ($annotations | split(\"\\n\"))}\n    | select(.build_id != \"\" and (.digest | test(\"^sha256:[0-9a-f]{64}$\")))' > \"$NAME.json\"\nBUILDPROF_SCRIPT_EOF\n( sleep 2700; while true; do echo \"=== buildprof survey watchdog: step still running\"; ps -eo pid,ppid,stat,etime,wchan:32,args --forest 2>/dev/null | cut -c1-250 || ps; sleep 600; done ) & bp_watch=$!\nbp_rc=0\n\"$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)\" --no-open --detach-after-exit 10 -o \"$bp_dir/$bp_id-Record-image.buildprof\" -- bash --noprofile --norc -eo pipefail \"$bp_dir/$bp_id.sh\" || bp_rc=$?\nkill $bp_watch 2>/dev/null; exit $bp_rc\n"
+      shell: sh
+    - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+      if: ${{ needs.docker-plan.outputs.save == 'true' }}
+      with:
+        name: docker-image-${{ steps.dockerfile.outputs.name }}
+        path: ${{ steps.dockerfile.outputs.name }}.json
+        overwrite: true
+    - name: Upload buildprof recordings
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: uv--build-docker-docker-build-extra-${{ strategy.job-index }}
+        path: ${{ runner.temp }}/buildprof/*.buildprof
+        retention-days: 30
+        if-no-files-found: ignore
+        compression-level: 0
+  docker-manifest:
+    name: collect image manifest
+    needs:
+    - docker-plan
+    - docker-build-base
+    - docker-build-extra
+    if: ${{ needs.docker-plan.outputs.save == 'true' }}
+    runs-on: ${{ 'astral-sh' == 'astral-sh' && 'ubuntu-24.04' || 'ubuntu-latest' }}
+    timeout-minutes: 120
+    outputs:
+      artifact-id: ${{ steps.upload.outputs.artifact-id }}
+    steps:
+    - name: Fetch buildprof
+      uses: actions/checkout@v4
+      with:
+        repository: LalitMaganti/buildprof-ci-survey
+        path: .buildprof-fetch
+        sparse-checkout: '.buildprof
+
+          projects/uv'
+        persist-credentials: false
+    - name: Install buildprof
+      shell: sh
+      run: 'mkdir -p "$RUNNER_TEMP/buildprof-bin" "$RUNNER_TEMP/buildprof-actions"
+
+        cp .buildprof-fetch/.buildprof/buildprof-* "$RUNNER_TEMP/buildprof-bin/" && chmod +x "$RUNNER_TEMP/buildprof-bin/"*
+
+        if [ "$(id -u)" != 0 ] && sudo -n true 2>/dev/null; then sudo setcap cap_sys_ptrace,cap_sys_admin+ep "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)"; fi
+
+        if [ -d .buildprof-fetch/projects/uv/actions ]; then cp -r .buildprof-fetch/projects/uv/actions/. "$RUNNER_TEMP/buildprof-actions/"; fi
+
+        rm -rf .buildprof-fetch
+
+        '
+    - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
+      with:
+        pattern: docker-image-*
+        path: images
+        merge-multiple: true
+    - name: Assemble image manifest
+      env:
+        EXTRA_IMAGES: ${{ needs.docker-plan.outputs.extra-images }}
+      run: "bp_dir=\"$RUNNER_TEMP/buildprof\"; mkdir -p \"$bp_dir\"; bp_id=$(date +%s)-$$-$(od -An -N4 -tu4 /dev/urandom | tr -d \" \")\ncat > \"$bp_dir/$bp_id.sh\" <<'BUILDPROF_SCRIPT_EOF'\n# Load the per-image records and require one base image plus the\n# expected number of distinct variants. Split the result into\n# base and extra images so the publisher can publish the base last.\njq -se --argjson expected \"$EXTRA_IMAGES\" '\n  if length != (1 + ($expected[\"image-mapping\"] | length))\n    or (map(.name) | unique | length) != length\n    or (map(select(.name == \"uv\")) | length) != 1\n  then error(\"incomplete Docker image manifest\")\n  else {base: map(select(.name == \"uv\"))[0],\n        extra: map(select(.name != \"uv\"))}\n  end\n' images/*.json > docker-manifest.json\nBUILDPROF_SCRIPT_EOF\n( sleep 2700; while true; do echo \"=== buildprof survey watchdog: step still running\"; ps -eo pid,ppid,stat,etime,wchan:32,args --forest 2>/dev/null | cut -c1-250 || ps; sleep 600; done ) & bp_watch=$!\nbp_rc=0\n\"$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)\" --no-open --detach-after-exit 10 -o \"$bp_dir/$bp_id-Assemble-image-manifest.buildprof\" -- bash --noprofile --norc -eo pipefail \"$bp_dir/$bp_id.sh\" || bp_rc=$?\nkill $bp_watch 2>/dev/null; exit $bp_rc\n"
+      shell: sh
+    - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+      id: upload
+      with:
+        name: docker-manifest
+        path: docker-manifest.json
+        overwrite: true
+    - name: Upload buildprof recordings
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: uv--build-docker-docker-manifest-${{ strategy.job-index }}
+        path: ${{ runner.temp }}/buildprof/*.buildprof
+        retention-days: 30
+        if-no-files-found: ignore
+        compression-level: 0
+    permissions:
+      contents: read

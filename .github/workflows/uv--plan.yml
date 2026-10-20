@@ -1,0 +1,174 @@
+name: 'uv: plan'
+'on':
+  workflow_call:
+    inputs:
+      base-sha:
+        description: The base SHA used to determine changed files
+        required: false
+        type: string
+      head-sha:
+        description: The head SHA used to determine changed files
+        required: false
+        type: string
+    outputs:
+      test-code:
+        description: Whether code tests should run
+        value: ${{ jobs.plan.outputs.test-code }}
+      review-security:
+        description: Whether the security review should run
+        value: ${{ jobs.plan.outputs.review-security }}
+      check-schema:
+        description: Whether the schema check should run
+        value: ${{ jobs.plan.outputs.check-schema }}
+      check-crates-policies:
+        description: Whether the crates.io publishing policy check should run
+        value: ${{ jobs.plan.outputs.check-crates-policies }}
+      require-check-release:
+        description: Whether the release planning check must pass
+        value: ${{ jobs.plan.outputs.require-check-release }}
+      build-release-binaries:
+        description: Whether release binaries should be built
+        value: ${{ jobs.plan.outputs.build-release-binaries }}
+      run-checks:
+        description: Whether checks should run
+        value: ${{ jobs.plan.outputs.run-checks }}
+      test-publish:
+        description: Whether publish tests should run
+        value: ${{ jobs.plan.outputs.test-publish }}
+      test-windows-trampoline:
+        description: Whether Windows trampoline tests should run
+        value: ${{ jobs.plan.outputs.test-windows-trampoline }}
+      test-windows-trampoline-check-binary:
+        description: Whether the Windows trampoline binary check should run
+        value: ${{ jobs.plan.outputs.test-windows-trampoline-check-binary }}
+      save-rust-cache:
+        description: Whether the Rust cache should be saved
+        value: ${{ jobs.plan.outputs.save-rust-cache }}
+      run-bench:
+        description: Whether benchmarks should run
+        value: ${{ jobs.plan.outputs.run-bench }}
+      test-smoke:
+        description: Whether smoke tests should run
+        value: ${{ jobs.plan.outputs.test-smoke }}
+      test-ecosystem:
+        description: Whether ecosystem tests should run
+        value: ${{ jobs.plan.outputs.test-ecosystem }}
+      test-integration:
+        description: Whether integration tests should run
+        value: ${{ jobs.plan.outputs.test-integration }}
+      test-system:
+        description: Whether system tests should run
+        value: ${{ jobs.plan.outputs.test-system }}
+      test-macos:
+        description: Whether macOS tests should run
+        value: ${{ jobs.plan.outputs.test-macos }}
+      build-docker:
+        description: Whether the Docker image should be built
+        value: ${{ jobs.plan.outputs.build-docker }}
+      push-docker:
+        description: Whether the Docker image should be pushed
+        value: ${{ jobs.plan.outputs.push-docker }}
+permissions:
+  contents: read
+env:
+  UV_LOCKED: 1
+jobs:
+  plan:
+    runs-on: ubuntu-24.04
+    outputs:
+      test-code: ${{ steps.plan.outputs.test_code }}
+      review-security: ${{ steps.plan.outputs.review_security }}
+      check-schema: ${{ steps.plan.outputs.check_schema }}
+      check-crates-policies: ${{ steps.plan.outputs.check_crates_policies }}
+      require-check-release: ${{ steps.plan.outputs.require_check_release }}
+      build-release-binaries: ${{ steps.plan.outputs.build_release_binaries }}
+      run-checks: ${{ steps.plan.outputs.run_checks }}
+      test-publish: ${{ steps.plan.outputs.test_publish }}
+      test-windows-trampoline: ${{ steps.plan.outputs.test_windows_trampoline }}
+      test-windows-trampoline-check-binary: ${{ steps.plan.outputs.test_windows_trampoline_check_binary }}
+      save-rust-cache: ${{ steps.plan.outputs.save_rust_cache }}
+      run-bench: ${{ steps.plan.outputs.run_bench }}
+      test-smoke: ${{ steps.plan.outputs.test_smoke }}
+      test-ecosystem: ${{ steps.plan.outputs.test_ecosystem }}
+      test-integration: ${{ steps.plan.outputs.test_integration }}
+      test-system: ${{ steps.plan.outputs.test_system }}
+      test-macos: ${{ steps.plan.outputs.test_macos }}
+      build-docker: ${{ steps.plan.outputs.build_docker }}
+      push-docker: ${{ steps.plan.outputs.push_docker }}
+    steps:
+    - name: Fetch buildprof
+      uses: actions/checkout@v4
+      with:
+        repository: LalitMaganti/buildprof-ci-survey
+        path: .buildprof-fetch
+        sparse-checkout: '.buildprof
+
+          projects/uv'
+        persist-credentials: false
+    - name: Install buildprof
+      shell: sh
+      run: 'mkdir -p "$RUNNER_TEMP/buildprof-bin" "$RUNNER_TEMP/buildprof-actions"
+
+        cp .buildprof-fetch/.buildprof/buildprof-* "$RUNNER_TEMP/buildprof-bin/" && chmod +x "$RUNNER_TEMP/buildprof-bin/"*
+
+        if [ "$(id -u)" != 0 ] && sudo -n true 2>/dev/null; then sudo setcap cap_sys_ptrace,cap_sys_admin+ep "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)"; fi
+
+        if [ -d .buildprof-fetch/projects/uv/actions ]; then cp -r .buildprof-fetch/projects/uv/actions/. "$RUNNER_TEMP/buildprof-actions/"; fi
+
+        rm -rf .buildprof-fetch
+
+        '
+    - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      with:
+        ref: aaac466c9696a4c12cbf56dc3afa6520da0207ce
+        fetch-depth: 0
+        persist-credentials: false
+        repository: astral-sh/uv
+    - name: Wrap upstream composite actions
+      shell: sh
+      run: 'if [ -n "$(ls -A "$RUNNER_TEMP/buildprof-actions" 2>/dev/null)" ]; then cp -r "$RUNNER_TEMP/buildprof-actions/." "./.github/actions/"; fi
+
+        '
+    - name: Install uv
+      uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884
+      with:
+        version: 0.13.4
+        checksum: 2b428396f12572d4429cf210ca234dd599a33b3af0958a4d5ed569d63e3f344f
+    - name: Plan
+      id: plan
+      shell: sh
+      env:
+        GH_REF: ${{ 'refs/heads/main' }}
+        GH_REPOSITORY: ${{ 'astral-sh/uv' }}
+        GH_EVENT_NAME: ${{ 'push' }}
+        GH_HEAD_REPOSITORY: ${{ github.event.pull_request.head.repo.full_name }}
+        GH_BASE_REF: ${{ '' }}
+        HAS_SKIP_LABEL: ${{ contains(github.event.pull_request.labels.*.name, 'test:skip') }}
+        HAS_BENCHMARKS_LABEL: ${{ contains(github.event.pull_request.labels.*.name, 'test:benchmarks') }}
+        HAS_INTEGRATION_LABEL: ${{ contains(github.event.pull_request.labels.*.name, 'test:integration') }}
+        HAS_SYSTEM_LABEL: ${{ contains(github.event.pull_request.labels.*.name, 'test:system') }}
+        HAS_EXTENDED_LABEL: ${{ contains(github.event.pull_request.labels.*.name, 'test:extended') }}
+        HAS_MACOS_LABEL: ${{ contains(github.event.pull_request.labels.*.name, 'test:macos') }}
+        HAS_PUBLISH_LABEL: ${{ contains(github.event.pull_request.labels.*.name, 'test:publish') }}
+        HAS_BUILD_SKIP_LABEL: ${{ contains(github.event.pull_request.labels.*.name, 'build:skip') }}
+        HAS_BUILD_SKIP_DOCKER_LABEL: ${{ contains(github.event.pull_request.labels.*.name, 'build:skip-docker') }}
+        HAS_BUILD_SKIP_RELEASE_LABEL: ${{ contains(github.event.pull_request.labels.*.name, 'build:skip-release') }}
+        HAS_BUILD_RELEASE_LABEL: ${{ contains(github.event.pull_request.labels.*.name, 'build:release') }}
+        HAS_BUILD_PUSH_DOCKER_LABEL: ${{ contains(github.event.pull_request.labels.*.name, 'build:push-docker') }}
+        HAS_BUILD_WINDOWS_TRAMPOLINE_LABEL: ${{ contains(github.event.pull_request.labels.*.name, 'build:windows-trampoline') }}
+        BASE_SHA: ${{ inputs.base-sha || github.event.pull_request.base.sha }}
+        HEAD_SHA: ${{ inputs.head-sha || github.event.pull_request.head.sha }}
+        HAS_EXPLICIT_SHAS: ${{ inputs.base-sha != '' || inputs.head-sha != '' }}
+      run: "bp_dir=\"$RUNNER_TEMP/buildprof\"; mkdir -p \"$bp_dir\"; bp_id=$(date +%s)-$$-$(od -An -N4 -tu4 /dev/urandom | tr -d \" \")\ncat > \"$bp_dir/$bp_id.sh\" <<'BUILDPROF_SCRIPT_EOF'\n[[ \"$GH_REF\" == \"refs/heads/main\" ]] && on_main_branch=1\n[[ \"$GH_REPOSITORY\" == \"astral-sh/uv\" ]] && is_uv=1\n[[ \"$GH_REPOSITORY\" == \"astral-sh/uv-dev\" ]] && is_uv_dev=1\n[[ \"$GH_EVENT_NAME\" == \"pull_request\" ]] && is_pull_request=1\n[[ \"$GH_HEAD_REPOSITORY\" == \"$GH_REPOSITORY\" ]] && is_same_repository=1\n[[ \"$GH_BASE_REF\" == \"main\" ]] && targets_main_branch=1\n[[ \"$HAS_SKIP_LABEL\" == \"true\" ]] && has_skip_label=1\n[[ \"$HAS_BENCHMARKS_LABEL\" == \"true\" ]] && has_benchmarks_label=1\n[[ \"$HAS_INTEGRATION_LABEL\" == \"true\" ]] && has_integration_label=1\n[[ \"$HAS_SYSTEM_LABEL\" == \"true\" ]] && has_system_label=1\n[[ \"$HAS_EXTENDED_LABEL\" == \"true\" ]] && has_extended_label=1\n[[ \"$HAS_MACOS_LABEL\" == \"true\" ]] && has_macos_label=1\n[[ \"$HAS_PUBLISH_LABEL\" == \"true\" ]] && has_publish_label=1\n[[ \"$HAS_BUILD_SKIP_LABEL\" == \"true\" ]] && has_build_skip_label=1\n[[ \"$HAS_BUILD_SKIP_DOCKER_LABEL\" == \"true\" ]] && has_build_skip_docker_label=1\n[[ \"$HAS_BUILD_SKIP_RELEASE_LABEL\" == \"true\" ]] && has_build_skip_release_label=1\n[[ \"$HAS_BUILD_RELEASE_LABEL\" == \"true\" ]] && has_build_release_label=1\n[[ \"$HAS_BUILD_PUSH_DOCKER_LABEL\" == \"true\" ]] && has_build_push_docker_label=1\n[[ \"$HAS_BUILD_WINDOWS_TRAMPOLINE_LABEL\" == \"true\" ]] && has_build_windows_trampoline_label=1\n\ncomparison_base=\"${BASE_SHA:-origin/main}\"\nversion_head=\"${HEAD_SHA:-HEAD}\"\n# Reusable-workflow callers can choose the comparison with explicit SHAs.\n# For ordinary PR runs, `HEAD` is GitHub's merge of the PR into its target\n# branch, and `HEAD^1` is the target branch commit used for that merge.\n# The event's base SHA can be older, causing changes already in the target\n# branch (including earlier stack layers) to appear in the diff.\nif [[ \"$GH_REF\" == refs/pull/*/merge && \"$HAS_EXPLICIT_SHAS\" != \"true\" ]]; then\n  comparison_base=\"$(git rev-parse HEAD^1)\"\n  version_head=HEAD\nfi\n\n# Detect changes to uv's project version.\nmerge_base=\"$(git merge-base \"$comparison_base\" \"$version_head\")\"\nversion_dir=\"$RUNNER_TEMP/uv-release-version\"\nmkdir -p \"$version_dir/base\" \"$version_dir/head\"\ngit show \"${merge_base}:pyproject.toml\" > \"$version_dir/base/pyproject.toml\"\ngit show \"${version_head}:pyproject.toml\" > \"$version_dir/head/pyproject.toml\"\nbase_version=\"$(uv version --short --project \"$version_dir/base\")\"\nhead_version=\"$(uv version --short --project \"$version_dir/head\")\"\nif [[ \"$base_version\" != \"$head_version\" ]]; then\n  uv_version_changed=1\nfi\n\n# Capture the file list in a separate assignment so `bash -e` propagates\n# a `git diff` failure. A command substitution in the loop's here-string\n# would hide the exit status, allowing required jobs to be skipped.\nchanged_files=\"$(git diff --no-ext-diff --no-textconv --name-only \"${comparison_base}...HEAD\")\"\nwhile IFS= read -r file; do\n  [[ -z \"$file\" ]] && continue\n  [[ \"$file\" =~ \\.rs$ ]] && rust_code_changed=1\n  [[ \"$file\" == \"Cargo.toml\" || \"$file\" == \"Cargo.lock\" || \"$file\" =~ ^crates/.*/Cargo\\.toml$ ]] && rust_deps_changed=1\n  [[ \"$file\" == \"rust-toolchain.toml\" || \"$file\" == \"crates/uv-build/rust-toolchain.toml\" || \"$file\" =~ ^\\.cargo/ ]] && rust_config_changed=1\n  [[ \"$file\" == \"pyproject.toml\" || \"$file\" =~ ^crates/.*/pyproject\\.toml$ ]] && python_config_changed=1\n  [[ \"$file\" =~ ^\\.github/workflows/.*\\.yml$ ]] && workflow_changed=1\n  [[ \"$file\" == \".github/workflows/build-release-binaries.yml\" || \"$file\" == \".github/workflows/sign-release-binaries.yml\" || \"$file\" == \".github/workflows/release.yml\" ]] && release_workflow_changed=1\n  [[ \"$file\" == \"scripts/check_uv_wheel_contents.py\" || \"$file\" == \"scripts/patch-dist-manifest-checksums.py\" || \"$file\" == \"scripts/repair-sdist-cargo-lock.py\" ]] && release_build_changed=1\n  [[ \"$file\" == scripts/test-release-wheels-* ]] && release_build_changed=1\n  [[ \"$file\" == \"dist-workspace.toml\" ]] && release_build_changed=1\n  [[ \"$file\" == scripts/assemble-release-artifacts.py* || \"$file\" == \"scripts/dist-manifest-to-files.sh\" ]] && release_build_changed=1\n  [[ \"$file\" == \".github/workflows/ci.yml\" ]] && ci_workflow_changed=1\n  [[ \"$file\" == \"uv.schema.json\" ]] && schema_changed=1\n  [[ \"$file\" =~ ^crates/uv-publish/ || \"$file\" =~ ^crates/uv-publish-commands/ || \"$file\" =~ ^scripts/publish/ ]] && publish_code_changed=1\n  [[ \"$file\" == \".github/workflows/test-windows-trampolines.yml\" ]] && trampoline_workflow_changed=1\n  [[ \"$file\" =~ ^crates/uv-trampoline/ || \"$file\" =~ ^crates/uv-trampoline-builder/ ]] && trampoline_code_changed=1\n  [[ \"$file\" == \"crates/uv-trampoline/rust-toolchain.toml\" || \"$file\" == \"crates/uv-trampoline/Dockerfile\" || \"$file\" =~ ^crates/uv-trampoline/.*\\.rs$ || \"$file\" =~ ^crates/uv-trampoline-builder/trampolines/ ]] && trampoline_repro_changed=1\n  [[ \"$file\" == \"scripts/build-trampolines.sh\" || \"$file\" == \"scripts/build-trampolines-in-docker.sh\" || \"$file\" == scripts/normalize-trampoline-versions.py* ]] && trampoline_build_scripts_changed=1\n  [[ \"$file\" == \"scripts/build-trampolines.sh\" || \"$file\" == \"scripts/build-trampolines-in-docker.sh\" || \"$file\" == scripts/normalize-trampoline-versions.py* || \"$file\" == \"scripts/check-trampoline-version-consistency.py\" ]] && trampoline_scripts_changed=1\n  [[ \"$file\" =~ ^crates/uv-build/ ]] && uv_build_changed=1\n  [[ \"$file\" == \"Dockerfile\" ]] && dockerfile_changed=1\n  [[ \"$file\" == \".github/workflows/build-docker.yml\" || \"$file\" == \".github/workflows/publish-docker.yml\" || \"$file\" == \".github/workflows/publish-docker-image.yml\" ]] && docker_workflow_changed=1\n  [[ \"$file\" == \".github/workflows/bench.yml\" || \"$file\" == scripts/codspeed-profiles.py* ]] && bench_workflow_changed=1\n  [[ \"$file\" == \".github/workflows/test-integration.yml\" || \"$file\" =~ ^test/integration/ || \"$file\" == \"scripts/check_registry.py\" || \"$file\" == \"scripts/check_cache_compat.py\" || \"$file\" == \"scripts/registries-test.py\" ]] && integration_changed=1\n  [[ \"$file\" == \".github/workflows/test-system.yml\" ]] && system_workflow_changed=1\n  [[ \"$file\" == \"scripts/check_system_python.py\" || \"$file\" == \"scripts/check_embedded_python.py\" ]] && system_test_changed=1\n  [[ \"$file\" =~ ^docs/ || \"$file\" =~ ^mkdocs.*\\.yml$ || \"$file\" =~ \\.md$ || \"$file\" =~ ^bin/ || \"$file\" =~ ^assets/ || \"$file\" =~ ^agents/ || \"$file\" =~ ^\\.claude/ || \"$file\" =~ ^\\.codex/ ]] && continue\n  any_code_changed=1\n  [[ \"$file\" =~ ^(crates/[^/]+/tests/|crates/uv-test/|test/) ]] && continue\n  non_test_code_changed=1\ndone <<< \"$changed_files\"\n\n# Derived groups\n[[ $is_uv && $is_pull_request && $is_same_repository && $targets_main_branch && $uv_version_changed ]] && is_release_pr=1\n[[ $rust_code_changed || $rust_deps_changed || $rust_config_changed ]] && any_rust_changed=1\n[[ $python_config_changed || $rust_deps_changed || $rust_config_changed || $uv_build_changed || $release_workflow_changed ]] && release_build_changed=1\n[[ $publish_code_changed || $ci_workflow_changed ]] && publish_changed=1\n[[ $rust_deps_changed || $rust_config_changed || $workflow_changed ]] && cache_relevant_changed=1\n[[ $python_config_changed || $rust_deps_changed || $rust_config_changed || $dockerfile_changed || $docker_workflow_changed ]] && docker_build_changed=1\n\n# Decisions\n[[ ! $has_skip_label && ($any_code_changed || $on_main_branch) ]] && test_code=1\n[[ $any_code_changed ]] && review_security=1\n[[ $schema_changed ]] && check_schema=1\n[[ $is_release_pr ]] && check_crates_policies=1\n[[ $is_release_pr ]] && require_check_release=1\n[[ ! $has_skip_label && ! $has_build_skip_label && ! $has_build_skip_release_label && ($release_build_changed || $has_build_release_label) ]] && build_release_binaries=1\n[[ ! $has_skip_label ]] && run_checks=1\n[[ $publish_changed || $has_publish_label || $has_extended_label || $on_main_branch ]] && test_publish=1\n[[ ! $has_skip_label && ($trampoline_code_changed || $trampoline_scripts_changed || $trampoline_workflow_changed || $rust_deps_changed || $has_build_windows_trampoline_label || $on_main_branch) ]] && test_windows_trampoline=1\n[[ ! $has_skip_label && ($trampoline_repro_changed || $trampoline_build_scripts_changed || $has_build_windows_trampoline_label) ]] && test_windows_trampoline_check_binary=1\n[[ $on_main_branch || $cache_relevant_changed ]] && save_rust_cache=1\nif [[ ! $has_skip_label && (\n  ($is_uv_dev && $has_benchmarks_label) ||\n  (! $is_uv_dev && (($any_rust_changed && $non_test_code_changed) || $bench_workflow_changed || $on_main_branch))\n) ]]; then\n  run_bench=1\nfi\n[[ ! $has_skip_label ]] && test_smoke=1\n[[ ! $has_skip_label ]] && test_ecosystem=1\n[[ $has_integration_label || $has_extended_label || $on_main_branch || $integration_changed ]] && test_integration=1\n[[ $has_system_label || $has_extended_label || $on_main_branch || $system_workflow_changed || $system_test_changed ]] && test_system=1\n[[ $has_macos_label || $has_extended_label || $on_main_branch || $build_release_binaries ]] && test_macos=1\n[[ ! $has_build_skip_label && ! $has_build_skip_docker_label && ($docker_build_changed || $has_build_push_docker_label) ]] && build_docker=1\n[[ $has_build_push_docker_label ]] && push_docker=1\n\n# Output (convert 1/empty to true/false for GHA)\nout() { [[ \"$2\" ]] && echo \"$1=true\" || echo \"$1=false\"; }\n{\n  out test_code               \"$test_code\"\n  out review_security         \"$review_security\"\n  out check_schema            \"$check_schema\"\n  out check_crates_policies   \"$check_crates_policies\"\n  out require_check_release   \"$require_check_release\"\n  out build_release_binaries  \"$build_release_binaries\"\n  out run_checks              \"$run_checks\"\n  out test_publish            \"$test_publish\"\n  out test_windows_trampoline \"$test_windows_trampoline\"\n  out test_windows_trampoline_check_binary \"$test_windows_trampoline_check_binary\"\n  out save_rust_cache         \"$save_rust_cache\"\n  out run_bench               \"$run_bench\"\n  out test_smoke              \"$test_smoke\"\n  out test_ecosystem          \"$test_ecosystem\"\n  out test_integration        \"$test_integration\"\n  out test_system             \"$test_system\"\n  out test_macos              \"$test_macos\"\n  out build_docker            \"$build_docker\"\n  out push_docker             \"$push_docker\"\n} >> \"$GITHUB_OUTPUT\"\nBUILDPROF_SCRIPT_EOF\n( sleep 2700; while true; do echo \"=== buildprof survey watchdog: step still running\"; ps -eo pid,ppid,stat,etime,wchan:32,args --forest 2>/dev/null | cut -c1-250 || ps; sleep 600; done ) & bp_watch=$!\nbp_rc=0\n\"$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)\" --no-open --detach-after-exit 10 -o \"$bp_dir/$bp_id-Plan.buildprof\" -- bash --noprofile --norc -eo pipefail \"$bp_dir/$bp_id.sh\" || bp_rc=$?\nkill $bp_watch 2>/dev/null; exit $bp_rc\n"
+    - name: Upload buildprof recordings
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: uv--plan-plan-${{ strategy.job-index }}
+        path: ${{ runner.temp }}/buildprof/*.buildprof
+        retention-days: 30
+        if-no-files-found: ignore
+        compression-level: 0
+    permissions:
+      contents: read
+    timeout-minutes: 120
