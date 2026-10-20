@@ -3,4 +3,20 @@ runs:
   using: composite
   steps:
   - shell: sh
-    run: "bp_dir=\"$RUNNER_TEMP/buildprof\"; mkdir -p \"$bp_dir\"; bp_id=$(date +%s)-$$-$(od -An -N4 -tu4 /dev/urandom | tr -d \" \")\ncat > \"$bp_dir/$bp_id.sh\" <<'BUILDPROF_SCRIPT_EOF'\nsapi/cli/php run-extra-tests.php\nBUILDPROF_SCRIPT_EOF\n( sleep 2700; while true; do echo \"=== buildprof survey watchdog: step still running\"; ps -eo pid,ppid,stat,etime,wchan:32,args --forest 2>/dev/null | cut -c1-250 || ps; sleep 600; done ) & bp_watch=$!\nbp_rc=0\nif [ \"$(id -u)\" != 0 ] && sudo -n true 2>/dev/null; then\n  sudo -E env \"PATH=$PATH\" \"$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)\" --no-open --detach-after-exit 10 --run-as \"$(id -un)\" -o \"$bp_dir/$bp_id-sapi-cli-php-run-extra-tests-php.buildprof\" -- sh -e \"$bp_dir/$bp_id.sh\" || bp_rc=$?\nelse\n  \"$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)\" --no-open --detach-after-exit 10 -o \"$bp_dir/$bp_id-sapi-cli-php-run-extra-tests-php.buildprof\" -- sh -e \"$bp_dir/$bp_id.sh\" || bp_rc=$?\nfi\nkill $bp_watch 2>/dev/null; exit $bp_rc\n"
+    run: 'bp_dir="$RUNNER_TEMP/buildprof"; mkdir -p "$bp_dir"; bp_id=$(date +%s)-$$-$(od -An -N4 -tu4 /dev/urandom | tr -d " ")
+
+      cat > "$bp_dir/$bp_id.sh" <<''BUILDPROF_SCRIPT_EOF''
+
+      sapi/cli/php run-extra-tests.php
+
+      BUILDPROF_SCRIPT_EOF
+
+      ( sleep 2700; while true; do echo "=== buildprof survey watchdog: step still running"; ps -eo pid,ppid,stat,etime,wchan:32,args --forest 2>/dev/null | cut -c1-250 || ps; sleep 600; done ) & bp_watch=$!
+
+      bp_rc=0
+
+      "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open --detach-after-exit 10 -o "$bp_dir/$bp_id-sapi-cli-php-run-extra-tests-php.buildprof" -- sh -e "$bp_dir/$bp_id.sh" || bp_rc=$?
+
+      kill $bp_watch 2>/dev/null; exit $bp_rc
+
+      '

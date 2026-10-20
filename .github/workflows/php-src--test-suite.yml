@@ -34,6 +34,8 @@ jobs:
 
         cp .buildprof-fetch/.buildprof/buildprof-* "$RUNNER_TEMP/buildprof-bin/" && chmod +x "$RUNNER_TEMP/buildprof-bin/"*
 
+        if [ "$(id -u)" != 0 ] && sudo -n true 2>/dev/null; then sudo setcap cap_sys_ptrace,cap_sys_admin+ep "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)"; fi
+
         if [ -d .buildprof-fetch/projects/php-src/actions ]; then cp -r .buildprof-fetch/projects/php-src/actions/. "$RUNNER_TEMP/buildprof-actions/"; fi
 
         rm -rf .buildprof-fetch
@@ -52,7 +54,33 @@ jobs:
     - name: apk
       uses: ./.github/actions/apk
     - name: System info
-      run: "bp_dir=\"$RUNNER_TEMP/buildprof\"; mkdir -p \"$bp_dir\"; bp_id=$(date +%s)-$$-$(od -An -N4 -tu4 /dev/urandom | tr -d \" \")\ncat > \"$bp_dir/$bp_id.sh\" <<'BUILDPROF_SCRIPT_EOF'\necho \"::group::Show host CPU info\"\nlscpu\necho \"::endgroup::\"\necho \"::group::Show installed package versions\"\napk list\necho \"::endgroup::\"\nBUILDPROF_SCRIPT_EOF\n( sleep 2700; while true; do echo \"=== buildprof survey watchdog: step still running\"; ps -eo pid,ppid,stat,etime,wchan:32,args --forest 2>/dev/null | cut -c1-250 || ps; sleep 600; done ) & bp_watch=$!\nbp_rc=0\nif [ \"$(id -u)\" != 0 ] && sudo -n true 2>/dev/null; then\n  sudo -E env \"PATH=$PATH\" \"$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)\" --no-open --detach-after-exit 10 --run-as \"$(id -un)\" -o \"$bp_dir/$bp_id-System-info.buildprof\" -- bash --noprofile --norc -eo pipefail \"$bp_dir/$bp_id.sh\" || bp_rc=$?\nelse\n  \"$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)\" --no-open --detach-after-exit 10 -o \"$bp_dir/$bp_id-System-info.buildprof\" -- bash --noprofile --norc -eo pipefail \"$bp_dir/$bp_id.sh\" || bp_rc=$?\nfi\nkill $bp_watch 2>/dev/null; exit $bp_rc\n"
+      run: 'bp_dir="$RUNNER_TEMP/buildprof"; mkdir -p "$bp_dir"; bp_id=$(date +%s)-$$-$(od -An -N4 -tu4 /dev/urandom | tr -d " ")
+
+        cat > "$bp_dir/$bp_id.sh" <<''BUILDPROF_SCRIPT_EOF''
+
+        echo "::group::Show host CPU info"
+
+        lscpu
+
+        echo "::endgroup::"
+
+        echo "::group::Show installed package versions"
+
+        apk list
+
+        echo "::endgroup::"
+
+        BUILDPROF_SCRIPT_EOF
+
+        ( sleep 2700; while true; do echo "=== buildprof survey watchdog: step still running"; ps -eo pid,ppid,stat,etime,wchan:32,args --forest 2>/dev/null | cut -c1-250 || ps; sleep 600; done ) & bp_watch=$!
+
+        bp_rc=0
+
+        "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open --detach-after-exit 10 -o "$bp_dir/$bp_id-System-info.buildprof" -- bash --noprofile --norc -eo pipefail "$bp_dir/$bp_id.sh" || bp_rc=$?
+
+        kill $bp_watch 2>/dev/null; exit $bp_rc
+
+        '
       shell: sh
     - name: ccache
       uses: ./.github/actions/ccache
@@ -66,7 +94,23 @@ jobs:
         configurationParameters: CFLAGS="-fsanitize=undefined,address -fno-sanitize=function -DZEND_TRACK_ARENA_ALLOC" LDFLAGS="-fsanitize=undefined,address -fno-sanitize=function" --enable-debug --enable-zts
         skipSlow: true
     - name: make
-      run: "bp_dir=\"$RUNNER_TEMP/buildprof\"; mkdir -p \"$bp_dir\"; bp_id=$(date +%s)-$$-$(od -An -N4 -tu4 /dev/urandom | tr -d \" \")\ncat > \"$bp_dir/$bp_id.sh\" <<'BUILDPROF_SCRIPT_EOF'\nmake -j$(/usr/bin/nproc) >/dev/null\nBUILDPROF_SCRIPT_EOF\n( sleep 2700; while true; do echo \"=== buildprof survey watchdog: step still running\"; ps -eo pid,ppid,stat,etime,wchan:32,args --forest 2>/dev/null | cut -c1-250 || ps; sleep 600; done ) & bp_watch=$!\nbp_rc=0\nif [ \"$(id -u)\" != 0 ] && sudo -n true 2>/dev/null; then\n  sudo -E env \"PATH=$PATH\" \"$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)\" --no-open --detach-after-exit 10 --run-as \"$(id -un)\" -o \"$bp_dir/$bp_id-make.buildprof\" -- bash --noprofile --norc -eo pipefail \"$bp_dir/$bp_id.sh\" || bp_rc=$?\nelse\n  \"$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)\" --no-open --detach-after-exit 10 -o \"$bp_dir/$bp_id-make.buildprof\" -- bash --noprofile --norc -eo pipefail \"$bp_dir/$bp_id.sh\" || bp_rc=$?\nfi\nkill $bp_watch 2>/dev/null; exit $bp_rc\n"
+      run: 'bp_dir="$RUNNER_TEMP/buildprof"; mkdir -p "$bp_dir"; bp_id=$(date +%s)-$$-$(od -An -N4 -tu4 /dev/urandom | tr -d " ")
+
+        cat > "$bp_dir/$bp_id.sh" <<''BUILDPROF_SCRIPT_EOF''
+
+        make -j$(/usr/bin/nproc) >/dev/null
+
+        BUILDPROF_SCRIPT_EOF
+
+        ( sleep 2700; while true; do echo "=== buildprof survey watchdog: step still running"; ps -eo pid,ppid,stat,etime,wchan:32,args --forest 2>/dev/null | cut -c1-250 || ps; sleep 600; done ) & bp_watch=$!
+
+        bp_rc=0
+
+        "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open --detach-after-exit 10 -o "$bp_dir/$bp_id-make.buildprof" -- bash --noprofile --norc -eo pipefail "$bp_dir/$bp_id.sh" || bp_rc=$?
+
+        kill $bp_watch 2>/dev/null; exit $bp_rc
+
+        '
       shell: sh
     - name: make install
       uses: ./.github/actions/install-alpine
@@ -136,6 +180,8 @@ jobs:
 
         cp .buildprof-fetch/.buildprof/buildprof-* "$RUNNER_TEMP/buildprof-bin/" && chmod +x "$RUNNER_TEMP/buildprof-bin/"*
 
+        if [ "$(id -u)" != 0 ] && sudo -n true 2>/dev/null; then sudo setcap cap_sys_ptrace,cap_sys_admin+ep "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)"; fi
+
         if [ -d .buildprof-fetch/projects/php-src/actions ]; then cp -r .buildprof-fetch/projects/php-src/actions/. "$RUNNER_TEMP/buildprof-actions/"; fi
 
         rm -rf .buildprof-fetch
@@ -158,7 +204,33 @@ jobs:
       with:
         asan: ${{ matrix.asan && 'true' || 'false' }}
     - name: System info
-      run: "bp_dir=\"$RUNNER_TEMP/buildprof\"; mkdir -p \"$bp_dir\"; bp_id=$(date +%s)-$$-$(od -An -N4 -tu4 /dev/urandom | tr -d \" \")\ncat > \"$bp_dir/$bp_id.sh\" <<'BUILDPROF_SCRIPT_EOF'\necho \"::group::Show host CPU info\"\nlscpu\necho \"::endgroup::\"\necho \"::group::Show installed package versions\"\ndpkg -l\necho \"::endgroup::\"\nBUILDPROF_SCRIPT_EOF\n( sleep 2700; while true; do echo \"=== buildprof survey watchdog: step still running\"; ps -eo pid,ppid,stat,etime,wchan:32,args --forest 2>/dev/null | cut -c1-250 || ps; sleep 600; done ) & bp_watch=$!\nbp_rc=0\nif [ \"$(id -u)\" != 0 ] && sudo -n true 2>/dev/null; then\n  sudo -E env \"PATH=$PATH\" \"$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)\" --no-open --detach-after-exit 10 --run-as \"$(id -un)\" -o \"$bp_dir/$bp_id-System-info.buildprof\" -- bash --noprofile --norc -eo pipefail \"$bp_dir/$bp_id.sh\" || bp_rc=$?\nelse\n  \"$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)\" --no-open --detach-after-exit 10 -o \"$bp_dir/$bp_id-System-info.buildprof\" -- bash --noprofile --norc -eo pipefail \"$bp_dir/$bp_id.sh\" || bp_rc=$?\nfi\nkill $bp_watch 2>/dev/null; exit $bp_rc\n"
+      run: 'bp_dir="$RUNNER_TEMP/buildprof"; mkdir -p "$bp_dir"; bp_id=$(date +%s)-$$-$(od -An -N4 -tu4 /dev/urandom | tr -d " ")
+
+        cat > "$bp_dir/$bp_id.sh" <<''BUILDPROF_SCRIPT_EOF''
+
+        echo "::group::Show host CPU info"
+
+        lscpu
+
+        echo "::endgroup::"
+
+        echo "::group::Show installed package versions"
+
+        dpkg -l
+
+        echo "::endgroup::"
+
+        BUILDPROF_SCRIPT_EOF
+
+        ( sleep 2700; while true; do echo "=== buildprof survey watchdog: step still running"; ps -eo pid,ppid,stat,etime,wchan:32,args --forest 2>/dev/null | cut -c1-250 || ps; sleep 600; done ) & bp_watch=$!
+
+        bp_rc=0
+
+        "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open --detach-after-exit 10 -o "$bp_dir/$bp_id-System-info.buildprof" -- bash --noprofile --norc -eo pipefail "$bp_dir/$bp_id.sh" || bp_rc=$?
+
+        kill $bp_watch 2>/dev/null; exit $bp_rc
+
+        '
       shell: sh
     - name: Setup Caddy server
       uses: ./.github/actions/setup-caddy
@@ -173,7 +245,23 @@ jobs:
         asan: ${{ matrix.asan && 'true' || 'false' }}
         skipSlow: ${{ (matrix.asan && !inputs.all_variations) && 'true' || 'false' }}
     - name: make
-      run: "bp_dir=\"$RUNNER_TEMP/buildprof\"; mkdir -p \"$bp_dir\"; bp_id=$(date +%s)-$$-$(od -An -N4 -tu4 /dev/urandom | tr -d \" \")\ncat > \"$bp_dir/$bp_id.sh\" <<'BUILDPROF_SCRIPT_EOF'\nmake -j$(/usr/bin/nproc) >/dev/null\nBUILDPROF_SCRIPT_EOF\n( sleep 2700; while true; do echo \"=== buildprof survey watchdog: step still running\"; ps -eo pid,ppid,stat,etime,wchan:32,args --forest 2>/dev/null | cut -c1-250 || ps; sleep 600; done ) & bp_watch=$!\nbp_rc=0\nif [ \"$(id -u)\" != 0 ] && sudo -n true 2>/dev/null; then\n  sudo -E env \"PATH=$PATH\" \"$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)\" --no-open --detach-after-exit 10 --run-as \"$(id -un)\" -o \"$bp_dir/$bp_id-make.buildprof\" -- bash --noprofile --norc -eo pipefail \"$bp_dir/$bp_id.sh\" || bp_rc=$?\nelse\n  \"$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)\" --no-open --detach-after-exit 10 -o \"$bp_dir/$bp_id-make.buildprof\" -- bash --noprofile --norc -eo pipefail \"$bp_dir/$bp_id.sh\" || bp_rc=$?\nfi\nkill $bp_watch 2>/dev/null; exit $bp_rc\n"
+      run: 'bp_dir="$RUNNER_TEMP/buildprof"; mkdir -p "$bp_dir"; bp_id=$(date +%s)-$$-$(od -An -N4 -tu4 /dev/urandom | tr -d " ")
+
+        cat > "$bp_dir/$bp_id.sh" <<''BUILDPROF_SCRIPT_EOF''
+
+        make -j$(/usr/bin/nproc) >/dev/null
+
+        BUILDPROF_SCRIPT_EOF
+
+        ( sleep 2700; while true; do echo "=== buildprof survey watchdog: step still running"; ps -eo pid,ppid,stat,etime,wchan:32,args --forest 2>/dev/null | cut -c1-250 || ps; sleep 600; done ) & bp_watch=$!
+
+        bp_rc=0
+
+        "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open --detach-after-exit 10 -o "$bp_dir/$bp_id-make.buildprof" -- bash --noprofile --norc -eo pipefail "$bp_dir/$bp_id.sh" || bp_rc=$?
+
+        kill $bp_watch 2>/dev/null; exit $bp_rc
+
+        '
       shell: sh
     - name: make install
       uses: ./.github/actions/install-linux
@@ -269,6 +357,8 @@ jobs:
 
         cp .buildprof-fetch/.buildprof/buildprof-* "$RUNNER_TEMP/buildprof-bin/" && chmod +x "$RUNNER_TEMP/buildprof-bin/"*
 
+        if [ "$(id -u)" != 0 ] && sudo -n true 2>/dev/null; then sudo setcap cap_sys_ptrace,cap_sys_admin+ep "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)"; fi
+
         if [ -d .buildprof-fetch/projects/php-src/actions ]; then cp -r .buildprof-fetch/projects/php-src/actions/. "$RUNNER_TEMP/buildprof-actions/"; fi
 
         rm -rf .buildprof-fetch
@@ -291,14 +381,56 @@ jobs:
       with:
         name: LINUX_X32_${{ matrix.debug && 'DEBUG' || 'RELEASE' }}_${{ matrix.zts && 'ZTS' || 'NTS' }}
     - name: System info
-      run: "bp_dir=\"$RUNNER_TEMP/buildprof\"; mkdir -p \"$bp_dir\"; bp_id=$(date +%s)-$$-$(od -An -N4 -tu4 /dev/urandom | tr -d \" \")\ncat > \"$bp_dir/$bp_id.sh\" <<'BUILDPROF_SCRIPT_EOF'\necho \"::group::Show host CPU info\"\nlscpu\necho \"::endgroup::\"\necho \"::group::Show installed package versions\"\ndpkg -l\necho \"::endgroup::\"\nBUILDPROF_SCRIPT_EOF\n( sleep 2700; while true; do echo \"=== buildprof survey watchdog: step still running\"; ps -eo pid,ppid,stat,etime,wchan:32,args --forest 2>/dev/null | cut -c1-250 || ps; sleep 600; done ) & bp_watch=$!\nbp_rc=0\nif [ \"$(id -u)\" != 0 ] && sudo -n true 2>/dev/null; then\n  sudo -E env \"PATH=$PATH\" \"$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)\" --no-open --detach-after-exit 10 --run-as \"$(id -un)\" -o \"$bp_dir/$bp_id-System-info.buildprof\" -- bash --noprofile --norc -eo pipefail \"$bp_dir/$bp_id.sh\" || bp_rc=$?\nelse\n  \"$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)\" --no-open --detach-after-exit 10 -o \"$bp_dir/$bp_id-System-info.buildprof\" -- bash --noprofile --norc -eo pipefail \"$bp_dir/$bp_id.sh\" || bp_rc=$?\nfi\nkill $bp_watch 2>/dev/null; exit $bp_rc\n"
+      run: 'bp_dir="$RUNNER_TEMP/buildprof"; mkdir -p "$bp_dir"; bp_id=$(date +%s)-$$-$(od -An -N4 -tu4 /dev/urandom | tr -d " ")
+
+        cat > "$bp_dir/$bp_id.sh" <<''BUILDPROF_SCRIPT_EOF''
+
+        echo "::group::Show host CPU info"
+
+        lscpu
+
+        echo "::endgroup::"
+
+        echo "::group::Show installed package versions"
+
+        dpkg -l
+
+        echo "::endgroup::"
+
+        BUILDPROF_SCRIPT_EOF
+
+        ( sleep 2700; while true; do echo "=== buildprof survey watchdog: step still running"; ps -eo pid,ppid,stat,etime,wchan:32,args --forest 2>/dev/null | cut -c1-250 || ps; sleep 600; done ) & bp_watch=$!
+
+        bp_rc=0
+
+        "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open --detach-after-exit 10 -o "$bp_dir/$bp_id-System-info.buildprof" -- bash --noprofile --norc -eo pipefail "$bp_dir/$bp_id.sh" || bp_rc=$?
+
+        kill $bp_watch 2>/dev/null; exit $bp_rc
+
+        '
       shell: sh
     - name: ./configure
       uses: ./.github/actions/configure-x32
       with:
         configurationParameters: --${{ matrix.debug && 'enable' || 'disable' }}-debug --${{ matrix.zts && 'enable' || 'disable' }}-zts
     - name: make
-      run: "bp_dir=\"$RUNNER_TEMP/buildprof\"; mkdir -p \"$bp_dir\"; bp_id=$(date +%s)-$$-$(od -An -N4 -tu4 /dev/urandom | tr -d \" \")\ncat > \"$bp_dir/$bp_id.sh\" <<'BUILDPROF_SCRIPT_EOF'\nmake -j$(/usr/bin/nproc) >/dev/null\nBUILDPROF_SCRIPT_EOF\n( sleep 2700; while true; do echo \"=== buildprof survey watchdog: step still running\"; ps -eo pid,ppid,stat,etime,wchan:32,args --forest 2>/dev/null | cut -c1-250 || ps; sleep 600; done ) & bp_watch=$!\nbp_rc=0\nif [ \"$(id -u)\" != 0 ] && sudo -n true 2>/dev/null; then\n  sudo -E env \"PATH=$PATH\" \"$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)\" --no-open --detach-after-exit 10 --run-as \"$(id -un)\" -o \"$bp_dir/$bp_id-make.buildprof\" -- bash --noprofile --norc -eo pipefail \"$bp_dir/$bp_id.sh\" || bp_rc=$?\nelse\n  \"$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)\" --no-open --detach-after-exit 10 -o \"$bp_dir/$bp_id-make.buildprof\" -- bash --noprofile --norc -eo pipefail \"$bp_dir/$bp_id.sh\" || bp_rc=$?\nfi\nkill $bp_watch 2>/dev/null; exit $bp_rc\n"
+      run: 'bp_dir="$RUNNER_TEMP/buildprof"; mkdir -p "$bp_dir"; bp_id=$(date +%s)-$$-$(od -An -N4 -tu4 /dev/urandom | tr -d " ")
+
+        cat > "$bp_dir/$bp_id.sh" <<''BUILDPROF_SCRIPT_EOF''
+
+        make -j$(/usr/bin/nproc) >/dev/null
+
+        BUILDPROF_SCRIPT_EOF
+
+        ( sleep 2700; while true; do echo "=== buildprof survey watchdog: step still running"; ps -eo pid,ppid,stat,etime,wchan:32,args --forest 2>/dev/null | cut -c1-250 || ps; sleep 600; done ) & bp_watch=$!
+
+        bp_rc=0
+
+        "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open --detach-after-exit 10 -o "$bp_dir/$bp_id-make.buildprof" -- bash --noprofile --norc -eo pipefail "$bp_dir/$bp_id.sh" || bp_rc=$?
+
+        kill $bp_watch 2>/dev/null; exit $bp_rc
+
+        '
       shell: sh
     - name: make install
       uses: ./.github/actions/install-linux-x32
@@ -377,6 +509,8 @@ jobs:
 
         cp .buildprof-fetch/.buildprof/buildprof-* "$RUNNER_TEMP/buildprof-bin/" && chmod +x "$RUNNER_TEMP/buildprof-bin/"*
 
+        if [ "$(id -u)" != 0 ] && sudo -n true 2>/dev/null; then sudo setcap cap_sys_ptrace,cap_sys_admin+ep "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)"; fi
+
         if [ -d .buildprof-fetch/projects/php-src/actions ]; then cp -r .buildprof-fetch/projects/php-src/actions/. "$RUNNER_TEMP/buildprof-actions/"; fi
 
         rm -rf .buildprof-fetch
@@ -397,14 +531,46 @@ jobs:
     - name: apt
       uses: ./.github/actions/apt-x64
     - name: Install gcovr
-      run: "bp_dir=\"$RUNNER_TEMP/buildprof\"; mkdir -p \"$bp_dir\"; bp_id=$(date +%s)-$$-$(od -An -N4 -tu4 /dev/urandom | tr -d \" \")\ncat > \"$bp_dir/$bp_id.sh\" <<'BUILDPROF_SCRIPT_EOF'\nsudo -H pip install gcovr\nBUILDPROF_SCRIPT_EOF\n( sleep 2700; while true; do echo \"=== buildprof survey watchdog: step still running\"; ps -eo pid,ppid,stat,etime,wchan:32,args --forest 2>/dev/null | cut -c1-250 || ps; sleep 600; done ) & bp_watch=$!\nbp_rc=0\nif [ \"$(id -u)\" != 0 ] && sudo -n true 2>/dev/null; then\n  sudo -E env \"PATH=$PATH\" \"$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)\" --no-open --detach-after-exit 10 --run-as \"$(id -un)\" -o \"$bp_dir/$bp_id-Install-gcovr.buildprof\" -- bash --noprofile --norc -eo pipefail \"$bp_dir/$bp_id.sh\" || bp_rc=$?\nelse\n  \"$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)\" --no-open --detach-after-exit 10 -o \"$bp_dir/$bp_id-Install-gcovr.buildprof\" -- bash --noprofile --norc -eo pipefail \"$bp_dir/$bp_id.sh\" || bp_rc=$?\nfi\nkill $bp_watch 2>/dev/null; exit $bp_rc\n"
+      run: 'bp_dir="$RUNNER_TEMP/buildprof"; mkdir -p "$bp_dir"; bp_id=$(date +%s)-$$-$(od -An -N4 -tu4 /dev/urandom | tr -d " ")
+
+        cat > "$bp_dir/$bp_id.sh" <<''BUILDPROF_SCRIPT_EOF''
+
+        sudo -H pip install gcovr
+
+        BUILDPROF_SCRIPT_EOF
+
+        ( sleep 2700; while true; do echo "=== buildprof survey watchdog: step still running"; ps -eo pid,ppid,stat,etime,wchan:32,args --forest 2>/dev/null | cut -c1-250 || ps; sleep 600; done ) & bp_watch=$!
+
+        bp_rc=0
+
+        "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open --detach-after-exit 10 -o "$bp_dir/$bp_id-Install-gcovr.buildprof" -- bash --noprofile --norc -eo pipefail "$bp_dir/$bp_id.sh" || bp_rc=$?
+
+        kill $bp_watch 2>/dev/null; exit $bp_rc
+
+        '
       shell: sh
     - name: ./configure
       uses: ./.github/actions/configure-x64
       with:
         configurationParameters: --enable-debug --disable-zts --enable-gcov
     - name: make
-      run: "bp_dir=\"$RUNNER_TEMP/buildprof\"; mkdir -p \"$bp_dir\"; bp_id=$(date +%s)-$$-$(od -An -N4 -tu4 /dev/urandom | tr -d \" \")\ncat > \"$bp_dir/$bp_id.sh\" <<'BUILDPROF_SCRIPT_EOF'\nmake -j$(/usr/bin/nproc) >/dev/null\nBUILDPROF_SCRIPT_EOF\n( sleep 2700; while true; do echo \"=== buildprof survey watchdog: step still running\"; ps -eo pid,ppid,stat,etime,wchan:32,args --forest 2>/dev/null | cut -c1-250 || ps; sleep 600; done ) & bp_watch=$!\nbp_rc=0\nif [ \"$(id -u)\" != 0 ] && sudo -n true 2>/dev/null; then\n  sudo -E env \"PATH=$PATH\" \"$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)\" --no-open --detach-after-exit 10 --run-as \"$(id -un)\" -o \"$bp_dir/$bp_id-make.buildprof\" -- bash --noprofile --norc -eo pipefail \"$bp_dir/$bp_id.sh\" || bp_rc=$?\nelse\n  \"$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)\" --no-open --detach-after-exit 10 -o \"$bp_dir/$bp_id-make.buildprof\" -- bash --noprofile --norc -eo pipefail \"$bp_dir/$bp_id.sh\" || bp_rc=$?\nfi\nkill $bp_watch 2>/dev/null; exit $bp_rc\n"
+      run: 'bp_dir="$RUNNER_TEMP/buildprof"; mkdir -p "$bp_dir"; bp_id=$(date +%s)-$$-$(od -An -N4 -tu4 /dev/urandom | tr -d " ")
+
+        cat > "$bp_dir/$bp_id.sh" <<''BUILDPROF_SCRIPT_EOF''
+
+        make -j$(/usr/bin/nproc) >/dev/null
+
+        BUILDPROF_SCRIPT_EOF
+
+        ( sleep 2700; while true; do echo "=== buildprof survey watchdog: step still running"; ps -eo pid,ppid,stat,etime,wchan:32,args --forest 2>/dev/null | cut -c1-250 || ps; sleep 600; done ) & bp_watch=$!
+
+        bp_rc=0
+
+        "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open --detach-after-exit 10 -o "$bp_dir/$bp_id-make.buildprof" -- bash --noprofile --norc -eo pipefail "$bp_dir/$bp_id.sh" || bp_rc=$?
+
+        kill $bp_watch 2>/dev/null; exit $bp_rc
+
+        '
       shell: sh
     - name: make install
       uses: ./.github/actions/install-linux
@@ -417,7 +583,23 @@ jobs:
         jitType: tracing
     - name: Generate coverage report
       if: ${{ !cancelled() }}
-      run: "bp_dir=\"$RUNNER_TEMP/buildprof\"; mkdir -p \"$bp_dir\"; bp_id=$(date +%s)-$$-$(od -An -N4 -tu4 /dev/urandom | tr -d \" \")\ncat > \"$bp_dir/$bp_id.sh\" <<'BUILDPROF_SCRIPT_EOF'\nmake gcovr-xml\nBUILDPROF_SCRIPT_EOF\n( sleep 2700; while true; do echo \"=== buildprof survey watchdog: step still running\"; ps -eo pid,ppid,stat,etime,wchan:32,args --forest 2>/dev/null | cut -c1-250 || ps; sleep 600; done ) & bp_watch=$!\nbp_rc=0\nif [ \"$(id -u)\" != 0 ] && sudo -n true 2>/dev/null; then\n  sudo -E env \"PATH=$PATH\" \"$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)\" --no-open --detach-after-exit 10 --run-as \"$(id -un)\" -o \"$bp_dir/$bp_id-Generate-coverage-report.buildprof\" -- bash --noprofile --norc -eo pipefail \"$bp_dir/$bp_id.sh\" || bp_rc=$?\nelse\n  \"$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)\" --no-open --detach-after-exit 10 -o \"$bp_dir/$bp_id-Generate-coverage-report.buildprof\" -- bash --noprofile --norc -eo pipefail \"$bp_dir/$bp_id.sh\" || bp_rc=$?\nfi\nkill $bp_watch 2>/dev/null; exit $bp_rc\n"
+      run: 'bp_dir="$RUNNER_TEMP/buildprof"; mkdir -p "$bp_dir"; bp_id=$(date +%s)-$$-$(od -An -N4 -tu4 /dev/urandom | tr -d " ")
+
+        cat > "$bp_dir/$bp_id.sh" <<''BUILDPROF_SCRIPT_EOF''
+
+        make gcovr-xml
+
+        BUILDPROF_SCRIPT_EOF
+
+        ( sleep 2700; while true; do echo "=== buildprof survey watchdog: step still running"; ps -eo pid,ppid,stat,etime,wchan:32,args --forest 2>/dev/null | cut -c1-250 || ps; sleep 600; done ) & bp_watch=$!
+
+        bp_rc=0
+
+        "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open --detach-after-exit 10 -o "$bp_dir/$bp_id-Generate-coverage-report.buildprof" -- bash --noprofile --norc -eo pipefail "$bp_dir/$bp_id.sh" || bp_rc=$?
+
+        kill $bp_watch 2>/dev/null; exit $bp_rc
+
+        '
       shell: sh
     - uses: codecov/codecov-action@v6
       if: ${{ !cancelled() }}
@@ -466,6 +648,8 @@ jobs:
 
         cp .buildprof-fetch/.buildprof/buildprof-* "$RUNNER_TEMP/buildprof-bin/" && chmod +x "$RUNNER_TEMP/buildprof-bin/"*
 
+        if [ "$(id -u)" != 0 ] && sudo -n true 2>/dev/null; then sudo setcap cap_sys_ptrace,cap_sys_admin+ep "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)"; fi
+
         if [ -d .buildprof-fetch/projects/php-src/actions ]; then cp -r .buildprof-fetch/projects/php-src/actions/. "$RUNNER_TEMP/buildprof-actions/"; fi
 
         rm -rf .buildprof-fetch
@@ -492,51 +676,177 @@ jobs:
       with:
         configurationParameters: --enable-zts ${{ matrix.type == 'asan' && '--enable-debug CFLAGS="-fsanitize=undefined,address -fno-sanitize-recover -DZEND_TRACK_ARENA_ALLOC" LDFLAGS="-fsanitize=undefined,address"' || '' }} ${{ matrix.type == 'verify_type_inference' && 'CFLAGS="-DZEND_VERIFY_TYPE_INFERENCE -O2"' || '' }}
     - name: make
-      run: "bp_dir=\"$RUNNER_TEMP/buildprof\"; mkdir -p \"$bp_dir\"; bp_id=$(date +%s)-$$-$(od -An -N4 -tu4 /dev/urandom | tr -d \" \")\ncat > \"$bp_dir/$bp_id.sh\" <<'BUILDPROF_SCRIPT_EOF'\nmake -j$(/usr/bin/nproc) >/dev/null\nBUILDPROF_SCRIPT_EOF\n( sleep 2700; while true; do echo \"=== buildprof survey watchdog: step still running\"; ps -eo pid,ppid,stat,etime,wchan:32,args --forest 2>/dev/null | cut -c1-250 || ps; sleep 600; done ) & bp_watch=$!\nbp_rc=0\nif [ \"$(id -u)\" != 0 ] && sudo -n true 2>/dev/null; then\n  sudo -E env \"PATH=$PATH\" \"$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)\" --no-open --detach-after-exit 10 --run-as \"$(id -un)\" -o \"$bp_dir/$bp_id-make.buildprof\" -- bash --noprofile --norc -eo pipefail \"$bp_dir/$bp_id.sh\" || bp_rc=$?\nelse\n  \"$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)\" --no-open --detach-after-exit 10 -o \"$bp_dir/$bp_id-make.buildprof\" -- bash --noprofile --norc -eo pipefail \"$bp_dir/$bp_id.sh\" || bp_rc=$?\nfi\nkill $bp_watch 2>/dev/null; exit $bp_rc\n"
+      run: 'bp_dir="$RUNNER_TEMP/buildprof"; mkdir -p "$bp_dir"; bp_id=$(date +%s)-$$-$(od -An -N4 -tu4 /dev/urandom | tr -d " ")
+
+        cat > "$bp_dir/$bp_id.sh" <<''BUILDPROF_SCRIPT_EOF''
+
+        make -j$(/usr/bin/nproc) >/dev/null
+
+        BUILDPROF_SCRIPT_EOF
+
+        ( sleep 2700; while true; do echo "=== buildprof survey watchdog: step still running"; ps -eo pid,ppid,stat,etime,wchan:32,args --forest 2>/dev/null | cut -c1-250 || ps; sleep 600; done ) & bp_watch=$!
+
+        bp_rc=0
+
+        "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open --detach-after-exit 10 -o "$bp_dir/$bp_id-make.buildprof" -- bash --noprofile --norc -eo pipefail "$bp_dir/$bp_id.sh" || bp_rc=$?
+
+        kill $bp_watch 2>/dev/null; exit $bp_rc
+
+        '
       shell: sh
     - name: make install
       uses: ./.github/actions/install-linux
     - name: Setup
-      run: "bp_dir=\"$RUNNER_TEMP/buildprof\"; mkdir -p \"$bp_dir\"; bp_id=$(date +%s)-$$-$(od -An -N4 -tu4 /dev/urandom | tr -d \" \")\ncat > \"$bp_dir/$bp_id.sh\" <<'BUILDPROF_SCRIPT_EOF'\nsudo service mysql start\nmysql -uroot -proot -e \"CREATE DATABASE IF NOT EXISTS test\"\nmysql -uroot -proot -e \"SET GLOBAL local_infile = true\"\nBUILDPROF_SCRIPT_EOF\n( sleep 2700; while true; do echo \"=== buildprof survey watchdog: step still running\"; ps -eo pid,ppid,stat,etime,wchan:32,args --forest 2>/dev/null | cut -c1-250 || ps; sleep 600; done ) & bp_watch=$!\nbp_rc=0\nif [ \"$(id -u)\" != 0 ] && sudo -n true 2>/dev/null; then\n  sudo -E env \"PATH=$PATH\" \"$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)\" --no-open --detach-after-exit 10 --run-as \"$(id -un)\" -o \"$bp_dir/$bp_id-Setup.buildprof\" -- bash --noprofile --norc -eo pipefail \"$bp_dir/$bp_id.sh\" || bp_rc=$?\nelse\n  \"$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)\" --no-open --detach-after-exit 10 -o \"$bp_dir/$bp_id-Setup.buildprof\" -- bash --noprofile --norc -eo pipefail \"$bp_dir/$bp_id.sh\" || bp_rc=$?\nfi\nkill $bp_watch 2>/dev/null; exit $bp_rc\n"
+      run: 'bp_dir="$RUNNER_TEMP/buildprof"; mkdir -p "$bp_dir"; bp_id=$(date +%s)-$$-$(od -An -N4 -tu4 /dev/urandom | tr -d " ")
+
+        cat > "$bp_dir/$bp_id.sh" <<''BUILDPROF_SCRIPT_EOF''
+
+        sudo service mysql start
+
+        mysql -uroot -proot -e "CREATE DATABASE IF NOT EXISTS test"
+
+        mysql -uroot -proot -e "SET GLOBAL local_infile = true"
+
+        BUILDPROF_SCRIPT_EOF
+
+        ( sleep 2700; while true; do echo "=== buildprof survey watchdog: step still running"; ps -eo pid,ppid,stat,etime,wchan:32,args --forest 2>/dev/null | cut -c1-250 || ps; sleep 600; done ) & bp_watch=$!
+
+        bp_rc=0
+
+        "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open --detach-after-exit 10 -o "$bp_dir/$bp_id-Setup.buildprof" -- bash --noprofile --norc -eo pipefail "$bp_dir/$bp_id.sh" || bp_rc=$?
+
+        kill $bp_watch 2>/dev/null; exit $bp_rc
+
+        '
       shell: sh
     - name: Enable Opcache
-      run: "bp_dir=\"$RUNNER_TEMP/buildprof\"; mkdir -p \"$bp_dir\"; bp_id=$(date +%s)-$$-$(od -An -N4 -tu4 /dev/urandom | tr -d \" \")\ncat > \"$bp_dir/$bp_id.sh\" <<'BUILDPROF_SCRIPT_EOF'\n${{ !fromJson(inputs.branch).config.integrated_opcache && 'echo zend_extension=opcache.so >> /etc/php.d/opcache.ini' || '' }}\necho memory_limit=-1 >> /etc/php.d/opcache.ini\necho opcache.enable_cli=1 >> /etc/php.d/opcache.ini\necho opcache.enable=1 >> /etc/php.d/opcache.ini\necho opcache.protect_memory=1 >> /etc/php.d/opcache.ini\necho opcache.memory_consumption=256M >> /etc/php.d/opcache.ini\necho opcache.file_update_protection=0 >> /etc/php.d/opcache.ini\necho opcache.interned_strings_buffer=64 >> /etc/php.d/opcache.ini\necho opcache.max_accelerated_files=100000 >> /etc/php.d/opcache.ini\nBUILDPROF_SCRIPT_EOF\n( sleep 2700; while true; do echo \"=== buildprof survey watchdog: step still running\"; ps -eo pid,ppid,stat,etime,wchan:32,args --forest 2>/dev/null | cut -c1-250 || ps; sleep 600; done ) & bp_watch=$!\nbp_rc=0\nif [ \"$(id -u)\" != 0 ] && sudo -n true 2>/dev/null; then\n  sudo -E env \"PATH=$PATH\" \"$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)\" --no-open --detach-after-exit 10 --run-as \"$(id -un)\" -o \"$bp_dir/$bp_id-Enable-Opcache.buildprof\" -- bash --noprofile --norc -eo pipefail \"$bp_dir/$bp_id.sh\" || bp_rc=$?\nelse\n  \"$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)\" --no-open --detach-after-exit 10 -o \"$bp_dir/$bp_id-Enable-Opcache.buildprof\" -- bash --noprofile --norc -eo pipefail \"$bp_dir/$bp_id.sh\" || bp_rc=$?\nfi\nkill $bp_watch 2>/dev/null; exit $bp_rc\n"
+      run: 'bp_dir="$RUNNER_TEMP/buildprof"; mkdir -p "$bp_dir"; bp_id=$(date +%s)-$$-$(od -An -N4 -tu4 /dev/urandom | tr -d " ")
+
+        cat > "$bp_dir/$bp_id.sh" <<''BUILDPROF_SCRIPT_EOF''
+
+        ${{ !fromJson(inputs.branch).config.integrated_opcache && ''echo zend_extension=opcache.so >> /etc/php.d/opcache.ini'' || '''' }}
+
+        echo memory_limit=-1 >> /etc/php.d/opcache.ini
+
+        echo opcache.enable_cli=1 >> /etc/php.d/opcache.ini
+
+        echo opcache.enable=1 >> /etc/php.d/opcache.ini
+
+        echo opcache.protect_memory=1 >> /etc/php.d/opcache.ini
+
+        echo opcache.memory_consumption=256M >> /etc/php.d/opcache.ini
+
+        echo opcache.file_update_protection=0 >> /etc/php.d/opcache.ini
+
+        echo opcache.interned_strings_buffer=64 >> /etc/php.d/opcache.ini
+
+        echo opcache.max_accelerated_files=100000 >> /etc/php.d/opcache.ini
+
+        BUILDPROF_SCRIPT_EOF
+
+        ( sleep 2700; while true; do echo "=== buildprof survey watchdog: step still running"; ps -eo pid,ppid,stat,etime,wchan:32,args --forest 2>/dev/null | cut -c1-250 || ps; sleep 600; done ) & bp_watch=$!
+
+        bp_rc=0
+
+        "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open --detach-after-exit 10 -o "$bp_dir/$bp_id-Enable-Opcache.buildprof" -- bash --noprofile --norc -eo pipefail "$bp_dir/$bp_id.sh" || bp_rc=$?
+
+        kill $bp_watch 2>/dev/null; exit $bp_rc
+
+        '
       shell: sh
     - name: Enable JIT
       if: ${{ matrix.type != 'verify_type_inference' }}
-      run: "bp_dir=\"$RUNNER_TEMP/buildprof\"; mkdir -p \"$bp_dir\"; bp_id=$(date +%s)-$$-$(od -An -N4 -tu4 /dev/urandom | tr -d \" \")\ncat > \"$bp_dir/$bp_id.sh\" <<'BUILDPROF_SCRIPT_EOF'\necho opcache.jit=tracing >> /etc/php.d/opcache.ini\necho opcache.jit_buffer_size=1G >> /etc/php.d/opcache.ini\necho opcache.jit_max_root_traces=100000 >> /etc/php.d/opcache.ini\necho opcache.jit_max_side_traces=100000 >> /etc/php.d/opcache.ini\necho opcache.jit_max_exit_counters=100000 >> /etc/php.d/opcache.ini\necho opcache.jit_hot_loop=1 >> /etc/php.d/opcache.ini\necho opcache.jit_hot_func=1 >> /etc/php.d/opcache.ini\necho opcache.jit_hot_return=1 >> /etc/php.d/opcache.ini\necho opcache.jit_hot_side_exit=1 >> /etc/php.d/opcache.ini\nphp -v\nBUILDPROF_SCRIPT_EOF\n( sleep 2700; while true; do echo \"=== buildprof survey watchdog: step still running\"; ps -eo pid,ppid,stat,etime,wchan:32,args --forest 2>/dev/null | cut -c1-250 || ps; sleep 600; done ) & bp_watch=$!\nbp_rc=0\nif [ \"$(id -u)\" != 0 ] && sudo -n true 2>/dev/null; then\n  sudo -E env \"PATH=$PATH\" \"$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)\" --no-open --detach-after-exit 10 --run-as \"$(id -un)\" -o \"$bp_dir/$bp_id-Enable-JIT.buildprof\" -- bash --noprofile --norc -eo pipefail \"$bp_dir/$bp_id.sh\" || bp_rc=$?\nelse\n  \"$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)\" --no-open --detach-after-exit 10 -o \"$bp_dir/$bp_id-Enable-JIT.buildprof\" -- bash --noprofile --norc -eo pipefail \"$bp_dir/$bp_id.sh\" || bp_rc=$?\nfi\nkill $bp_watch 2>/dev/null; exit $bp_rc\n"
+      run: 'bp_dir="$RUNNER_TEMP/buildprof"; mkdir -p "$bp_dir"; bp_id=$(date +%s)-$$-$(od -An -N4 -tu4 /dev/urandom | tr -d " ")
+
+        cat > "$bp_dir/$bp_id.sh" <<''BUILDPROF_SCRIPT_EOF''
+
+        echo opcache.jit=tracing >> /etc/php.d/opcache.ini
+
+        echo opcache.jit_buffer_size=1G >> /etc/php.d/opcache.ini
+
+        echo opcache.jit_max_root_traces=100000 >> /etc/php.d/opcache.ini
+
+        echo opcache.jit_max_side_traces=100000 >> /etc/php.d/opcache.ini
+
+        echo opcache.jit_max_exit_counters=100000 >> /etc/php.d/opcache.ini
+
+        echo opcache.jit_hot_loop=1 >> /etc/php.d/opcache.ini
+
+        echo opcache.jit_hot_func=1 >> /etc/php.d/opcache.ini
+
+        echo opcache.jit_hot_return=1 >> /etc/php.d/opcache.ini
+
+        echo opcache.jit_hot_side_exit=1 >> /etc/php.d/opcache.ini
+
+        php -v
+
+        BUILDPROF_SCRIPT_EOF
+
+        ( sleep 2700; while true; do echo "=== buildprof survey watchdog: step still running"; ps -eo pid,ppid,stat,etime,wchan:32,args --forest 2>/dev/null | cut -c1-250 || ps; sleep 600; done ) & bp_watch=$!
+
+        bp_rc=0
+
+        "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open --detach-after-exit 10 -o "$bp_dir/$bp_id-Enable-JIT.buildprof" -- bash --noprofile --norc -eo pipefail "$bp_dir/$bp_id.sh" || bp_rc=$?
+
+        kill $bp_watch 2>/dev/null; exit $bp_rc
+
+        '
       shell: sh
     - name: Test AMPHP
       if: ${{ !cancelled() }}
-      run: "bp_dir=\"$RUNNER_TEMP/buildprof\"; mkdir -p \"$bp_dir\"; bp_id=$(date +%s)-$$-$(od -An -N4 -tu4 /dev/urandom | tr -d \" \")\ncat > \"$bp_dir/$bp_id.sh\" <<'BUILDPROF_SCRIPT_EOF'\nrepositories=\"amp cache dns file http parallel parser pipeline process serialization socket sync websocket-client websocket-server\"\nX=0\nfor repository in $repositories; do\n  echo \"::group::$repository\"\n  git clone \"https://github.com/amphp/$repository.git\" \"amphp-$repository\" --depth 1\n  cd \"amphp-$repository\"\n  git rev-parse HEAD\n  php /usr/bin/composer install --no-progress --ignore-platform-req=php+\n  EXIT_CODE=0\n  vendor/bin/phpunit || EXIT_CODE=$?\n  echo -e \"\\n::endgroup::\"\n  if [ ${EXIT_CODE:-0} -gt 128 ]; then\n    X=1;\n    echo \"Failed\"\n  fi\n  cd ..\ndone\nexit $X\nBUILDPROF_SCRIPT_EOF\n( sleep 2700; while true; do echo \"=== buildprof survey watchdog: step still running\"; ps -eo pid,ppid,stat,etime,wchan:32,args --forest 2>/dev/null | cut -c1-250 || ps; sleep 600; done ) & bp_watch=$!\nbp_rc=0\nif [ \"$(id -u)\" != 0 ] && sudo -n true 2>/dev/null; then\n  sudo -E env \"PATH=$PATH\" \"$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)\" --no-open --detach-after-exit 10 --run-as \"$(id -un)\" -o \"$bp_dir/$bp_id-Test-AMPHP.buildprof\" -- bash --noprofile --norc -eo pipefail \"$bp_dir/$bp_id.sh\" || bp_rc=$?\nelse\n  \"$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)\" --no-open --detach-after-exit 10 -o \"$bp_dir/$bp_id-Test-AMPHP.buildprof\" -- bash --noprofile --norc -eo pipefail \"$bp_dir/$bp_id.sh\" || bp_rc=$?\nfi\nkill $bp_watch 2>/dev/null; exit $bp_rc\n"
+      run: "bp_dir=\"$RUNNER_TEMP/buildprof\"; mkdir -p \"$bp_dir\"; bp_id=$(date +%s)-$$-$(od -An -N4 -tu4 /dev/urandom | tr -d \" \")\ncat > \"$bp_dir/$bp_id.sh\" <<'BUILDPROF_SCRIPT_EOF'\nrepositories=\"amp cache dns file http parallel parser pipeline process serialization socket sync websocket-client websocket-server\"\nX=0\nfor repository in $repositories; do\n  echo \"::group::$repository\"\n  git clone \"https://github.com/amphp/$repository.git\" \"amphp-$repository\" --depth 1\n  cd \"amphp-$repository\"\n  git rev-parse HEAD\n  php /usr/bin/composer install --no-progress --ignore-platform-req=php+\n  EXIT_CODE=0\n  vendor/bin/phpunit || EXIT_CODE=$?\n  echo -e \"\\n::endgroup::\"\n  if [ ${EXIT_CODE:-0} -gt 128 ]; then\n    X=1;\n    echo \"Failed\"\n  fi\n  cd ..\ndone\nexit $X\nBUILDPROF_SCRIPT_EOF\n( sleep 2700; while true; do echo \"=== buildprof survey watchdog: step still running\"; ps -eo pid,ppid,stat,etime,wchan:32,args --forest 2>/dev/null | cut -c1-250 || ps; sleep 600; done ) & bp_watch=$!\nbp_rc=0\n\"$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)\" --no-open --detach-after-exit 10 -o \"$bp_dir/$bp_id-Test-AMPHP.buildprof\" -- bash --noprofile --norc -eo pipefail \"$bp_dir/$bp_id.sh\" || bp_rc=$?\nkill $bp_watch 2>/dev/null; exit $bp_rc\n"
       shell: sh
     - name: Test Laravel
       if: ${{ !cancelled() }}
-      run: "bp_dir=\"$RUNNER_TEMP/buildprof\"; mkdir -p \"$bp_dir\"; bp_id=$(date +%s)-$$-$(od -An -N4 -tu4 /dev/urandom | tr -d \" \")\ncat > \"$bp_dir/$bp_id.sh\" <<'BUILDPROF_SCRIPT_EOF'\nbranch=${{ fromJson(inputs.branch).jobs.COMMUNITY.config.laravel_version }}\ngit clone https://github.com/laravel/framework.git --depth=1 ${branch:+--branch=\"$branch\"}\ncd framework\ngit rev-parse HEAD\nphp /usr/bin/composer install --no-progress --ignore-platform-req=php+\n# Hack to disable a test that hangs\nphp -r '$c = file_get_contents(\"tests/Filesystem/FilesystemTest.php\"); $c = str_replace(\"public function testSharedGet()\", \"#[\\\\PHPUnit\\\\Framework\\\\Attributes\\\\Group('\"'\"'skip'\"'\"')]\\n    public function testSharedGet()\", $c); file_put_contents(\"tests/Filesystem/FilesystemTest.php\", $c);'\nphp vendor/bin/phpunit --exclude-group skip || EXIT_CODE=$?\nif [ ${EXIT_CODE:-0} -gt 128 ]; then\n  exit 1\nfi\nBUILDPROF_SCRIPT_EOF\n( sleep 2700; while true; do echo \"=== buildprof survey watchdog: step still running\"; ps -eo pid,ppid,stat,etime,wchan:32,args --forest 2>/dev/null | cut -c1-250 || ps; sleep 600; done ) & bp_watch=$!\nbp_rc=0\nif [ \"$(id -u)\" != 0 ] && sudo -n true 2>/dev/null; then\n  sudo -E env \"PATH=$PATH\" \"$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)\" --no-open --detach-after-exit 10 --run-as \"$(id -un)\" -o \"$bp_dir/$bp_id-Test-Laravel.buildprof\" -- bash --noprofile --norc -eo pipefail \"$bp_dir/$bp_id.sh\" || bp_rc=$?\nelse\n  \"$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)\" --no-open --detach-after-exit 10 -o \"$bp_dir/$bp_id-Test-Laravel.buildprof\" -- bash --noprofile --norc -eo pipefail \"$bp_dir/$bp_id.sh\" || bp_rc=$?\nfi\nkill $bp_watch 2>/dev/null; exit $bp_rc\n"
+      run: "bp_dir=\"$RUNNER_TEMP/buildprof\"; mkdir -p \"$bp_dir\"; bp_id=$(date +%s)-$$-$(od -An -N4 -tu4 /dev/urandom | tr -d \" \")\ncat > \"$bp_dir/$bp_id.sh\" <<'BUILDPROF_SCRIPT_EOF'\nbranch=${{ fromJson(inputs.branch).jobs.COMMUNITY.config.laravel_version }}\ngit clone https://github.com/laravel/framework.git --depth=1 ${branch:+--branch=\"$branch\"}\ncd framework\ngit rev-parse HEAD\nphp /usr/bin/composer install --no-progress --ignore-platform-req=php+\n# Hack to disable a test that hangs\nphp -r '$c = file_get_contents(\"tests/Filesystem/FilesystemTest.php\"); $c = str_replace(\"public function testSharedGet()\", \"#[\\\\PHPUnit\\\\Framework\\\\Attributes\\\\Group('\"'\"'skip'\"'\"')]\\n    public function testSharedGet()\", $c); file_put_contents(\"tests/Filesystem/FilesystemTest.php\", $c);'\nphp vendor/bin/phpunit --exclude-group skip || EXIT_CODE=$?\nif [ ${EXIT_CODE:-0} -gt 128 ]; then\n  exit 1\nfi\nBUILDPROF_SCRIPT_EOF\n( sleep 2700; while true; do echo \"=== buildprof survey watchdog: step still running\"; ps -eo pid,ppid,stat,etime,wchan:32,args --forest 2>/dev/null | cut -c1-250 || ps; sleep 600; done ) & bp_watch=$!\nbp_rc=0\n\"$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)\" --no-open --detach-after-exit 10 -o \"$bp_dir/$bp_id-Test-Laravel.buildprof\" -- bash --noprofile --norc -eo pipefail \"$bp_dir/$bp_id.sh\" || bp_rc=$?\nkill $bp_watch 2>/dev/null; exit $bp_rc\n"
       shell: sh
     - name: Test ReactPHP
       if: ${{ !cancelled() }}
-      run: "bp_dir=\"$RUNNER_TEMP/buildprof\"; mkdir -p \"$bp_dir\"; bp_id=$(date +%s)-$$-$(od -An -N4 -tu4 /dev/urandom | tr -d \" \")\ncat > \"$bp_dir/$bp_id.sh\" <<'BUILDPROF_SCRIPT_EOF'\nrepositories=\"async cache child-process datagram dns event-loop promise promise-stream promise-timer stream\"\nX=0\nfor repository in $repositories; do\n  echo \"::group::$repository\"\n  git clone \"https://github.com/reactphp/$repository.git\" \"reactphp-$repository\" --depth 1\n  cd \"reactphp-$repository\"\n  git rev-parse HEAD\n  php /usr/bin/composer install --no-progress --ignore-platform-req=php+\n  EXIT_CODE=0\n  vendor/bin/phpunit || EXIT_CODE=$?\n  echo -e \"\\n::endgroup::\"\n  if [ $[EXIT_CODE:-0} -gt 128 ]; then\n    X=1;\n    echo \"Failed\"\n  fi\n  cd ..\ndone\nexit $X\nBUILDPROF_SCRIPT_EOF\n( sleep 2700; while true; do echo \"=== buildprof survey watchdog: step still running\"; ps -eo pid,ppid,stat,etime,wchan:32,args --forest 2>/dev/null | cut -c1-250 || ps; sleep 600; done ) & bp_watch=$!\nbp_rc=0\nif [ \"$(id -u)\" != 0 ] && sudo -n true 2>/dev/null; then\n  sudo -E env \"PATH=$PATH\" \"$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)\" --no-open --detach-after-exit 10 --run-as \"$(id -un)\" -o \"$bp_dir/$bp_id-Test-ReactPHP.buildprof\" -- bash --noprofile --norc -eo pipefail \"$bp_dir/$bp_id.sh\" || bp_rc=$?\nelse\n  \"$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)\" --no-open --detach-after-exit 10 -o \"$bp_dir/$bp_id-Test-ReactPHP.buildprof\" -- bash --noprofile --norc -eo pipefail \"$bp_dir/$bp_id.sh\" || bp_rc=$?\nfi\nkill $bp_watch 2>/dev/null; exit $bp_rc\n"
+      run: "bp_dir=\"$RUNNER_TEMP/buildprof\"; mkdir -p \"$bp_dir\"; bp_id=$(date +%s)-$$-$(od -An -N4 -tu4 /dev/urandom | tr -d \" \")\ncat > \"$bp_dir/$bp_id.sh\" <<'BUILDPROF_SCRIPT_EOF'\nrepositories=\"async cache child-process datagram dns event-loop promise promise-stream promise-timer stream\"\nX=0\nfor repository in $repositories; do\n  echo \"::group::$repository\"\n  git clone \"https://github.com/reactphp/$repository.git\" \"reactphp-$repository\" --depth 1\n  cd \"reactphp-$repository\"\n  git rev-parse HEAD\n  php /usr/bin/composer install --no-progress --ignore-platform-req=php+\n  EXIT_CODE=0\n  vendor/bin/phpunit || EXIT_CODE=$?\n  echo -e \"\\n::endgroup::\"\n  if [ $[EXIT_CODE:-0} -gt 128 ]; then\n    X=1;\n    echo \"Failed\"\n  fi\n  cd ..\ndone\nexit $X\nBUILDPROF_SCRIPT_EOF\n( sleep 2700; while true; do echo \"=== buildprof survey watchdog: step still running\"; ps -eo pid,ppid,stat,etime,wchan:32,args --forest 2>/dev/null | cut -c1-250 || ps; sleep 600; done ) & bp_watch=$!\nbp_rc=0\n\"$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)\" --no-open --detach-after-exit 10 -o \"$bp_dir/$bp_id-Test-ReactPHP.buildprof\" -- bash --noprofile --norc -eo pipefail \"$bp_dir/$bp_id.sh\" || bp_rc=$?\nkill $bp_watch 2>/dev/null; exit $bp_rc\n"
       shell: sh
     - name: Test Revolt PHP
       if: ${{ !cancelled() }}
-      run: "bp_dir=\"$RUNNER_TEMP/buildprof\"; mkdir -p \"$bp_dir\"; bp_id=$(date +%s)-$$-$(od -An -N4 -tu4 /dev/urandom | tr -d \" \")\ncat > \"$bp_dir/$bp_id.sh\" <<'BUILDPROF_SCRIPT_EOF'\ngit clone https://github.com/revoltphp/event-loop.git --depth=1\ncd event-loop\ngit rev-parse HEAD\nphp /usr/bin/composer install --no-progress --ignore-platform-req=php+\nvendor/bin/phpunit || EXIT_CODE=$?\nif [ ${EXIT_CODE:-0} -gt 128 ]; then\n  exit 1\nfi\nBUILDPROF_SCRIPT_EOF\n( sleep 2700; while true; do echo \"=== buildprof survey watchdog: step still running\"; ps -eo pid,ppid,stat,etime,wchan:32,args --forest 2>/dev/null | cut -c1-250 || ps; sleep 600; done ) & bp_watch=$!\nbp_rc=0\nif [ \"$(id -u)\" != 0 ] && sudo -n true 2>/dev/null; then\n  sudo -E env \"PATH=$PATH\" \"$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)\" --no-open --detach-after-exit 10 --run-as \"$(id -un)\" -o \"$bp_dir/$bp_id-Test-Revolt-PHP.buildprof\" -- bash --noprofile --norc -eo pipefail \"$bp_dir/$bp_id.sh\" || bp_rc=$?\nelse\n  \"$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)\" --no-open --detach-after-exit 10 -o \"$bp_dir/$bp_id-Test-Revolt-PHP.buildprof\" -- bash --noprofile --norc -eo pipefail \"$bp_dir/$bp_id.sh\" || bp_rc=$?\nfi\nkill $bp_watch 2>/dev/null; exit $bp_rc\n"
+      run: "bp_dir=\"$RUNNER_TEMP/buildprof\"; mkdir -p \"$bp_dir\"; bp_id=$(date +%s)-$$-$(od -An -N4 -tu4 /dev/urandom | tr -d \" \")\ncat > \"$bp_dir/$bp_id.sh\" <<'BUILDPROF_SCRIPT_EOF'\ngit clone https://github.com/revoltphp/event-loop.git --depth=1\ncd event-loop\ngit rev-parse HEAD\nphp /usr/bin/composer install --no-progress --ignore-platform-req=php+\nvendor/bin/phpunit || EXIT_CODE=$?\nif [ ${EXIT_CODE:-0} -gt 128 ]; then\n  exit 1\nfi\nBUILDPROF_SCRIPT_EOF\n( sleep 2700; while true; do echo \"=== buildprof survey watchdog: step still running\"; ps -eo pid,ppid,stat,etime,wchan:32,args --forest 2>/dev/null | cut -c1-250 || ps; sleep 600; done ) & bp_watch=$!\nbp_rc=0\n\"$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)\" --no-open --detach-after-exit 10 -o \"$bp_dir/$bp_id-Test-Revolt-PHP.buildprof\" -- bash --noprofile --norc -eo pipefail \"$bp_dir/$bp_id.sh\" || bp_rc=$?\nkill $bp_watch 2>/dev/null; exit $bp_rc\n"
       shell: sh
     - name: Test Symfony
       if: ${{ !cancelled() }}
-      run: "bp_dir=\"$RUNNER_TEMP/buildprof\"; mkdir -p \"$bp_dir\"; bp_id=$(date +%s)-$$-$(od -An -N4 -tu4 /dev/urandom | tr -d \" \")\ncat > \"$bp_dir/$bp_id.sh\" <<'BUILDPROF_SCRIPT_EOF'\nbranch=${{ fromJson(inputs.branch).jobs.COMMUNITY.config.symfony_version }}\ngit clone https://github.com/symfony/symfony.git --depth=1 ${branch:+--branch=\"$branch\"}\ncd symfony\ngit rev-parse HEAD\nphp /usr/bin/composer install --no-progress --ignore-platform-req=php+\nphp ./phpunit install\n# Test causes a heap-buffer-overflow but I cannot reproduce it locally...\nphp -r '$c = file_get_contents(\"src/Symfony/Component/HtmlSanitizer/Tests/HtmlSanitizerCustomTest.php\"); $c = str_replace(\"public function testSanitizeDeepNestedString()\", \"#[\\\\PHPUnit\\\\Framework\\\\Attributes\\\\Group('\"'\"'skip'\"'\"')]\\n    public function testSanitizeDeepNestedString()\", $c); file_put_contents(\"src/Symfony/Component/HtmlSanitizer/Tests/HtmlSanitizerCustomTest.php\", $c);'\n# Buggy FFI test in Symfony, see https://github.com/symfony/symfony/issues/47668\nphp -r '$c = file_get_contents(\"src/Symfony/Component/VarDumper/Tests/Caster/FFICasterTest.php\"); $c = str_replace(\"public function testCastNonTrailingCharPointer()\", \"#[\\\\PHPUnit\\\\Framework\\\\Attributes\\\\Group('\"'\"'skip'\"'\"')]\\n    public function testCastNonTrailingCharPointer()\", $c); file_put_contents(\"src/Symfony/Component/VarDumper/Tests/Caster/FFICasterTest.php\", $c);'\n# Causes massive amounts of system calls with USE_ZEND_ALLOC=0, exceeding the timeout\nif [ -e 'src/Symfony/Component/Console/Tests/Helper/FileInputHelperTest.php' ]; then\n  php -r '$c = file_get_contents(\"src/Symfony/Component/Console/Tests/Helper/FileInputHelperTest.php\"); $c = str_replace(\"public function testReadWithPasteDetectionAbortsBeyondMaxBytes()\", \"#[\\\\PHPUnit\\\\Framework\\\\Attributes\\\\Group('\"'\"'skip'\"'\"')]\\n    public function testReadWithPasteDetectionAbortsBeyondMaxBytes()\", $c); file_put_contents(\"src/Symfony/Component/Console/Tests/Helper/FileInputHelperTest.php\", $c);'\nfi\nexport SYMFONY_DEPRECATIONS_HELPER=max[total]=999\nX=0\nfor component in $(find src/Symfony -mindepth 2 -type f -name phpunit.xml.dist -printf '%h\\n'); do\n  echo \"::group::$component\"\n  EXIT_CODE=0\n  php ./phpunit $component --exclude-group tty --exclude-group benchmark --exclude-group intl-data --exclude-group transient --exclude-group skip || EXIT_CODE=$?\n  echo -e \"\\n::endgroup::\"\n  if [ ${EXIT_CODE:-0} -gt 128 ]; then\n    X=1;\n    echo \"Failed\"\n  fi\ndone\nexit $X\nBUILDPROF_SCRIPT_EOF\n( sleep 2700; while true; do echo \"=== buildprof survey watchdog: step still running\"; ps -eo pid,ppid,stat,etime,wchan:32,args --forest 2>/dev/null | cut -c1-250 || ps; sleep 600; done ) & bp_watch=$!\nbp_rc=0\nif [ \"$(id -u)\" != 0 ] && sudo -n true 2>/dev/null; then\n  sudo -E env \"PATH=$PATH\" \"$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)\" --no-open --detach-after-exit 10 --run-as \"$(id -un)\" -o \"$bp_dir/$bp_id-Test-Symfony.buildprof\" -- bash --noprofile --norc -eo pipefail \"$bp_dir/$bp_id.sh\" || bp_rc=$?\nelse\n  \"$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)\" --no-open --detach-after-exit 10 -o \"$bp_dir/$bp_id-Test-Symfony.buildprof\" -- bash --noprofile --norc -eo pipefail \"$bp_dir/$bp_id.sh\" || bp_rc=$?\nfi\nkill $bp_watch 2>/dev/null; exit $bp_rc\n"
+      run: "bp_dir=\"$RUNNER_TEMP/buildprof\"; mkdir -p \"$bp_dir\"; bp_id=$(date +%s)-$$-$(od -An -N4 -tu4 /dev/urandom | tr -d \" \")\ncat > \"$bp_dir/$bp_id.sh\" <<'BUILDPROF_SCRIPT_EOF'\nbranch=${{ fromJson(inputs.branch).jobs.COMMUNITY.config.symfony_version }}\ngit clone https://github.com/symfony/symfony.git --depth=1 ${branch:+--branch=\"$branch\"}\ncd symfony\ngit rev-parse HEAD\nphp /usr/bin/composer install --no-progress --ignore-platform-req=php+\nphp ./phpunit install\n# Test causes a heap-buffer-overflow but I cannot reproduce it locally...\nphp -r '$c = file_get_contents(\"src/Symfony/Component/HtmlSanitizer/Tests/HtmlSanitizerCustomTest.php\"); $c = str_replace(\"public function testSanitizeDeepNestedString()\", \"#[\\\\PHPUnit\\\\Framework\\\\Attributes\\\\Group('\"'\"'skip'\"'\"')]\\n    public function testSanitizeDeepNestedString()\", $c); file_put_contents(\"src/Symfony/Component/HtmlSanitizer/Tests/HtmlSanitizerCustomTest.php\", $c);'\n# Buggy FFI test in Symfony, see https://github.com/symfony/symfony/issues/47668\nphp -r '$c = file_get_contents(\"src/Symfony/Component/VarDumper/Tests/Caster/FFICasterTest.php\"); $c = str_replace(\"public function testCastNonTrailingCharPointer()\", \"#[\\\\PHPUnit\\\\Framework\\\\Attributes\\\\Group('\"'\"'skip'\"'\"')]\\n    public function testCastNonTrailingCharPointer()\", $c); file_put_contents(\"src/Symfony/Component/VarDumper/Tests/Caster/FFICasterTest.php\", $c);'\n# Causes massive amounts of system calls with USE_ZEND_ALLOC=0, exceeding the timeout\nif [ -e 'src/Symfony/Component/Console/Tests/Helper/FileInputHelperTest.php' ]; then\n  php -r '$c = file_get_contents(\"src/Symfony/Component/Console/Tests/Helper/FileInputHelperTest.php\"); $c = str_replace(\"public function testReadWithPasteDetectionAbortsBeyondMaxBytes()\", \"#[\\\\PHPUnit\\\\Framework\\\\Attributes\\\\Group('\"'\"'skip'\"'\"')]\\n    public function testReadWithPasteDetectionAbortsBeyondMaxBytes()\", $c); file_put_contents(\"src/Symfony/Component/Console/Tests/Helper/FileInputHelperTest.php\", $c);'\nfi\nexport SYMFONY_DEPRECATIONS_HELPER=max[total]=999\nX=0\nfor component in $(find src/Symfony -mindepth 2 -type f -name phpunit.xml.dist -printf '%h\\n'); do\n  echo \"::group::$component\"\n  EXIT_CODE=0\n  php ./phpunit $component --exclude-group tty --exclude-group benchmark --exclude-group intl-data --exclude-group transient --exclude-group skip || EXIT_CODE=$?\n  echo -e \"\\n::endgroup::\"\n  if [ ${EXIT_CODE:-0} -gt 128 ]; then\n    X=1;\n    echo \"Failed\"\n  fi\ndone\nexit $X\nBUILDPROF_SCRIPT_EOF\n( sleep 2700; while true; do echo \"=== buildprof survey watchdog: step still running\"; ps -eo pid,ppid,stat,etime,wchan:32,args --forest 2>/dev/null | cut -c1-250 || ps; sleep 600; done ) & bp_watch=$!\nbp_rc=0\n\"$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)\" --no-open --detach-after-exit 10 -o \"$bp_dir/$bp_id-Test-Symfony.buildprof\" -- bash --noprofile --norc -eo pipefail \"$bp_dir/$bp_id.sh\" || bp_rc=$?\nkill $bp_watch 2>/dev/null; exit $bp_rc\n"
       shell: sh
     - name: Test PHPUnit
       if: ${{ !cancelled() }}
-      run: "bp_dir=\"$RUNNER_TEMP/buildprof\"; mkdir -p \"$bp_dir\"; bp_id=$(date +%s)-$$-$(od -An -N4 -tu4 /dev/urandom | tr -d \" \")\ncat > \"$bp_dir/$bp_id.sh\" <<'BUILDPROF_SCRIPT_EOF'\ngit clone https://github.com/sebastianbergmann/phpunit.git --branch=main --depth=1\ncd phpunit\ngit rev-parse HEAD\nphp /usr/bin/composer install --no-progress --ignore-platform-req=php+\nphp ./phpunit || EXIT_CODE=$?\nif [ ${EXIT_CODE:-0} -gt 128 ]; then\n  exit 1\nfi\nBUILDPROF_SCRIPT_EOF\n( sleep 2700; while true; do echo \"=== buildprof survey watchdog: step still running\"; ps -eo pid,ppid,stat,etime,wchan:32,args --forest 2>/dev/null | cut -c1-250 || ps; sleep 600; done ) & bp_watch=$!\nbp_rc=0\nif [ \"$(id -u)\" != 0 ] && sudo -n true 2>/dev/null; then\n  sudo -E env \"PATH=$PATH\" \"$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)\" --no-open --detach-after-exit 10 --run-as \"$(id -un)\" -o \"$bp_dir/$bp_id-Test-PHPUnit.buildprof\" -- bash --noprofile --norc -eo pipefail \"$bp_dir/$bp_id.sh\" || bp_rc=$?\nelse\n  \"$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)\" --no-open --detach-after-exit 10 -o \"$bp_dir/$bp_id-Test-PHPUnit.buildprof\" -- bash --noprofile --norc -eo pipefail \"$bp_dir/$bp_id.sh\" || bp_rc=$?\nfi\nkill $bp_watch 2>/dev/null; exit $bp_rc\n"
+      run: "bp_dir=\"$RUNNER_TEMP/buildprof\"; mkdir -p \"$bp_dir\"; bp_id=$(date +%s)-$$-$(od -An -N4 -tu4 /dev/urandom | tr -d \" \")\ncat > \"$bp_dir/$bp_id.sh\" <<'BUILDPROF_SCRIPT_EOF'\ngit clone https://github.com/sebastianbergmann/phpunit.git --branch=main --depth=1\ncd phpunit\ngit rev-parse HEAD\nphp /usr/bin/composer install --no-progress --ignore-platform-req=php+\nphp ./phpunit || EXIT_CODE=$?\nif [ ${EXIT_CODE:-0} -gt 128 ]; then\n  exit 1\nfi\nBUILDPROF_SCRIPT_EOF\n( sleep 2700; while true; do echo \"=== buildprof survey watchdog: step still running\"; ps -eo pid,ppid,stat,etime,wchan:32,args --forest 2>/dev/null | cut -c1-250 || ps; sleep 600; done ) & bp_watch=$!\nbp_rc=0\n\"$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)\" --no-open --detach-after-exit 10 -o \"$bp_dir/$bp_id-Test-PHPUnit.buildprof\" -- bash --noprofile --norc -eo pipefail \"$bp_dir/$bp_id.sh\" || bp_rc=$?\nkill $bp_watch 2>/dev/null; exit $bp_rc\n"
       shell: sh
     - name: Symfony Preloading
       if: ${{ !cancelled() }}
-      run: "bp_dir=\"$RUNNER_TEMP/buildprof\"; mkdir -p \"$bp_dir\"; bp_id=$(date +%s)-$$-$(od -An -N4 -tu4 /dev/urandom | tr -d \" \")\ncat > \"$bp_dir/$bp_id.sh\" <<'BUILDPROF_SCRIPT_EOF'\nphp /usr/bin/composer create-project symfony/symfony-demo symfony_demo --no-progress --ignore-platform-req=php+\ncd symfony_demo\ngit rev-parse HEAD\nsed -i 's/PHP_SAPI/\"cli-server\"/g' var/cache/dev/App_KernelDevDebugContainer.preload.php\nphp -d opcache.preload=var/cache/dev/App_KernelDevDebugContainer.preload.php public/index.php\nBUILDPROF_SCRIPT_EOF\n( sleep 2700; while true; do echo \"=== buildprof survey watchdog: step still running\"; ps -eo pid,ppid,stat,etime,wchan:32,args --forest 2>/dev/null | cut -c1-250 || ps; sleep 600; done ) & bp_watch=$!\nbp_rc=0\nif [ \"$(id -u)\" != 0 ] && sudo -n true 2>/dev/null; then\n  sudo -E env \"PATH=$PATH\" \"$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)\" --no-open --detach-after-exit 10 --run-as \"$(id -un)\" -o \"$bp_dir/$bp_id-Symfony-Preloading.buildprof\" -- bash --noprofile --norc -eo pipefail \"$bp_dir/$bp_id.sh\" || bp_rc=$?\nelse\n  \"$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)\" --no-open --detach-after-exit 10 -o \"$bp_dir/$bp_id-Symfony-Preloading.buildprof\" -- bash --noprofile --norc -eo pipefail \"$bp_dir/$bp_id.sh\" || bp_rc=$?\nfi\nkill $bp_watch 2>/dev/null; exit $bp_rc\n"
+      run: 'bp_dir="$RUNNER_TEMP/buildprof"; mkdir -p "$bp_dir"; bp_id=$(date +%s)-$$-$(od -An -N4 -tu4 /dev/urandom | tr -d " ")
+
+        cat > "$bp_dir/$bp_id.sh" <<''BUILDPROF_SCRIPT_EOF''
+
+        php /usr/bin/composer create-project symfony/symfony-demo symfony_demo --no-progress --ignore-platform-req=php+
+
+        cd symfony_demo
+
+        git rev-parse HEAD
+
+        sed -i ''s/PHP_SAPI/"cli-server"/g'' var/cache/dev/App_KernelDevDebugContainer.preload.php
+
+        php -d opcache.preload=var/cache/dev/App_KernelDevDebugContainer.preload.php public/index.php
+
+        BUILDPROF_SCRIPT_EOF
+
+        ( sleep 2700; while true; do echo "=== buildprof survey watchdog: step still running"; ps -eo pid,ppid,stat,etime,wchan:32,args --forest 2>/dev/null | cut -c1-250 || ps; sleep 600; done ) & bp_watch=$!
+
+        bp_rc=0
+
+        "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open --detach-after-exit 10 -o "$bp_dir/$bp_id-Symfony-Preloading.buildprof" -- bash --noprofile --norc -eo pipefail "$bp_dir/$bp_id.sh" || bp_rc=$?
+
+        kill $bp_watch 2>/dev/null; exit $bp_rc
+
+        '
       shell: sh
     - name: Test Wordpress
       if: ${{ !cancelled() }}
-      run: "bp_dir=\"$RUNNER_TEMP/buildprof\"; mkdir -p \"$bp_dir\"; bp_id=$(date +%s)-$$-$(od -An -N4 -tu4 /dev/urandom | tr -d \" \")\ncat > \"$bp_dir/$bp_id.sh\" <<'BUILDPROF_SCRIPT_EOF'\ngit clone https://github.com/WordPress/wordpress-develop.git wordpress --depth=1\ncd wordpress\ngit rev-parse HEAD\nphp /usr/bin/composer install --no-progress --ignore-platform-req=php+\ncp wp-tests-config-sample.php wp-tests-config.php\nsed -i 's/youremptytestdbnamehere/test/g' wp-tests-config.php\nsed -i 's/yourusernamehere/root/g' wp-tests-config.php\nsed -i 's/yourpasswordhere/root/g' wp-tests-config.php\nphp vendor/bin/phpunit || EXIT_CODE=$?\nif [ $EXIT_CODE -gt 128 ]; then\n  exit 1\nfi\nBUILDPROF_SCRIPT_EOF\n( sleep 2700; while true; do echo \"=== buildprof survey watchdog: step still running\"; ps -eo pid,ppid,stat,etime,wchan:32,args --forest 2>/dev/null | cut -c1-250 || ps; sleep 600; done ) & bp_watch=$!\nbp_rc=0\nif [ \"$(id -u)\" != 0 ] && sudo -n true 2>/dev/null; then\n  sudo -E env \"PATH=$PATH\" \"$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)\" --no-open --detach-after-exit 10 --run-as \"$(id -un)\" -o \"$bp_dir/$bp_id-Test-Wordpress.buildprof\" -- bash --noprofile --norc -eo pipefail \"$bp_dir/$bp_id.sh\" || bp_rc=$?\nelse\n  \"$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)\" --no-open --detach-after-exit 10 -o \"$bp_dir/$bp_id-Test-Wordpress.buildprof\" -- bash --noprofile --norc -eo pipefail \"$bp_dir/$bp_id.sh\" || bp_rc=$?\nfi\nkill $bp_watch 2>/dev/null; exit $bp_rc\n"
+      run: "bp_dir=\"$RUNNER_TEMP/buildprof\"; mkdir -p \"$bp_dir\"; bp_id=$(date +%s)-$$-$(od -An -N4 -tu4 /dev/urandom | tr -d \" \")\ncat > \"$bp_dir/$bp_id.sh\" <<'BUILDPROF_SCRIPT_EOF'\ngit clone https://github.com/WordPress/wordpress-develop.git wordpress --depth=1\ncd wordpress\ngit rev-parse HEAD\nphp /usr/bin/composer install --no-progress --ignore-platform-req=php+\ncp wp-tests-config-sample.php wp-tests-config.php\nsed -i 's/youremptytestdbnamehere/test/g' wp-tests-config.php\nsed -i 's/yourusernamehere/root/g' wp-tests-config.php\nsed -i 's/yourpasswordhere/root/g' wp-tests-config.php\nphp vendor/bin/phpunit || EXIT_CODE=$?\nif [ $EXIT_CODE -gt 128 ]; then\n  exit 1\nfi\nBUILDPROF_SCRIPT_EOF\n( sleep 2700; while true; do echo \"=== buildprof survey watchdog: step still running\"; ps -eo pid,ppid,stat,etime,wchan:32,args --forest 2>/dev/null | cut -c1-250 || ps; sleep 600; done ) & bp_watch=$!\nbp_rc=0\n\"$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)\" --no-open --detach-after-exit 10 -o \"$bp_dir/$bp_id-Test-Wordpress.buildprof\" -- bash --noprofile --norc -eo pipefail \"$bp_dir/$bp_id.sh\" || bp_rc=$?\nkill $bp_watch 2>/dev/null; exit $bp_rc\n"
       shell: sh
     - name: Upload buildprof recordings
       if: always()
@@ -594,6 +904,8 @@ jobs:
 
         cp .buildprof-fetch/.buildprof/buildprof-* "$RUNNER_TEMP/buildprof-bin/" && chmod +x "$RUNNER_TEMP/buildprof-bin/"*
 
+        if [ "$(id -u)" != 0 ] && sudo -n true 2>/dev/null; then sudo setcap cap_sys_ptrace,cap_sys_admin+ep "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)"; fi
+
         if [ -d .buildprof-fetch/projects/php-src/actions ]; then cp -r .buildprof-fetch/projects/php-src/actions/. "$RUNNER_TEMP/buildprof-actions/"; fi
 
         rm -rf .buildprof-fetch
@@ -622,7 +934,23 @@ jobs:
       with:
         configurationParameters: --enable-debug --disable-zts
     - name: make
-      run: "bp_dir=\"$RUNNER_TEMP/buildprof\"; mkdir -p \"$bp_dir\"; bp_id=$(date +%s)-$$-$(od -An -N4 -tu4 /dev/urandom | tr -d \" \")\ncat > \"$bp_dir/$bp_id.sh\" <<'BUILDPROF_SCRIPT_EOF'\nmake -j$(/usr/bin/nproc) >/dev/null\nBUILDPROF_SCRIPT_EOF\n( sleep 2700; while true; do echo \"=== buildprof survey watchdog: step still running\"; ps -eo pid,ppid,stat,etime,wchan:32,args --forest 2>/dev/null | cut -c1-250 || ps; sleep 600; done ) & bp_watch=$!\nbp_rc=0\nif [ \"$(id -u)\" != 0 ] && sudo -n true 2>/dev/null; then\n  sudo -E env \"PATH=$PATH\" \"$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)\" --no-open --detach-after-exit 10 --run-as \"$(id -un)\" -o \"$bp_dir/$bp_id-make.buildprof\" -- bash --noprofile --norc -eo pipefail \"$bp_dir/$bp_id.sh\" || bp_rc=$?\nelse\n  \"$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)\" --no-open --detach-after-exit 10 -o \"$bp_dir/$bp_id-make.buildprof\" -- bash --noprofile --norc -eo pipefail \"$bp_dir/$bp_id.sh\" || bp_rc=$?\nfi\nkill $bp_watch 2>/dev/null; exit $bp_rc\n"
+      run: 'bp_dir="$RUNNER_TEMP/buildprof"; mkdir -p "$bp_dir"; bp_id=$(date +%s)-$$-$(od -An -N4 -tu4 /dev/urandom | tr -d " ")
+
+        cat > "$bp_dir/$bp_id.sh" <<''BUILDPROF_SCRIPT_EOF''
+
+        make -j$(/usr/bin/nproc) >/dev/null
+
+        BUILDPROF_SCRIPT_EOF
+
+        ( sleep 2700; while true; do echo "=== buildprof survey watchdog: step still running"; ps -eo pid,ppid,stat,etime,wchan:32,args --forest 2>/dev/null | cut -c1-250 || ps; sleep 600; done ) & bp_watch=$!
+
+        bp_rc=0
+
+        "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open --detach-after-exit 10 -o "$bp_dir/$bp_id-make.buildprof" -- bash --noprofile --norc -eo pipefail "$bp_dir/$bp_id.sh" || bp_rc=$?
+
+        kill $bp_watch 2>/dev/null; exit $bp_rc
+
+        '
       shell: sh
     - name: make install
       uses: ./.github/actions/install-linux
@@ -687,6 +1015,8 @@ jobs:
 
         cp .buildprof-fetch/.buildprof/buildprof-* "$RUNNER_TEMP/buildprof-bin/" && chmod +x "$RUNNER_TEMP/buildprof-bin/"*
 
+        if [ "$(id -u)" != 0 ] && sudo -n true 2>/dev/null; then sudo setcap cap_sys_ptrace,cap_sys_admin+ep "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)"; fi
+
         if [ -d .buildprof-fetch/projects/php-src/actions ]; then cp -r .buildprof-fetch/projects/php-src/actions/. "$RUNNER_TEMP/buildprof-actions/"; fi
 
         rm -rf .buildprof-fetch
@@ -711,16 +1041,82 @@ jobs:
         cc: clang
         cxx: clang++
     - name: ./configure
-      run: "bp_dir=\"$RUNNER_TEMP/buildprof\"; mkdir -p \"$bp_dir\"; bp_id=$(date +%s)-$$-$(od -An -N4 -tu4 /dev/urandom | tr -d \" \")\ncat > \"$bp_dir/$bp_id.sh\" <<'BUILDPROF_SCRIPT_EOF'\nexport CFLAGS=\"-DZEND_TRACK_ARENA_ALLOC\"\n./buildconf --force\n# msan requires all used libraries to be instrumented,\n# so we should avoiding linking against anything but libc here\n./configure \\\n  --enable-debug \\\n  --enable-zts \\\n  --enable-option-checking=fatal \\\n  --prefix=/usr \\\n  --without-sqlite3 \\\n  --without-pdo-sqlite \\\n  --without-libxml \\\n  --disable-dom \\\n  --disable-simplexml \\\n  --disable-xml \\\n  --disable-xmlreader \\\n  --disable-xmlwriter \\\n  --without-pcre-jit \\\n  --disable-opcache-jit \\\n  --enable-phpdbg \\\n  --enable-fpm \\\n  --with-pdo-mysql=mysqlnd \\\n  --with-mysqli=mysqlnd \\\n  --disable-mysqlnd-compression-support \\\n  --without-pear \\\n  --enable-exif \\\n  --enable-sysvsem \\\n  --enable-sysvshm \\\n  --enable-shmop \\\n  --enable-pcntl \\\n  --enable-mbstring \\\n  --disable-mbregex \\\n  --enable-sockets \\\n  --enable-bcmath \\\n  --enable-calendar \\\n  --enable-ftp \\\n  --enable-zend-test \\\n  --enable-werror \\\n  --enable-memory-sanitizer \\\n  --with-config-file-path=/etc \\\n  --with-config-file-scan-dir=/etc/php.d \\\n  --enable-dl-test=shared\nBUILDPROF_SCRIPT_EOF\n( sleep 2700; while true; do echo \"=== buildprof survey watchdog: step still running\"; ps -eo pid,ppid,stat,etime,wchan:32,args --forest 2>/dev/null | cut -c1-250 || ps; sleep 600; done ) & bp_watch=$!\nbp_rc=0\nif [ \"$(id -u)\" != 0 ] && sudo -n true 2>/dev/null; then\n  sudo -E env \"PATH=$PATH\" \"$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)\" --no-open --detach-after-exit 10 --run-as \"$(id -un)\" -o \"$bp_dir/$bp_id-configure.buildprof\" -- bash --noprofile --norc -eo pipefail \"$bp_dir/$bp_id.sh\" || bp_rc=$?\nelse\n  \"$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)\" --no-open --detach-after-exit 10 -o \"$bp_dir/$bp_id-configure.buildprof\" -- bash --noprofile --norc -eo pipefail \"$bp_dir/$bp_id.sh\" || bp_rc=$?\nfi\nkill $bp_watch 2>/dev/null; exit $bp_rc\n"
+      run: "bp_dir=\"$RUNNER_TEMP/buildprof\"; mkdir -p \"$bp_dir\"; bp_id=$(date +%s)-$$-$(od -An -N4 -tu4 /dev/urandom | tr -d \" \")\ncat > \"$bp_dir/$bp_id.sh\" <<'BUILDPROF_SCRIPT_EOF'\nexport CFLAGS=\"-DZEND_TRACK_ARENA_ALLOC\"\n./buildconf --force\n# msan requires all used libraries to be instrumented,\n# so we should avoiding linking against anything but libc here\n./configure \\\n  --enable-debug \\\n  --enable-zts \\\n  --enable-option-checking=fatal \\\n  --prefix=/usr \\\n  --without-sqlite3 \\\n  --without-pdo-sqlite \\\n  --without-libxml \\\n  --disable-dom \\\n  --disable-simplexml \\\n  --disable-xml \\\n  --disable-xmlreader \\\n  --disable-xmlwriter \\\n  --without-pcre-jit \\\n  --disable-opcache-jit \\\n  --enable-phpdbg \\\n  --enable-fpm \\\n  --with-pdo-mysql=mysqlnd \\\n  --with-mysqli=mysqlnd \\\n  --disable-mysqlnd-compression-support \\\n  --without-pear \\\n  --enable-exif \\\n  --enable-sysvsem \\\n  --enable-sysvshm \\\n  --enable-shmop \\\n  --enable-pcntl \\\n  --enable-mbstring \\\n  --disable-mbregex \\\n  --enable-sockets \\\n  --enable-bcmath \\\n  --enable-calendar \\\n  --enable-ftp \\\n  --enable-zend-test \\\n  --enable-werror \\\n  --enable-memory-sanitizer \\\n  --with-config-file-path=/etc \\\n  --with-config-file-scan-dir=/etc/php.d \\\n  --enable-dl-test=shared\nBUILDPROF_SCRIPT_EOF\n( sleep 2700; while true; do echo \"=== buildprof survey watchdog: step still running\"; ps -eo pid,ppid,stat,etime,wchan:32,args --forest 2>/dev/null | cut -c1-250 || ps; sleep 600; done ) & bp_watch=$!\nbp_rc=0\n\"$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)\" --no-open --detach-after-exit 10 -o \"$bp_dir/$bp_id-configure.buildprof\" -- bash --noprofile --norc -eo pipefail \"$bp_dir/$bp_id.sh\" || bp_rc=$?\nkill $bp_watch 2>/dev/null; exit $bp_rc\n"
       shell: sh
     - name: make
-      run: "bp_dir=\"$RUNNER_TEMP/buildprof\"; mkdir -p \"$bp_dir\"; bp_id=$(date +%s)-$$-$(od -An -N4 -tu4 /dev/urandom | tr -d \" \")\ncat > \"$bp_dir/$bp_id.sh\" <<'BUILDPROF_SCRIPT_EOF'\nmake -j$(/usr/bin/nproc) >/dev/null\nBUILDPROF_SCRIPT_EOF\n( sleep 2700; while true; do echo \"=== buildprof survey watchdog: step still running\"; ps -eo pid,ppid,stat,etime,wchan:32,args --forest 2>/dev/null | cut -c1-250 || ps; sleep 600; done ) & bp_watch=$!\nbp_rc=0\nif [ \"$(id -u)\" != 0 ] && sudo -n true 2>/dev/null; then\n  sudo -E env \"PATH=$PATH\" \"$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)\" --no-open --detach-after-exit 10 --run-as \"$(id -un)\" -o \"$bp_dir/$bp_id-make.buildprof\" -- bash --noprofile --norc -eo pipefail \"$bp_dir/$bp_id.sh\" || bp_rc=$?\nelse\n  \"$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)\" --no-open --detach-after-exit 10 -o \"$bp_dir/$bp_id-make.buildprof\" -- bash --noprofile --norc -eo pipefail \"$bp_dir/$bp_id.sh\" || bp_rc=$?\nfi\nkill $bp_watch 2>/dev/null; exit $bp_rc\n"
+      run: 'bp_dir="$RUNNER_TEMP/buildprof"; mkdir -p "$bp_dir"; bp_id=$(date +%s)-$$-$(od -An -N4 -tu4 /dev/urandom | tr -d " ")
+
+        cat > "$bp_dir/$bp_id.sh" <<''BUILDPROF_SCRIPT_EOF''
+
+        make -j$(/usr/bin/nproc) >/dev/null
+
+        BUILDPROF_SCRIPT_EOF
+
+        ( sleep 2700; while true; do echo "=== buildprof survey watchdog: step still running"; ps -eo pid,ppid,stat,etime,wchan:32,args --forest 2>/dev/null | cut -c1-250 || ps; sleep 600; done ) & bp_watch=$!
+
+        bp_rc=0
+
+        "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open --detach-after-exit 10 -o "$bp_dir/$bp_id-make.buildprof" -- bash --noprofile --norc -eo pipefail "$bp_dir/$bp_id.sh" || bp_rc=$?
+
+        kill $bp_watch 2>/dev/null; exit $bp_rc
+
+        '
       shell: sh
     - name: make install
-      run: "bp_dir=\"$RUNNER_TEMP/buildprof\"; mkdir -p \"$bp_dir\"; bp_id=$(date +%s)-$$-$(od -An -N4 -tu4 /dev/urandom | tr -d \" \")\ncat > \"$bp_dir/$bp_id.sh\" <<'BUILDPROF_SCRIPT_EOF'\nsudo make install\nsudo mkdir -p /etc/php.d\nsudo chmod 777 /etc/php.d\necho mysqli.default_socket=/var/run/mysqld/mysqld.sock    > /etc/php.d/mysqli.ini\necho pdo_mysql.default_socket=/var/run/mysqld/mysqld.sock > /etc/php.d/pdo_mysql.ini\nBUILDPROF_SCRIPT_EOF\n( sleep 2700; while true; do echo \"=== buildprof survey watchdog: step still running\"; ps -eo pid,ppid,stat,etime,wchan:32,args --forest 2>/dev/null | cut -c1-250 || ps; sleep 600; done ) & bp_watch=$!\nbp_rc=0\nif [ \"$(id -u)\" != 0 ] && sudo -n true 2>/dev/null; then\n  sudo -E env \"PATH=$PATH\" \"$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)\" --no-open --detach-after-exit 10 --run-as \"$(id -un)\" -o \"$bp_dir/$bp_id-make-install.buildprof\" -- bash --noprofile --norc -eo pipefail \"$bp_dir/$bp_id.sh\" || bp_rc=$?\nelse\n  \"$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)\" --no-open --detach-after-exit 10 -o \"$bp_dir/$bp_id-make-install.buildprof\" -- bash --noprofile --norc -eo pipefail \"$bp_dir/$bp_id.sh\" || bp_rc=$?\nfi\nkill $bp_watch 2>/dev/null; exit $bp_rc\n"
+      run: 'bp_dir="$RUNNER_TEMP/buildprof"; mkdir -p "$bp_dir"; bp_id=$(date +%s)-$$-$(od -An -N4 -tu4 /dev/urandom | tr -d " ")
+
+        cat > "$bp_dir/$bp_id.sh" <<''BUILDPROF_SCRIPT_EOF''
+
+        sudo make install
+
+        sudo mkdir -p /etc/php.d
+
+        sudo chmod 777 /etc/php.d
+
+        echo mysqli.default_socket=/var/run/mysqld/mysqld.sock    > /etc/php.d/mysqli.ini
+
+        echo pdo_mysql.default_socket=/var/run/mysqld/mysqld.sock > /etc/php.d/pdo_mysql.ini
+
+        BUILDPROF_SCRIPT_EOF
+
+        ( sleep 2700; while true; do echo "=== buildprof survey watchdog: step still running"; ps -eo pid,ppid,stat,etime,wchan:32,args --forest 2>/dev/null | cut -c1-250 || ps; sleep 600; done ) & bp_watch=$!
+
+        bp_rc=0
+
+        "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open --detach-after-exit 10 -o "$bp_dir/$bp_id-make-install.buildprof" -- bash --noprofile --norc -eo pipefail "$bp_dir/$bp_id.sh" || bp_rc=$?
+
+        kill $bp_watch 2>/dev/null; exit $bp_rc
+
+        '
       shell: sh
     - name: Setup
-      run: "bp_dir=\"$RUNNER_TEMP/buildprof\"; mkdir -p \"$bp_dir\"; bp_id=$(date +%s)-$$-$(od -An -N4 -tu4 /dev/urandom | tr -d \" \")\ncat > \"$bp_dir/$bp_id.sh\" <<'BUILDPROF_SCRIPT_EOF'\nset -x\nsudo service mysql start\nmysql -uroot -proot -e \"CREATE DATABASE IF NOT EXISTS test\"\n# Ensure local_infile tests can run.\nmysql -uroot -proot -e \"SET GLOBAL local_infile = true\"\nsudo locale-gen de_DE\nBUILDPROF_SCRIPT_EOF\n( sleep 2700; while true; do echo \"=== buildprof survey watchdog: step still running\"; ps -eo pid,ppid,stat,etime,wchan:32,args --forest 2>/dev/null | cut -c1-250 || ps; sleep 600; done ) & bp_watch=$!\nbp_rc=0\nif [ \"$(id -u)\" != 0 ] && sudo -n true 2>/dev/null; then\n  sudo -E env \"PATH=$PATH\" \"$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)\" --no-open --detach-after-exit 10 --run-as \"$(id -un)\" -o \"$bp_dir/$bp_id-Setup.buildprof\" -- bash --noprofile --norc -eo pipefail \"$bp_dir/$bp_id.sh\" || bp_rc=$?\nelse\n  \"$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)\" --no-open --detach-after-exit 10 -o \"$bp_dir/$bp_id-Setup.buildprof\" -- bash --noprofile --norc -eo pipefail \"$bp_dir/$bp_id.sh\" || bp_rc=$?\nfi\nkill $bp_watch 2>/dev/null; exit $bp_rc\n"
+      run: 'bp_dir="$RUNNER_TEMP/buildprof"; mkdir -p "$bp_dir"; bp_id=$(date +%s)-$$-$(od -An -N4 -tu4 /dev/urandom | tr -d " ")
+
+        cat > "$bp_dir/$bp_id.sh" <<''BUILDPROF_SCRIPT_EOF''
+
+        set -x
+
+        sudo service mysql start
+
+        mysql -uroot -proot -e "CREATE DATABASE IF NOT EXISTS test"
+
+        # Ensure local_infile tests can run.
+
+        mysql -uroot -proot -e "SET GLOBAL local_infile = true"
+
+        sudo locale-gen de_DE
+
+        BUILDPROF_SCRIPT_EOF
+
+        ( sleep 2700; while true; do echo "=== buildprof survey watchdog: step still running"; ps -eo pid,ppid,stat,etime,wchan:32,args --forest 2>/dev/null | cut -c1-250 || ps; sleep 600; done ) & bp_watch=$!
+
+        bp_rc=0
+
+        "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open --detach-after-exit 10 -o "$bp_dir/$bp_id-Setup.buildprof" -- bash --noprofile --norc -eo pipefail "$bp_dir/$bp_id.sh" || bp_rc=$?
+
+        kill $bp_watch 2>/dev/null; exit $bp_rc
+
+        '
       shell: sh
     - name: Test
       uses: ./.github/actions/test-linux
@@ -765,6 +1161,8 @@ jobs:
 
         cp .buildprof-fetch/.buildprof/buildprof-* "$RUNNER_TEMP/buildprof-bin/" && chmod +x "$RUNNER_TEMP/buildprof-bin/"*
 
+        if [ "$(id -u)" != 0 ] && sudo -n true 2>/dev/null; then sudo setcap cap_sys_ptrace,cap_sys_admin+ep "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)"; fi
+
         if [ -d .buildprof-fetch/projects/php-src/actions ]; then cp -r .buildprof-fetch/projects/php-src/actions/. "$RUNNER_TEMP/buildprof-actions/"; fi
 
         rm -rf .buildprof-fetch
@@ -781,10 +1179,50 @@ jobs:
 
         '
     - name: apt
-      run: "bp_dir=\"$RUNNER_TEMP/buildprof\"; mkdir -p \"$bp_dir\"; bp_id=$(date +%s)-$$-$(od -An -N4 -tu4 /dev/urandom | tr -d \" \")\ncat > \"$bp_dir/$bp_id.sh\" <<'BUILDPROF_SCRIPT_EOF'\nsudo apt-get update -y | true\nsudo apt install bison re2c\nBUILDPROF_SCRIPT_EOF\n( sleep 2700; while true; do echo \"=== buildprof survey watchdog: step still running\"; ps -eo pid,ppid,stat,etime,wchan:32,args --forest 2>/dev/null | cut -c1-250 || ps; sleep 600; done ) & bp_watch=$!\nbp_rc=0\nif [ \"$(id -u)\" != 0 ] && sudo -n true 2>/dev/null; then\n  sudo -E env \"PATH=$PATH\" \"$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)\" --no-open --detach-after-exit 10 --run-as \"$(id -un)\" -o \"$bp_dir/$bp_id-apt.buildprof\" -- bash --noprofile --norc -eo pipefail \"$bp_dir/$bp_id.sh\" || bp_rc=$?\nelse\n  \"$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)\" --no-open --detach-after-exit 10 -o \"$bp_dir/$bp_id-apt.buildprof\" -- bash --noprofile --norc -eo pipefail \"$bp_dir/$bp_id.sh\" || bp_rc=$?\nfi\nkill $bp_watch 2>/dev/null; exit $bp_rc\n"
+      run: 'bp_dir="$RUNNER_TEMP/buildprof"; mkdir -p "$bp_dir"; bp_id=$(date +%s)-$$-$(od -An -N4 -tu4 /dev/urandom | tr -d " ")
+
+        cat > "$bp_dir/$bp_id.sh" <<''BUILDPROF_SCRIPT_EOF''
+
+        sudo apt-get update -y | true
+
+        sudo apt install bison re2c
+
+        BUILDPROF_SCRIPT_EOF
+
+        ( sleep 2700; while true; do echo "=== buildprof survey watchdog: step still running"; ps -eo pid,ppid,stat,etime,wchan:32,args --forest 2>/dev/null | cut -c1-250 || ps; sleep 600; done ) & bp_watch=$!
+
+        bp_rc=0
+
+        "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open --detach-after-exit 10 -o "$bp_dir/$bp_id-apt.buildprof" -- bash --noprofile --norc -eo pipefail "$bp_dir/$bp_id.sh" || bp_rc=$?
+
+        kill $bp_watch 2>/dev/null; exit $bp_rc
+
+        '
       shell: sh
     - name: Setup
-      run: "bp_dir=\"$RUNNER_TEMP/buildprof\"; mkdir -p \"$bp_dir\"; bp_id=$(date +%s)-$$-$(od -An -N4 -tu4 /dev/urandom | tr -d \" \")\ncat > \"$bp_dir/$bp_id.sh\" <<'BUILDPROF_SCRIPT_EOF'\nsudo service mysql start\nmysql -uroot -proot -e \"CREATE DATABASE IF NOT EXISTS test\"\n# Ensure local_infile tests can run.\nmysql -uroot -proot -e \"SET GLOBAL local_infile = true\"\nBUILDPROF_SCRIPT_EOF\n( sleep 2700; while true; do echo \"=== buildprof survey watchdog: step still running\"; ps -eo pid,ppid,stat,etime,wchan:32,args --forest 2>/dev/null | cut -c1-250 || ps; sleep 600; done ) & bp_watch=$!\nbp_rc=0\nif [ \"$(id -u)\" != 0 ] && sudo -n true 2>/dev/null; then\n  sudo -E env \"PATH=$PATH\" \"$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)\" --no-open --detach-after-exit 10 --run-as \"$(id -un)\" -o \"$bp_dir/$bp_id-Setup.buildprof\" -- bash --noprofile --norc -eo pipefail \"$bp_dir/$bp_id.sh\" || bp_rc=$?\nelse\n  \"$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)\" --no-open --detach-after-exit 10 -o \"$bp_dir/$bp_id-Setup.buildprof\" -- bash --noprofile --norc -eo pipefail \"$bp_dir/$bp_id.sh\" || bp_rc=$?\nfi\nkill $bp_watch 2>/dev/null; exit $bp_rc\n"
+      run: 'bp_dir="$RUNNER_TEMP/buildprof"; mkdir -p "$bp_dir"; bp_id=$(date +%s)-$$-$(od -An -N4 -tu4 /dev/urandom | tr -d " ")
+
+        cat > "$bp_dir/$bp_id.sh" <<''BUILDPROF_SCRIPT_EOF''
+
+        sudo service mysql start
+
+        mysql -uroot -proot -e "CREATE DATABASE IF NOT EXISTS test"
+
+        # Ensure local_infile tests can run.
+
+        mysql -uroot -proot -e "SET GLOBAL local_infile = true"
+
+        BUILDPROF_SCRIPT_EOF
+
+        ( sleep 2700; while true; do echo "=== buildprof survey watchdog: step still running"; ps -eo pid,ppid,stat,etime,wchan:32,args --forest 2>/dev/null | cut -c1-250 || ps; sleep 600; done ) & bp_watch=$!
+
+        bp_rc=0
+
+        "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open --detach-after-exit 10 -o "$bp_dir/$bp_id-Setup.buildprof" -- bash --noprofile --norc -eo pipefail "$bp_dir/$bp_id.sh" || bp_rc=$?
+
+        kill $bp_watch 2>/dev/null; exit $bp_rc
+
+        '
       shell: sh
     - name: Build mysql-8.0
       uses: ./.github/actions/build-libmysqlclient
@@ -834,6 +1272,8 @@ jobs:
 
         cp .buildprof-fetch/.buildprof/buildprof-* "$RUNNER_TEMP/buildprof-bin/" && chmod +x "$RUNNER_TEMP/buildprof-bin/"*
 
+        if [ "$(id -u)" != 0 ] && sudo -n true 2>/dev/null; then sudo setcap cap_sys_ptrace,cap_sys_admin+ep "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)"; fi
+
         if [ -d .buildprof-fetch/projects/php-src/actions ]; then cp -r .buildprof-fetch/projects/php-src/actions/. "$RUNNER_TEMP/buildprof-actions/"; fi
 
         rm -rf .buildprof-fetch
@@ -852,26 +1292,114 @@ jobs:
 
         '
     - name: Disable ASLR
-      run: "bp_dir=\"$RUNNER_TEMP/buildprof\"; mkdir -p \"$bp_dir\"; bp_id=$(date +%s)-$$-$(od -An -N4 -tu4 /dev/urandom | tr -d \" \")\ncat > \"$bp_dir/$bp_id.sh\" <<'BUILDPROF_SCRIPT_EOF'\necho 0 | sudo tee /proc/sys/kernel/randomize_va_space\nBUILDPROF_SCRIPT_EOF\n( sleep 2700; while true; do echo \"=== buildprof survey watchdog: step still running\"; ps -eo pid,ppid,stat,etime,wchan:32,args --forest 2>/dev/null | cut -c1-250 || ps; sleep 600; done ) & bp_watch=$!\nbp_rc=0\nif [ \"$(id -u)\" != 0 ] && sudo -n true 2>/dev/null; then\n  sudo -E env \"PATH=$PATH\" \"$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)\" --no-open --detach-after-exit 10 --run-as \"$(id -un)\" -o \"$bp_dir/$bp_id-Disable-ASLR.buildprof\" -- bash --noprofile --norc -eo pipefail \"$bp_dir/$bp_id.sh\" || bp_rc=$?\nelse\n  \"$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)\" --no-open --detach-after-exit 10 -o \"$bp_dir/$bp_id-Disable-ASLR.buildprof\" -- bash --noprofile --norc -eo pipefail \"$bp_dir/$bp_id.sh\" || bp_rc=$?\nfi\nkill $bp_watch 2>/dev/null; exit $bp_rc\n"
+      run: 'bp_dir="$RUNNER_TEMP/buildprof"; mkdir -p "$bp_dir"; bp_id=$(date +%s)-$$-$(od -An -N4 -tu4 /dev/urandom | tr -d " ")
+
+        cat > "$bp_dir/$bp_id.sh" <<''BUILDPROF_SCRIPT_EOF''
+
+        echo 0 | sudo tee /proc/sys/kernel/randomize_va_space
+
+        BUILDPROF_SCRIPT_EOF
+
+        ( sleep 2700; while true; do echo "=== buildprof survey watchdog: step still running"; ps -eo pid,ppid,stat,etime,wchan:32,args --forest 2>/dev/null | cut -c1-250 || ps; sleep 600; done ) & bp_watch=$!
+
+        bp_rc=0
+
+        "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open --detach-after-exit 10 -o "$bp_dir/$bp_id-Disable-ASLR.buildprof" -- bash --noprofile --norc -eo pipefail "$bp_dir/$bp_id.sh" || bp_rc=$?
+
+        kill $bp_watch 2>/dev/null; exit $bp_rc
+
+        '
       shell: sh
     - name: apt
-      run: "bp_dir=\"$RUNNER_TEMP/buildprof\"; mkdir -p \"$bp_dir\"; bp_id=$(date +%s)-$$-$(od -An -N4 -tu4 /dev/urandom | tr -d \" \")\ncat > \"$bp_dir/$bp_id.sh\" <<'BUILDPROF_SCRIPT_EOF'\nset -x\nsudo apt-get update\nsudo apt-get install \\\n  bison \\\n  libgmp-dev \\\n  libonig-dev \\\n  libsqlite3-dev \\\n  openssl \\\n  re2c \\\n  valgrind\nBUILDPROF_SCRIPT_EOF\n( sleep 2700; while true; do echo \"=== buildprof survey watchdog: step still running\"; ps -eo pid,ppid,stat,etime,wchan:32,args --forest 2>/dev/null | cut -c1-250 || ps; sleep 600; done ) & bp_watch=$!\nbp_rc=0\nif [ \"$(id -u)\" != 0 ] && sudo -n true 2>/dev/null; then\n  sudo -E env \"PATH=$PATH\" \"$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)\" --no-open --detach-after-exit 10 --run-as \"$(id -un)\" -o \"$bp_dir/$bp_id-apt.buildprof\" -- bash --noprofile --norc -eo pipefail \"$bp_dir/$bp_id.sh\" || bp_rc=$?\nelse\n  \"$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)\" --no-open --detach-after-exit 10 -o \"$bp_dir/$bp_id-apt.buildprof\" -- bash --noprofile --norc -eo pipefail \"$bp_dir/$bp_id.sh\" || bp_rc=$?\nfi\nkill $bp_watch 2>/dev/null; exit $bp_rc\n"
+      run: "bp_dir=\"$RUNNER_TEMP/buildprof\"; mkdir -p \"$bp_dir\"; bp_id=$(date +%s)-$$-$(od -An -N4 -tu4 /dev/urandom | tr -d \" \")\ncat > \"$bp_dir/$bp_id.sh\" <<'BUILDPROF_SCRIPT_EOF'\nset -x\nsudo apt-get update\nsudo apt-get install \\\n  bison \\\n  libgmp-dev \\\n  libonig-dev \\\n  libsqlite3-dev \\\n  openssl \\\n  re2c \\\n  valgrind\nBUILDPROF_SCRIPT_EOF\n( sleep 2700; while true; do echo \"=== buildprof survey watchdog: step still running\"; ps -eo pid,ppid,stat,etime,wchan:32,args --forest 2>/dev/null | cut -c1-250 || ps; sleep 600; done ) & bp_watch=$!\nbp_rc=0\n\"$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)\" --no-open --detach-after-exit 10 -o \"$bp_dir/$bp_id-apt.buildprof\" -- bash --noprofile --norc -eo pipefail \"$bp_dir/$bp_id.sh\" || bp_rc=$?\nkill $bp_watch 2>/dev/null; exit $bp_rc\n"
       shell: sh
     - name: ccache
       uses: ./.github/actions/ccache
       with:
         name: ${{ github.job }}
     - name: ./configure
-      run: "bp_dir=\"$RUNNER_TEMP/buildprof\"; mkdir -p \"$bp_dir\"; bp_id=$(date +%s)-$$-$(od -An -N4 -tu4 /dev/urandom | tr -d \" \")\ncat > \"$bp_dir/$bp_id.sh\" <<'BUILDPROF_SCRIPT_EOF'\nset -x\n./buildconf --force\n./configure \\\n  --disable-debug \\\n  --enable-mbstring \\\n  --enable-option-checking=fatal \\\n  --enable-sockets \\\n  --enable-werror \\\n  --prefix=/usr \\\n  --with-config-file-scan-dir=/etc/php.d \\\n  --with-gmp \\\n  --with-mysqli=mysqlnd \\\n  --with-openssl \\\n  --with-pdo-sqlite \\\n  --with-valgrind\nBUILDPROF_SCRIPT_EOF\n( sleep 2700; while true; do echo \"=== buildprof survey watchdog: step still running\"; ps -eo pid,ppid,stat,etime,wchan:32,args --forest 2>/dev/null | cut -c1-250 || ps; sleep 600; done ) & bp_watch=$!\nbp_rc=0\nif [ \"$(id -u)\" != 0 ] && sudo -n true 2>/dev/null; then\n  sudo -E env \"PATH=$PATH\" \"$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)\" --no-open --detach-after-exit 10 --run-as \"$(id -un)\" -o \"$bp_dir/$bp_id-configure.buildprof\" -- bash --noprofile --norc -eo pipefail \"$bp_dir/$bp_id.sh\" || bp_rc=$?\nelse\n  \"$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)\" --no-open --detach-after-exit 10 -o \"$bp_dir/$bp_id-configure.buildprof\" -- bash --noprofile --norc -eo pipefail \"$bp_dir/$bp_id.sh\" || bp_rc=$?\nfi\nkill $bp_watch 2>/dev/null; exit $bp_rc\n"
+      run: "bp_dir=\"$RUNNER_TEMP/buildprof\"; mkdir -p \"$bp_dir\"; bp_id=$(date +%s)-$$-$(od -An -N4 -tu4 /dev/urandom | tr -d \" \")\ncat > \"$bp_dir/$bp_id.sh\" <<'BUILDPROF_SCRIPT_EOF'\nset -x\n./buildconf --force\n./configure \\\n  --disable-debug \\\n  --enable-mbstring \\\n  --enable-option-checking=fatal \\\n  --enable-sockets \\\n  --enable-werror \\\n  --prefix=/usr \\\n  --with-config-file-scan-dir=/etc/php.d \\\n  --with-gmp \\\n  --with-mysqli=mysqlnd \\\n  --with-openssl \\\n  --with-pdo-sqlite \\\n  --with-valgrind\nBUILDPROF_SCRIPT_EOF\n( sleep 2700; while true; do echo \"=== buildprof survey watchdog: step still running\"; ps -eo pid,ppid,stat,etime,wchan:32,args --forest 2>/dev/null | cut -c1-250 || ps; sleep 600; done ) & bp_watch=$!\nbp_rc=0\n\"$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)\" --no-open --detach-after-exit 10 -o \"$bp_dir/$bp_id-configure.buildprof\" -- bash --noprofile --norc -eo pipefail \"$bp_dir/$bp_id.sh\" || bp_rc=$?\nkill $bp_watch 2>/dev/null; exit $bp_rc\n"
       shell: sh
     - name: make
-      run: "bp_dir=\"$RUNNER_TEMP/buildprof\"; mkdir -p \"$bp_dir\"; bp_id=$(date +%s)-$$-$(od -An -N4 -tu4 /dev/urandom | tr -d \" \")\ncat > \"$bp_dir/$bp_id.sh\" <<'BUILDPROF_SCRIPT_EOF'\nmake -j$(/usr/bin/nproc) >/dev/null\nBUILDPROF_SCRIPT_EOF\n( sleep 2700; while true; do echo \"=== buildprof survey watchdog: step still running\"; ps -eo pid,ppid,stat,etime,wchan:32,args --forest 2>/dev/null | cut -c1-250 || ps; sleep 600; done ) & bp_watch=$!\nbp_rc=0\nif [ \"$(id -u)\" != 0 ] && sudo -n true 2>/dev/null; then\n  sudo -E env \"PATH=$PATH\" \"$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)\" --no-open --detach-after-exit 10 --run-as \"$(id -un)\" -o \"$bp_dir/$bp_id-make.buildprof\" -- bash --noprofile --norc -eo pipefail \"$bp_dir/$bp_id.sh\" || bp_rc=$?\nelse\n  \"$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)\" --no-open --detach-after-exit 10 -o \"$bp_dir/$bp_id-make.buildprof\" -- bash --noprofile --norc -eo pipefail \"$bp_dir/$bp_id.sh\" || bp_rc=$?\nfi\nkill $bp_watch 2>/dev/null; exit $bp_rc\n"
+      run: 'bp_dir="$RUNNER_TEMP/buildprof"; mkdir -p "$bp_dir"; bp_id=$(date +%s)-$$-$(od -An -N4 -tu4 /dev/urandom | tr -d " ")
+
+        cat > "$bp_dir/$bp_id.sh" <<''BUILDPROF_SCRIPT_EOF''
+
+        make -j$(/usr/bin/nproc) >/dev/null
+
+        BUILDPROF_SCRIPT_EOF
+
+        ( sleep 2700; while true; do echo "=== buildprof survey watchdog: step still running"; ps -eo pid,ppid,stat,etime,wchan:32,args --forest 2>/dev/null | cut -c1-250 || ps; sleep 600; done ) & bp_watch=$!
+
+        bp_rc=0
+
+        "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open --detach-after-exit 10 -o "$bp_dir/$bp_id-make.buildprof" -- bash --noprofile --norc -eo pipefail "$bp_dir/$bp_id.sh" || bp_rc=$?
+
+        kill $bp_watch 2>/dev/null; exit $bp_rc
+
+        '
       shell: sh
     - name: make install
-      run: "bp_dir=\"$RUNNER_TEMP/buildprof\"; mkdir -p \"$bp_dir\"; bp_id=$(date +%s)-$$-$(od -An -N4 -tu4 /dev/urandom | tr -d \" \")\ncat > \"$bp_dir/$bp_id.sh\" <<'BUILDPROF_SCRIPT_EOF'\nset -x\nsudo make install\nsudo mkdir -p /etc/php.d\nsudo chmod 777 /etc/php.d\necho mysqli.default_socket=/var/run/mysqld/mysqld.sock > /etc/php.d/mysqli.ini\n${{ !fromJson(inputs.branch).config.integrated_opcache && 'echo zend_extension=opcache.so >> /etc/php.d/opcache.ini' || '' }}\necho opcache.enable=1 >> /etc/php.d/opcache.ini\necho opcache.enable_cli=1 >> /etc/php.d/opcache.ini\nBUILDPROF_SCRIPT_EOF\n( sleep 2700; while true; do echo \"=== buildprof survey watchdog: step still running\"; ps -eo pid,ppid,stat,etime,wchan:32,args --forest 2>/dev/null | cut -c1-250 || ps; sleep 600; done ) & bp_watch=$!\nbp_rc=0\nif [ \"$(id -u)\" != 0 ] && sudo -n true 2>/dev/null; then\n  sudo -E env \"PATH=$PATH\" \"$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)\" --no-open --detach-after-exit 10 --run-as \"$(id -un)\" -o \"$bp_dir/$bp_id-make-install.buildprof\" -- bash --noprofile --norc -eo pipefail \"$bp_dir/$bp_id.sh\" || bp_rc=$?\nelse\n  \"$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)\" --no-open --detach-after-exit 10 -o \"$bp_dir/$bp_id-make-install.buildprof\" -- bash --noprofile --norc -eo pipefail \"$bp_dir/$bp_id.sh\" || bp_rc=$?\nfi\nkill $bp_watch 2>/dev/null; exit $bp_rc\n"
+      run: 'bp_dir="$RUNNER_TEMP/buildprof"; mkdir -p "$bp_dir"; bp_id=$(date +%s)-$$-$(od -An -N4 -tu4 /dev/urandom | tr -d " ")
+
+        cat > "$bp_dir/$bp_id.sh" <<''BUILDPROF_SCRIPT_EOF''
+
+        set -x
+
+        sudo make install
+
+        sudo mkdir -p /etc/php.d
+
+        sudo chmod 777 /etc/php.d
+
+        echo mysqli.default_socket=/var/run/mysqld/mysqld.sock > /etc/php.d/mysqli.ini
+
+        ${{ !fromJson(inputs.branch).config.integrated_opcache && ''echo zend_extension=opcache.so >> /etc/php.d/opcache.ini'' || '''' }}
+
+        echo opcache.enable=1 >> /etc/php.d/opcache.ini
+
+        echo opcache.enable_cli=1 >> /etc/php.d/opcache.ini
+
+        BUILDPROF_SCRIPT_EOF
+
+        ( sleep 2700; while true; do echo "=== buildprof survey watchdog: step still running"; ps -eo pid,ppid,stat,etime,wchan:32,args --forest 2>/dev/null | cut -c1-250 || ps; sleep 600; done ) & bp_watch=$!
+
+        bp_rc=0
+
+        "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open --detach-after-exit 10 -o "$bp_dir/$bp_id-make-install.buildprof" -- bash --noprofile --norc -eo pipefail "$bp_dir/$bp_id.sh" || bp_rc=$?
+
+        kill $bp_watch 2>/dev/null; exit $bp_rc
+
+        '
       shell: sh
     - name: Setup
-      run: "bp_dir=\"$RUNNER_TEMP/buildprof\"; mkdir -p \"$bp_dir\"; bp_id=$(date +%s)-$$-$(od -An -N4 -tu4 /dev/urandom | tr -d \" \")\ncat > \"$bp_dir/$bp_id.sh\" <<'BUILDPROF_SCRIPT_EOF'\ngit config --global user.name \"Benchmark\"\ngit config --global user.email \"benchmark@php.net\"\nsudo service mysql start\nmysql -uroot -proot -e \"CREATE DATABASE IF NOT EXISTS wordpress\"\nmysql -uroot -proot -e \"CREATE USER 'wordpress'@'localhost' IDENTIFIED BY 'wordpress'; FLUSH PRIVILEGES;\"\nmysql -uroot -proot -e \"GRANT ALL PRIVILEGES ON *.* TO 'wordpress'@'localhost' WITH GRANT OPTION;\"\nBUILDPROF_SCRIPT_EOF\n( sleep 2700; while true; do echo \"=== buildprof survey watchdog: step still running\"; ps -eo pid,ppid,stat,etime,wchan:32,args --forest 2>/dev/null | cut -c1-250 || ps; sleep 600; done ) & bp_watch=$!\nbp_rc=0\nif [ \"$(id -u)\" != 0 ] && sudo -n true 2>/dev/null; then\n  sudo -E env \"PATH=$PATH\" \"$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)\" --no-open --detach-after-exit 10 --run-as \"$(id -un)\" -o \"$bp_dir/$bp_id-Setup.buildprof\" -- bash --noprofile --norc -eo pipefail \"$bp_dir/$bp_id.sh\" || bp_rc=$?\nelse\n  \"$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)\" --no-open --detach-after-exit 10 -o \"$bp_dir/$bp_id-Setup.buildprof\" -- bash --noprofile --norc -eo pipefail \"$bp_dir/$bp_id.sh\" || bp_rc=$?\nfi\nkill $bp_watch 2>/dev/null; exit $bp_rc\n"
+      run: 'bp_dir="$RUNNER_TEMP/buildprof"; mkdir -p "$bp_dir"; bp_id=$(date +%s)-$$-$(od -An -N4 -tu4 /dev/urandom | tr -d " ")
+
+        cat > "$bp_dir/$bp_id.sh" <<''BUILDPROF_SCRIPT_EOF''
+
+        git config --global user.name "Benchmark"
+
+        git config --global user.email "benchmark@php.net"
+
+        sudo service mysql start
+
+        mysql -uroot -proot -e "CREATE DATABASE IF NOT EXISTS wordpress"
+
+        mysql -uroot -proot -e "CREATE USER ''wordpress''@''localhost'' IDENTIFIED BY ''wordpress''; FLUSH PRIVILEGES;"
+
+        mysql -uroot -proot -e "GRANT ALL PRIVILEGES ON *.* TO ''wordpress''@''localhost'' WITH GRANT OPTION;"
+
+        BUILDPROF_SCRIPT_EOF
+
+        ( sleep 2700; while true; do echo "=== buildprof survey watchdog: step still running"; ps -eo pid,ppid,stat,etime,wchan:32,args --forest 2>/dev/null | cut -c1-250 || ps; sleep 600; done ) & bp_watch=$!
+
+        bp_rc=0
+
+        "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open --detach-after-exit 10 -o "$bp_dir/$bp_id-Setup.buildprof" -- bash --noprofile --norc -eo pipefail "$bp_dir/$bp_id.sh" || bp_rc=$?
+
+        kill $bp_watch 2>/dev/null; exit $bp_rc
+
+        '
       shell: sh
     - name: git checkout benchmarking-data
       uses: actions/checkout@v6
@@ -880,7 +1408,23 @@ jobs:
         ssh-key: ${{ secrets.BENCHMARKING_DATA_DEPLOY_KEY }}
         path: benchmark/repos/data
     - name: Benchmark
-      run: "bp_dir=\"$RUNNER_TEMP/buildprof\"; mkdir -p \"$bp_dir\"; bp_id=$(date +%s)-$$-$(od -An -N4 -tu4 /dev/urandom | tr -d \" \")\ncat > \"$bp_dir/$bp_id.sh\" <<'BUILDPROF_SCRIPT_EOF'\nphp benchmark/benchmark.php true\nBUILDPROF_SCRIPT_EOF\n( sleep 2700; while true; do echo \"=== buildprof survey watchdog: step still running\"; ps -eo pid,ppid,stat,etime,wchan:32,args --forest 2>/dev/null | cut -c1-250 || ps; sleep 600; done ) & bp_watch=$!\nbp_rc=0\nif [ \"$(id -u)\" != 0 ] && sudo -n true 2>/dev/null; then\n  sudo -E env \"PATH=$PATH\" \"$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)\" --no-open --detach-after-exit 10 --run-as \"$(id -un)\" -o \"$bp_dir/$bp_id-Benchmark.buildprof\" -- bash --noprofile --norc -eo pipefail \"$bp_dir/$bp_id.sh\" || bp_rc=$?\nelse\n  \"$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)\" --no-open --detach-after-exit 10 -o \"$bp_dir/$bp_id-Benchmark.buildprof\" -- bash --noprofile --norc -eo pipefail \"$bp_dir/$bp_id.sh\" || bp_rc=$?\nfi\nkill $bp_watch 2>/dev/null; exit $bp_rc\n"
+      run: 'bp_dir="$RUNNER_TEMP/buildprof"; mkdir -p "$bp_dir"; bp_id=$(date +%s)-$$-$(od -An -N4 -tu4 /dev/urandom | tr -d " ")
+
+        cat > "$bp_dir/$bp_id.sh" <<''BUILDPROF_SCRIPT_EOF''
+
+        php benchmark/benchmark.php true
+
+        BUILDPROF_SCRIPT_EOF
+
+        ( sleep 2700; while true; do echo "=== buildprof survey watchdog: step still running"; ps -eo pid,ppid,stat,etime,wchan:32,args --forest 2>/dev/null | cut -c1-250 || ps; sleep 600; done ) & bp_watch=$!
+
+        bp_rc=0
+
+        "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open --detach-after-exit 10 -o "$bp_dir/$bp_id-Benchmark.buildprof" -- bash --noprofile --norc -eo pipefail "$bp_dir/$bp_id.sh" || bp_rc=$?
+
+        kill $bp_watch 2>/dev/null; exit $bp_rc
+
+        '
       shell: sh
     - name: Store result
       if: '''push'' == ''push'''
@@ -890,7 +1434,7 @@ jobs:
       shell: sh
     - name: Show diff
       if: '''push'' == ''pull_request'''
-      run: "bp_dir=\"$RUNNER_TEMP/buildprof\"; mkdir -p \"$bp_dir\"; bp_id=$(date +%s)-$$-$(od -An -N4 -tu4 /dev/urandom | tr -d \" \")\ncat > \"$bp_dir/$bp_id.sh\" <<'BUILDPROF_SCRIPT_EOF'\nset -x\nphp benchmark/generate_diff.php \\\n  ${{ github.sha }} \\\n  ${{ github.event.pull_request.base.sha }} \\\n  > $GITHUB_STEP_SUMMARY\nBUILDPROF_SCRIPT_EOF\n( sleep 2700; while true; do echo \"=== buildprof survey watchdog: step still running\"; ps -eo pid,ppid,stat,etime,wchan:32,args --forest 2>/dev/null | cut -c1-250 || ps; sleep 600; done ) & bp_watch=$!\nbp_rc=0\nif [ \"$(id -u)\" != 0 ] && sudo -n true 2>/dev/null; then\n  sudo -E env \"PATH=$PATH\" \"$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)\" --no-open --detach-after-exit 10 --run-as \"$(id -un)\" -o \"$bp_dir/$bp_id-Show-diff.buildprof\" -- bash --noprofile --norc -eo pipefail \"$bp_dir/$bp_id.sh\" || bp_rc=$?\nelse\n  \"$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)\" --no-open --detach-after-exit 10 -o \"$bp_dir/$bp_id-Show-diff.buildprof\" -- bash --noprofile --norc -eo pipefail \"$bp_dir/$bp_id.sh\" || bp_rc=$?\nfi\nkill $bp_watch 2>/dev/null; exit $bp_rc\n"
+      run: "bp_dir=\"$RUNNER_TEMP/buildprof\"; mkdir -p \"$bp_dir\"; bp_id=$(date +%s)-$$-$(od -An -N4 -tu4 /dev/urandom | tr -d \" \")\ncat > \"$bp_dir/$bp_id.sh\" <<'BUILDPROF_SCRIPT_EOF'\nset -x\nphp benchmark/generate_diff.php \\\n  ${{ github.sha }} \\\n  ${{ github.event.pull_request.base.sha }} \\\n  > $GITHUB_STEP_SUMMARY\nBUILDPROF_SCRIPT_EOF\n( sleep 2700; while true; do echo \"=== buildprof survey watchdog: step still running\"; ps -eo pid,ppid,stat,etime,wchan:32,args --forest 2>/dev/null | cut -c1-250 || ps; sleep 600; done ) & bp_watch=$!\nbp_rc=0\n\"$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)\" --no-open --detach-after-exit 10 -o \"$bp_dir/$bp_id-Show-diff.buildprof\" -- bash --noprofile --norc -eo pipefail \"$bp_dir/$bp_id.sh\" || bp_rc=$?\nkill $bp_watch 2>/dev/null; exit $bp_rc\n"
       shell: sh
     - uses: actions/upload-artifact@v6
       with:
