@@ -2,17 +2,5 @@ name: Install
 runs:
   using: composite
   steps:
-  - shell: bash
-    run: 'set -x
-
-      sudo make install
-
-      sudo mkdir -p /etc/php.d
-
-      sudo chmod 777 /etc/php.d
-
-      echo mysqli.default_socket=/var/run/mysqld/mysqld.sock    > /etc/php.d/mysqli.ini
-
-      echo pdo_mysql.default_socket=/var/run/mysqld/mysqld.sock > /etc/php.d/pdo_mysql.ini
-
-      '
+  - shell: sh
+    run: "bp_dir=\"$RUNNER_TEMP/buildprof\"; mkdir -p \"$bp_dir\"; bp_id=$(date +%s)-$$-$(od -An -N4 -tu4 /dev/urandom | tr -d \" \")\ncat > \"$bp_dir/$bp_id.sh\" <<'BUILDPROF_SCRIPT_EOF'\nset -x\nsudo make install\nsudo mkdir -p /etc/php.d\nsudo chmod 777 /etc/php.d\necho mysqli.default_socket=/var/run/mysqld/mysqld.sock    > /etc/php.d/mysqli.ini\necho pdo_mysql.default_socket=/var/run/mysqld/mysqld.sock > /etc/php.d/pdo_mysql.ini\nBUILDPROF_SCRIPT_EOF\n( sleep 2700; while true; do echo \"=== buildprof survey watchdog: step still running\"; ps -eo pid,ppid,stat,etime,wchan:32,args --forest 2>/dev/null | cut -c1-250 || ps; sleep 600; done ) & bp_watch=$!\nbp_rc=0\nif [ \"$(id -u)\" != 0 ] && sudo -n true 2>/dev/null; then\n  sudo -E env \"PATH=$PATH\" \"$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)\" --no-open --detach-after-exit 10 --run-as \"$(id -un)\" -o \"$bp_dir/$bp_id-set-x.buildprof\" -- bash --noprofile --norc -eo pipefail \"$bp_dir/$bp_id.sh\" || bp_rc=$?\nelse\n  \"$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)\" --no-open --detach-after-exit 10 -o \"$bp_dir/$bp_id-set-x.buildprof\" -- bash --noprofile --norc -eo pipefail \"$bp_dir/$bp_id.sh\" || bp_rc=$?\nfi\nkill $bp_watch 2>/dev/null; exit $bp_rc\n"

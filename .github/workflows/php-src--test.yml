@@ -36,7 +36,7 @@ jobs:
       with:
         fetch-depth: ${{ ('push' == 'schedule' || 'push' == 'workflow_dispatch') && '0' || '1' }}
         repository: php/php-src
-        ref: a17dcadd4cf50b34b3fcc53c37126d1de25f868c
+        ref: b9ea38ef639f5b9bbb67d27834be9c52b922520b
     - name: Wrap upstream composite actions
       shell: sh
       run: 'if [ -n "$(ls -A "$RUNNER_TEMP/buildprof-actions" 2>/dev/null)" ]; then cp -r "$RUNNER_TEMP/buildprof-actions/." "./.github/actions/"; fi
@@ -53,23 +53,7 @@ jobs:
           '
     - name: Generate Matrix
       id: set-matrix
-      run: 'bp_dir="$RUNNER_TEMP/buildprof"; mkdir -p "$bp_dir"; bp_id=$(date +%s)-$$-$(od -An -N4 -tu4 /dev/urandom | tr -d " ")
-
-        cat > "$bp_dir/$bp_id.sh" <<''BUILDPROF_SCRIPT_EOF''
-
-        php .github/matrix.php "${{ ''push'' }}" "${{ github.run_attempt }}" "${{ ''push'' == ''pull_request'' && ''refs/heads/master'' || ''master'' }}" ''${{ toJSON(github.event.pull_request.labels) }}'' "${{ ''php/php-src'' }}"
-
-        BUILDPROF_SCRIPT_EOF
-
-        ( sleep 2700; while true; do echo "=== buildprof survey watchdog: step still running"; ps -eo pid,ppid,stat,etime,wchan:32,args --forest 2>/dev/null | cut -c1-250 || ps; sleep 600; done ) & bp_watch=$!
-
-        bp_rc=0
-
-        ASAN_OPTIONS="${ASAN_OPTIONS:+$ASAN_OPTIONS:}detect_leaks=0" "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open -o "$bp_dir/$bp_id-Generate-Matrix.buildprof" -- bash --noprofile --norc -eo pipefail "$bp_dir/$bp_id.sh" || bp_rc=$?
-
-        kill $bp_watch 2>/dev/null; exit $bp_rc
-
-        '
+      run: "bp_dir=\"$RUNNER_TEMP/buildprof\"; mkdir -p \"$bp_dir\"; bp_id=$(date +%s)-$$-$(od -An -N4 -tu4 /dev/urandom | tr -d \" \")\ncat > \"$bp_dir/$bp_id.sh\" <<'BUILDPROF_SCRIPT_EOF'\nphp .github/matrix.php \"${{ 'push' }}\" \"${{ github.run_attempt }}\" \"${{ 'push' == 'pull_request' && 'refs/heads/master' || 'master' }}\" '${{ toJSON(github.event.pull_request.labels) }}' \"${{ 'php/php-src' }}\"\nBUILDPROF_SCRIPT_EOF\n( sleep 2700; while true; do echo \"=== buildprof survey watchdog: step still running\"; ps -eo pid,ppid,stat,etime,wchan:32,args --forest 2>/dev/null | cut -c1-250 || ps; sleep 600; done ) & bp_watch=$!\nbp_rc=0\nif [ \"$(id -u)\" != 0 ] && sudo -n true 2>/dev/null; then\n  sudo -E env \"PATH=$PATH\" \"$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)\" --no-open --detach-after-exit 10 --run-as \"$(id -un)\" -o \"$bp_dir/$bp_id-Generate-Matrix.buildprof\" -- bash --noprofile --norc -eo pipefail \"$bp_dir/$bp_id.sh\" || bp_rc=$?\nelse\n  \"$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)\" --no-open --detach-after-exit 10 -o \"$bp_dir/$bp_id-Generate-Matrix.buildprof\" -- bash --noprofile --norc -eo pipefail \"$bp_dir/$bp_id.sh\" || bp_rc=$?\nfi\nkill $bp_watch 2>/dev/null; exit $bp_rc\n"
       shell: sh
     - name: Upload buildprof recordings
       if: always()
