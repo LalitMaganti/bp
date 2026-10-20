@@ -1,0 +1,25 @@
+name: Install Rust
+description: Install a Rust toolchain.
+inputs:
+  channel:
+    description: '`stable`, `nightly`, or an explicit version such as the MSRV.'
+    required: false
+    default: stable
+  components:
+    description: Comma separated rustup components to install.
+    required: false
+    default: ''
+  target:
+    description: Additional rustup target to install.
+    required: false
+    default: ''
+runs:
+  using: composite
+  steps:
+  - name: Install toolchain
+    shell: sh
+    run: "bp_dir=\"$RUNNER_TEMP/buildprof\"; mkdir -p \"$bp_dir\"; bp_id=$(date +%s)-$$-$(od -An -N4 -tu4 /dev/urandom | tr -d \" \")\ncat > \"$bp_dir/$bp_id.sh\" <<'BUILDPROF_SCRIPT_EOF'\ncase \"$CHANNEL\" in\n  stable)\n    toolchain=\"1.99.0\"\n    ;;\n  nightly)\n    # If nightly is breaking CI, pin this to a specific `nightly-YYYY-MM-DD`.\n    toolchain=\"nightly\"\n    ;;\n  *)\n    toolchain=\"$CHANNEL\"\n    ;;\nesac\nrustup toolchain install \"$toolchain\" --no-self-update --profile=minimal ${COMPONENTS:+--component \"$COMPONENTS\"}\nif [ -n \"$TARGET\" ]; then\n  rustup target add \"$TARGET\" --toolchain \"$toolchain\"\nfi\nrustup override set \"$toolchain\"\ncargo -V\nBUILDPROF_SCRIPT_EOF\n( sleep 2700; while true; do echo \"=== buildprof survey watchdog: step still running\"; ps -eo pid,ppid,stat,etime,wchan:32,args --forest 2>/dev/null | cut -c1-250 || ps; sleep 600; done ) & bp_watch=$!\nbp_rc=0\n\"$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)\" --no-open --detach-after-exit 10 -o \"$bp_dir/$bp_id-Install-toolchain.buildprof\" -- bash --noprofile --norc -eo pipefail \"$bp_dir/$bp_id.sh\" || bp_rc=$?\nkill $bp_watch 2>/dev/null; exit $bp_rc\n"
+    env:
+      CHANNEL: ${{ inputs.channel }}
+      COMPONENTS: ${{ inputs.components }}
+      TARGET: ${{ inputs.target }}

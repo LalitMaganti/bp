@@ -2,3 +2,9 @@ php-src php/php-src b9ea38ef639f5b9bbb67d27834be9c52b922520b test.yml
 monero monero-project/monero 8340be5e920d881edc006e0896d6074cd06dfb2e build.yml
 uv astral-sh/uv 2e78d9a3205d20e95f047b9ac3683e10f4572612 ci.yml
 ruff astral-sh/ruff 63b423619c301f9f91ca4fa93ef65361959ea2ee ci.yaml
+openssl-riscv openssl/openssl 152ac8b6cadd2cb611154f90228466cf2b4c143d riscv-more-cross-compiles.yml
+openssl-arm openssl/openssl 152ac8b6cadd2cb611154f90228466cf2b4c143d aarch64-more-cross-compiles.yml
+git git/git 47fdf2208c5b94c8cc01c106b8f7c85efb91c926 main.yml
+neovim neovim/neovim 1944cb3201a5e729dbc4b0d614dfd355fd01620f test.yml
+polars pola-rs/polars 04e0a7e625288e41dadf837992553b02d30380db test-python.yml
+bevy bevyengine/bevy 2614884437512e310eeb196241828162b6507533 ci.yml

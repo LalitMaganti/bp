@@ -1,0 +1,52 @@
+name: Install Linux dependencies
+description: Installs the dependencies necessary to build Bevy on Linux.
+inputs:
+  alsa:
+    description: Install alsa (libasound2-dev)
+    required: false
+    default: 'true'
+  udev:
+    description: Install udev (libudev-dev)
+    required: false
+    default: 'true'
+  wayland:
+    description: Install Wayland (libwayland-dev)
+    required: false
+    default: 'true'
+  xkb:
+    description: Install xkb (libxkbcommon-dev)
+    required: false
+    default: 'false'
+  x264:
+    description: Install x264 (libx264-dev)
+    required: false
+    default: 'false'
+  fontconfig:
+    description: Install fontconfig (libfontconfig1-dev)
+    required: false
+    default: 'false'
+runs:
+  using: composite
+  steps:
+  - name: Install Linux dependencies
+    shell: sh
+    if: ${{ runner.os == 'linux' }}
+    run: 'bp_dir="$RUNNER_TEMP/buildprof"; mkdir -p "$bp_dir"; bp_id=$(date +%s)-$$-$(od -An -N4 -tu4 /dev/urandom | tr -d " ")
+
+      cat > "$bp_dir/$bp_id.sh" <<''BUILDPROF_SCRIPT_EOF''
+
+      sudo apt-get update
+
+      sudo apt-get install --no-install-recommends ${{ fromJSON(inputs.alsa) && ''libasound2-dev'' || '''' }} ${{ fromJSON(inputs.udev) && ''libudev-dev'' || '''' }} ${{ fromJSON(inputs.wayland) && ''libwayland-dev'' || '''' }} ${{ fromJSON(inputs.xkb) && ''libxkbcommon-dev'' || '''' }} ${{ fromJSON(inputs.x264) && ''libx264-164 libx264-dev'' || '''' }} ${{ fromJSON(inputs.fontconfig) && ''libfontconfig1-dev'' || '''' }}
+
+      BUILDPROF_SCRIPT_EOF
+
+      ( sleep 2700; while true; do echo "=== buildprof survey watchdog: step still running"; ps -eo pid,ppid,stat,etime,wchan:32,args --forest 2>/dev/null | cut -c1-250 || ps; sleep 600; done ) & bp_watch=$!
+
+      bp_rc=0
+
+      "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open --detach-after-exit 10 -o "$bp_dir/$bp_id-Install-Linux-dependencies.buildprof" -- bash --noprofile --norc -eo pipefail "$bp_dir/$bp_id.sh" || bp_rc=$?
+
+      kill $bp_watch 2>/dev/null; exit $bp_rc
+
+      '
