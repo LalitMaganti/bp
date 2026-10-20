@@ -1,0 +1,32 @@
+name: build buildprof from a branch
+on:
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: Buildprof branch or commit
+        default: ci-recording-fixes
+permissions:
+  contents: read
+jobs:
+  build:
+    strategy:
+      matrix:
+        runner: [ubuntu-24.04, ubuntu-24.04-arm]
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          repository: LalitMaganti/buildprof
+          ref: ${{ inputs.ref }}
+          persist-credentials: false
+      - run: sudo apt-get update -q && sudo apt-get install -y -q musl-tools
+      - run: |
+          target="$(uname -m)-unknown-linux-musl"
+          rustup target add "$target"
+          cargo build --release --locked --target "$target"
+          mkdir out && cp "target/$target/release/buildprof" "out/buildprof-$(uname -m)"
+          git rev-parse HEAD > "out/buildprof-$(uname -m).commit"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: buildprof-${{ matrix.runner }}
+          path: out/
