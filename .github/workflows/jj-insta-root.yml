@@ -1,4 +1,4 @@
-name: 'jj: nextest with and without INSTA_WORKSPACE_ROOT (untraced)'
+name: 'jj: nextest with and without INSTA_WORKSPACE_ROOT, set for build and tests (untraced)'
 'on':
   workflow_dispatch: null
 permissions:
@@ -49,12 +49,16 @@ jobs:
       uses: rui314/setup-mold@da13e0b42e392e3a45d1215033a2270b849d7d36
       with:
         make-default: false
+    - name: Set INSTA_WORKSPACE_ROOT for build and tests
+      if: matrix.mode == 'root'
+      shell: bash
+      run: echo "INSTA_WORKSPACE_ROOT=${{ github.workspace }}" >> "$GITHUB_ENV"
     - name: Build
       run: cargo build --config .cargo/config-ci.toml --workspace --all-targets --verbose ${{ matrix.cargo_flags }}
     - shell: bash
-      run: lscpu 2>/dev/null | grep -E 'Model name' || (wmic cpu get name 2>/dev/null | sed -n 2p) || true
+      run: (lscpu 2>/dev/null | grep -E 'Model name') || powershell -NoProfile -Command "'Model name: ' + (Get-CimInstance Win32_Processor).Name" || true
     - name: Test
-      run: '[ "${{ matrix.mode }}" = root ] && export INSTA_WORKSPACE_ROOT="$(pwd -W 2>/dev/null || pwd)"
+      run: 'echo "INSTA_WORKSPACE_ROOT=${INSTA_WORKSPACE_ROOT:-unset}"
 
         start=$(date +%s); rc=0
 
