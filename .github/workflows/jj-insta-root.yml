@@ -56,7 +56,8 @@ jobs:
     - name: Build
       run: cargo build --config .cargo/config-ci.toml --workspace --all-targets --verbose ${{ matrix.cargo_flags }}
     - shell: bash
-      run: (lscpu 2>/dev/null | grep -E 'Model name') || powershell -NoProfile -Command "'Model name: ' + (Get-CimInstance Win32_Processor).Name" || true
+      run: |
+        (lscpu 2>/dev/null | grep -E 'Model name') || powershell -NoProfile -Command "'Model name: ' + (Get-CimInstance Win32_Processor).Name" || true
     - name: Test
       run: 'echo "INSTA_WORKSPACE_ROOT=${INSTA_WORKSPACE_ROOT:-unset}"
 
