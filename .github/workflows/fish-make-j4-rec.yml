@@ -1,0 +1,42 @@
+name: 'fish: make -j4 recorded'
+on: workflow_dispatch
+permissions:
+  contents: read
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        mode: [j4]
+        rep: [1]
+    env:
+      FISH_TEST_MAX_CONCURRENCY: "4"
+      CMAKE_BUILD_PARALLEL_LEVEL: "4"
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        repository: fish-shell/fish-shell
+        ref: 849fea792a5cefd3299df33f43a8ae98aed10b6f
+    - uses: ./.github/actions/rust-toolchain@oldest-supported
+    - uses: ./.github/actions/install-dependencies
+      with:
+        include_sphinx: true
+    - uses: actions/checkout@v4
+      with:
+        repository: LalitMaganti/bp
+        path: .bpf
+        sparse-checkout: .buildprof
+    - run: cp .bpf/.buildprof/buildprof-x86_64 /tmp/bp && chmod +x /tmp/bp && rm -rf .bpf && sudo setcap cap_sys_ptrace,cap_sys_admin+ep /tmp/bp
+    - run: lscpu | grep -E 'Model name|^CPU\(s\)'
+    - run: mkdir build && cd build && cmake .. -DCMAKE_BUILD_TYPE=RelWithDebInfo
+    - name: make
+      run: |
+        j=; [ "${{ matrix.mode }}" = j4 ] && j=-j4
+        start=$(date +%s)
+        /tmp/bp --no-open -o make-j4.buildprof -- make -C build VERBOSE=1 $j > make.log 2>&1 || { tail -50 make.log; exit 1; }
+        echo "MAKE ${{ matrix.mode }} $(( $(date +%s) - start )) s"
+    - uses: actions/upload-artifact@v4
+      with:
+        name: fish-make-j4
+        path: make-j4.buildprof
