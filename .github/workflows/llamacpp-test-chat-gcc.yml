@@ -1,0 +1,35 @@
+name: 'llama.cpp: test-chat.cpp compile time by GCC version and -O level'
+on:
+  workflow_dispatch: null
+permissions:
+  contents: read
+jobs:
+  compile:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          repository: ggml-org/llama.cpp
+          ref: 8baabd53b77d1c48c6ef8d3b620436292f3f6231
+          persist-credentials: false
+      - run: lscpu | grep -E 'Model name|^CPU\(s\)'
+      - run: sudo apt-get update > /dev/null && sudo apt-get install -y g++-11 g++-12 g++-13 g++-14 libssl-dev > /dev/null
+      - name: Configure once, as CI does
+        run: cmake -B build -DGGML_NATIVE=OFF -DLLAMA_FATAL_WARNINGS=ON -DGGML_RPC=ON -DCMAKE_EXPORT_COMPILE_COMMANDS=ON > /dev/null
+      - name: Compile test-chat.cpp with each GCC and level
+        run: |
+          python3 - <<'PY' > cmd.sh
+          import json
+          for e in json.load(open('build/compile_commands.json')):
+              if e['file'].endswith('tests/test-chat.cpp'):
+                  print(e['command'])
+          PY
+          cmd=$(cat cmd.sh)
+          for v in 11 12 13 14; do
+            for o in -O3 -O1; do
+              c=$(echo "$cmd" | sed "s#^[^ ]*#g++-$v#; s/ -O3/ $o/; s# -o [^ ]*# -o /tmp/tc.o#")
+              start=$(date +%s.%N)
+              (cd build && bash -c "$c") > /dev/null 2>&1 || echo "failed g++-$v $o"
+              echo "GCC $v $o $(echo "$(date +%s.%N) - $start" | bc | cut -c1-6) s"
+            done
+          done
