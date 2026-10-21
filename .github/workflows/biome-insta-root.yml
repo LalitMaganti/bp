@@ -1,4 +1,4 @@
-name: 'biome: nextest with and without INSTA_WORKSPACE_ROOT (untraced)'
+name: 'biome: nextest with and without INSTA_WORKSPACE_ROOT, set for build and tests (untraced)'
 on: workflow_dispatch
 permissions:
   contents: read
@@ -25,6 +25,13 @@ jobs:
         cache: false
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    - name: Set INSTA_WORKSPACE_ROOT for build and tests
+      if: matrix.mode == 'root'
+      shell: bash
+      run: echo "INSTA_WORKSPACE_ROOT=${{ github.workspace }}" >> "$GITHUB_ENV"
+    - shell: bash
+      run: |
+        (lscpu 2>/dev/null | grep -E 'Model name') || powershell -NoProfile -Command "'Model name: ' + (Get-CimInstance Win32_Processor).Name" || true
     - shell: bash
       env:
         CARGO_PROFILE_TEST_DEBUG: ${{ matrix.os == 'windows-2022' && '0' || '' }}
@@ -33,7 +40,7 @@ jobs:
         [ -z "$CARGO_PROFILE_TEST_DEBUG" ] && unset CARGO_PROFILE_TEST_DEBUG CARGO_INCREMENTAL
         start=$(date +%s); cargo nextest run --workspace --no-run > build.log 2>&1 || { tail -30 build.log; exit 1; }
         echo "BUILD ${{ matrix.os }} ${{ matrix.mode }} $(( $(date +%s) - start )) s"
-        [ "${{ matrix.mode }}" = root ] && export INSTA_WORKSPACE_ROOT="$(pwd -W 2>/dev/null || pwd)"
+        echo "INSTA_WORKSPACE_ROOT=${INSTA_WORKSPACE_ROOT:-unset}"
         start=$(date +%s); rc=0; cargo nextest run --workspace --no-fail-fast > test.log 2>&1 || rc=$?
-        echo "NEXTEST ${{ matrix.os }} ${{ matrix.mode }} $(( $(date +%s) - start )) s rc=$rc"; grep -E '^ *Summary' test.log | tail -1
+        echo "NEXTEST ${{ matrix.os }} ${{ matrix.mode }} $(( $(date +%s) - start )) s rc=$rc"; sed 's/\x1b\[[0-9;]*m//g' test.log | grep -E 'Summary' | tail -1 || true
         exit $rc
