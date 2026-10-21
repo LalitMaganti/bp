@@ -8,8 +8,8 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        debug: [default, line-tables-only, 'false']
-        rep: [1, 2]
+        debug: [default, line-tables-only]
+        rep: [1, 2, 3, 4]
     env:
       RUST_BACKTRACE: 1
       HELIX_LOG_LEVEL: info
@@ -27,5 +27,7 @@ jobs:
         echo "CARGOTEST $(( $(date +%s) - start )) s"
     - run: |
         [ "${{ matrix.debug }}" != default ] && export CARGO_PROFILE_INTEGRATION_DEBUG=${{ matrix.debug }}
+        start=$(date +%s); cargo integration-test --no-run > build.log 2>&1 || { tail -30 build.log; exit 1; }
+        echo "ITBUILD ${{ matrix.debug }} $(( $(date +%s) - start )) s"
         start=$(date +%s); rc=0; cargo integration-test > it.log 2>&1 || rc=$?
         echo "INTEGRATION ${{ matrix.debug }} $(( $(date +%s) - start )) s rc=$rc"; grep -E '^test result' it.log; exit $rc
