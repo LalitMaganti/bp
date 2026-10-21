@@ -18,7 +18,7 @@ jobs:
         - nightly
         os:
         - ubuntu-latest
-        - ubuntu-24.04-arm64-8x
+        - ubuntu-24.04-arm
     steps:
     - name: Fetch buildprof
       uses: actions/checkout@v4
@@ -222,7 +222,7 @@ jobs:
     timeout-minutes: 120
   msrv:
     name: MSRV
-    runs-on: ubuntu-24.04-arm64-8x
+    runs-on: ubuntu-24.04-arm
     steps:
     - name: Fetch buildprof
       uses: actions/checkout@v4
@@ -292,7 +292,7 @@ jobs:
     timeout-minutes: 120
   features:
     name: Features
-    runs-on: ubuntu-24.04-arm64-8x
+    runs-on: ubuntu-24.04-arm
     steps:
     - name: Fetch buildprof
       uses: actions/checkout@v4
@@ -460,7 +460,7 @@ jobs:
     timeout-minutes: 120
   bogo:
     name: BoGo test suite
-    runs-on: ubuntu-24.04-arm64-8x
+    runs-on: ubuntu-24.04-arm
     steps:
     - name: Fetch buildprof
       uses: actions/checkout@v4
@@ -581,7 +581,7 @@ jobs:
     timeout-minutes: 120
   fuzz:
     name: Smoke-test fuzzing targets
-    runs-on: ubuntu-24.04-arm64-8x
+    runs-on: ubuntu-24.04-arm
     steps:
     - name: Fetch buildprof
       uses: actions/checkout@v4
@@ -641,7 +641,7 @@ jobs:
     timeout-minutes: 120
   benchmarks:
     name: Run benchmarks
-    runs-on: ubuntu-24.04-arm64-8x
+    runs-on: ubuntu-24.04-arm
     steps:
     - name: Fetch buildprof
       uses: actions/checkout@v4
@@ -771,7 +771,7 @@ jobs:
     timeout-minutes: 120
   docs:
     name: Check for documentation errors
-    runs-on: ubuntu-24.04-arm64-8x
+    runs-on: ubuntu-24.04-arm
     steps:
     - name: Fetch buildprof
       uses: actions/checkout@v4
@@ -878,7 +878,7 @@ jobs:
     timeout-minutes: 120
   coverage:
     name: Measure coverage
-    runs-on: ubuntu-24.04-arm64-8x
+    runs-on: ubuntu-24.04-arm
     if: '''push'' != ''merge_group'''
     steps:
     - name: Fetch buildprof
@@ -961,7 +961,7 @@ jobs:
     timeout-minutes: 120
   minver:
     name: Check minimum versions of direct dependencies
-    runs-on: ubuntu-24.04-arm64-8x
+    runs-on: ubuntu-24.04-arm
     steps:
     - name: Fetch buildprof
       uses: actions/checkout@v4
@@ -1089,7 +1089,7 @@ jobs:
     timeout-minutes: 120
   format:
     name: Format
-    runs-on: ubuntu-24.04-arm64-8x
+    runs-on: ubuntu-24.04-arm
     steps:
     - name: Fetch buildprof
       uses: actions/checkout@v4
@@ -1199,7 +1199,7 @@ jobs:
     timeout-minutes: 120
   format-unstable:
     name: Format (unstable)
-    runs-on: ubuntu-24.04-arm64-8x
+    runs-on: ubuntu-24.04-arm
     steps:
     - name: Fetch buildprof
       uses: actions/checkout@v4
@@ -1328,7 +1328,7 @@ jobs:
     timeout-minutes: 120
   clippy:
     name: Clippy
-    runs-on: ubuntu-24.04-arm64-8x
+    runs-on: ubuntu-24.04-arm
     steps:
     - name: Fetch buildprof
       uses: actions/checkout@v4
@@ -1418,7 +1418,7 @@ jobs:
     timeout-minutes: 120
   clippy-nightly:
     name: Clippy (Nightly)
-    runs-on: ubuntu-24.04-arm64-8x
+    runs-on: ubuntu-24.04-arm
     steps:
     - name: Fetch buildprof
       uses: actions/checkout@v4
@@ -1508,7 +1508,7 @@ jobs:
     timeout-minutes: 120
   check-external-types:
     name: Validate external types appearing in public API
-    runs-on: ubuntu-24.04-arm64-8x
+    runs-on: ubuntu-24.04-arm
     steps:
     - name: Fetch buildprof
       uses: actions/checkout@v4
@@ -1585,7 +1585,7 @@ jobs:
     timeout-minutes: 120
   openssl-tests:
     name: Run openssl-tests
-    runs-on: ubuntu-24.04-arm64-8x
+    runs-on: ubuntu-24.04-arm
     env:
       VERSION: openssl-4.0.1
     steps:
