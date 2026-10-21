@@ -1,0 +1,59 @@
+name: Configure Windows Builders
+description: 'This action configures the Windows builders to run tests.
+
+  '
+runs:
+  using: composite
+  steps:
+  - name: 'Set up D: drive'
+    shell: pwsh
+    run: '# Set up D: drive
+
+
+      # Short file names are disabled by default on the `D:` drive,
+
+      # which breaks some of our tests. Enable them.
+
+      #
+
+      # This has a slight performance penalty, and won’t be possible
+
+      # if we switch to ReFS/Dev Drives. The alternatives are to
+
+      # reduce CI coverage for the security mitigation the tests are
+
+      # checking, or arrange for those tests to take a separate path
+
+      # to a drive that supports short file names to use instead of
+
+      # the primary temporary directory.
+
+      fsutil 8dot3name set D: 0
+
+
+      # Move the temporary directory to `D:\Temp`.
+
+      New-Item -Path D:\ -Name Temp -ItemType directory
+
+      # Copy the effective permissions without inheritance.
+
+      $Acl = Get-Acl -Path $env:TMP
+
+      $Acl.SetAccessRuleProtection($true, $true)
+
+      Set-Acl -Path D:\Temp -AclObject $Acl
+
+
+      Add-Content -Path $env:GITHUB_ENV @"
+
+      TMP=D:\Temp
+
+      TEMP=D:\Temp
+
+      RUSTUP_HOME=D:\.rustup
+
+      CARGO_HOME=D:\.cargo
+
+      "@
+
+      '

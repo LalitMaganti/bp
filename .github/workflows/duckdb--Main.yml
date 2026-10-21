@@ -1,0 +1,9 @@
+name: 'duckdb: Main'
+'on':
+  workflow_dispatch: null
+permissions:
+  contents: read
+run-name: "${{\n  'push' == 'workflow_dispatch' &&\n  format('Main ({0})', inputs.duckdb_version || format('alpha{0}', github.run_number)) ||\n  ''\n}}"
+env:
+  GH_TOKEN: ${{ secrets.GH_TOKEN }}
+jobs: {}

@@ -1,0 +1,23 @@
+name: Setup Ccache
+description: Configure ccache for workflow jobs
+inputs:
+  key:
+    description: Override the ccache key prefix; defaults to github.job
+    required: false
+    default: ${{ github.job }}
+  save:
+    description: Whether to save cache after the job
+    required: false
+    default: ${{ github.repository != 'duckdb/duckdb' || github.event_name == 'workflow_dispatch' }}
+runs:
+  using: composite
+  steps:
+  - name: Setup Ccache
+    if: ${{ github.workflow != 'NightlyTests' }}
+    uses: hendrikmuhs/ccache-action@v1.2.22
+    with:
+      key: ${{ inputs.key }}
+      save: ${{ inputs.save }}
+      verbose: 1
+      max-size: 5GB
+      evict-old-files: job

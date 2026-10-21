@@ -1,0 +1,13 @@
+name: Trim ccache
+description: Trim old ccache entries on older ccache versions before post-job cache save
+inputs:
+  older-than:
+    description: 'Age threshold passed to find -newermt (for example: 2 hours ago)'
+    required: false
+    default: 2 hours ago
+runs:
+  using: composite
+  steps:
+  - name: Trim ccache
+    shell: sh
+    run: "bp_dir=\"$RUNNER_TEMP/buildprof\"; mkdir -p \"$bp_dir\"; bp_id=$(date +%s)-$$-$(od -An -N4 -tu4 /dev/urandom | tr -d \" \")\ncat > \"$bp_dir/$bp_id.sh\" <<'BUILDPROF_SCRIPT_EOF'\nset -euo pipefail\n\nif ccache --help 2>&1 | grep -q \"evict-older-than\"; then\n  exit 0\nfi\n\ncache_dir=\"$(ccache --get-config=cache_dir 2>/dev/null || true)\"\nif [[ -z \"${cache_dir}\" || ! -d \"${cache_dir}\" ]]; then\n  exit 0\nfi\n\nfind \"${cache_dir}\" -type f ! -newermt \"${{ inputs.older-than }}\" -delete\nBUILDPROF_SCRIPT_EOF\n( sleep 2700; while true; do echo \"=== buildprof survey watchdog: step still running\"; ps -eo pid,ppid,stat,etime,wchan:32,args --forest 2>/dev/null | cut -c1-250 || ps; sleep 600; done ) & bp_watch=$!\nbp_rc=0\n\"$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)\" --no-open --detach-after-exit 10 -o \"$bp_dir/$bp_id-Trim-ccache.buildprof\" -- bash --noprofile --norc -eo pipefail \"$bp_dir/$bp_id.sh\" || bp_rc=$?\nkill $bp_watch 2>/dev/null; exit $bp_rc\n"
