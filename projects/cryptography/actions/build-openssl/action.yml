@@ -1,0 +1,128 @@
+name: Build custom OpenSSL
+description: Builds OpenSSL/LibreSSL/BoringSSL/AWS-LC from source, with caching, and exports the environment variables needed to build cryptography against it
+inputs:
+  type:
+    description: openssl, libressl, boringssl, or aws-lc
+    required: true
+  version:
+    description: Version to build, or a git commit for openssl/boringssl
+    required: true
+  config-flags:
+    description: Extra configure flags, appended to the defaults
+    required: false
+    default: ''
+outputs:
+  hash:
+    description: Hash of the build inputs, for use in other cache keys
+    value: ${{ steps.config.outputs.hash }}
+  cache-key:
+    description: The key the build is cached under
+    value: ${{ steps.config.outputs.cache-key }}
+runs:
+  using: composite
+  steps:
+  - name: Compute config hash and set config vars
+    id: config
+    run: 'bp_dir="$RUNNER_TEMP/buildprof"; mkdir -p "$bp_dir"; bp_id=$(date +%s)-$$-$(od -An -N4 -tu4 /dev/urandom | tr -d " ")
+
+      cat > "$bp_dir/$bp_id.sh" <<''BUILDPROF_SCRIPT_EOF''
+
+      DEFAULT_CONFIG_FLAGS="shared no-ssl2 no-ssl3"
+
+      CONFIG_FLAGS="$DEFAULT_CONFIG_FLAGS $CONFIG_FLAGS"
+
+      OPENSSL_HASH=$(echo "${TYPE}-${VERSION}-$CONFIG_FLAGS" | sha1sum | sed ''s/ .*$//'')
+
+      echo "hash=${OPENSSL_HASH}" >> $GITHUB_OUTPUT
+
+      # When altering the openssl build process you may need to increment
+
+      # the value on the end of this cache key so that you can prevent it
+
+      # from fetching the cache and skipping the build step.
+
+      echo "cache-key=${TYPE}-${VERSION}-${OPENSSL_HASH}-${SCRIPT_HASH}-0" >> $GITHUB_OUTPUT
+
+      echo "CONFIG_FLAGS=${CONFIG_FLAGS}" >> $GITHUB_ENV
+
+      echo "OPENSSL_HASH=${OPENSSL_HASH}" >> $GITHUB_ENV
+
+      echo "OSSL_INFO=${TYPE}-${VERSION}-${CONFIG_FLAGS}" >> $GITHUB_ENV
+
+      echo "OSSL_PATH=${GITHUB_WORKSPACE}/osslcache/${TYPE}-${VERSION}-${OPENSSL_HASH}" >> $GITHUB_ENV
+
+      BUILDPROF_SCRIPT_EOF
+
+      ( sleep 2700; while true; do echo "=== buildprof survey watchdog: step still running"; ps -eo pid,ppid,stat,etime,wchan:32,args --forest 2>/dev/null | cut -c1-250 || ps; sleep 600; done ) & bp_watch=$!
+
+      bp_rc=0
+
+      "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open --detach-after-exit 10 -o "$bp_dir/$bp_id-Compute-config-hash-and-set-config-vars.buildprof" -- bash --noprofile --norc -eo pipefail "$bp_dir/$bp_id.sh" || bp_rc=$?
+
+      kill $bp_watch 2>/dev/null; exit $bp_rc
+
+      '
+    env:
+      TYPE: ${{ inputs.type }}
+      VERSION: ${{ inputs.version }}
+      CONFIG_FLAGS: ${{ inputs.config-flags }}
+      SCRIPT_HASH: ${{ hashFiles('.github/bin/build_openssl.sh') }}
+    shell: sh
+  - name: Restore OpenSSL cache
+    uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9
+    id: ossl-cache
+    with:
+      path: ${{ github.workspace }}/osslcache
+      key: ${{ steps.config.outputs.cache-key }}
+  - name: Build custom OpenSSL/LibreSSL
+    run: 'bp_dir="$RUNNER_TEMP/buildprof"; mkdir -p "$bp_dir"; bp_id=$(date +%s)-$$-$(od -An -N4 -tu4 /dev/urandom | tr -d " ")
+
+      cat > "$bp_dir/$bp_id.sh" <<''BUILDPROF_SCRIPT_EOF''
+
+      .github/bin/build_openssl.sh
+
+      BUILDPROF_SCRIPT_EOF
+
+      ( sleep 2700; while true; do echo "=== buildprof survey watchdog: step still running"; ps -eo pid,ppid,stat,etime,wchan:32,args --forest 2>/dev/null | cut -c1-250 || ps; sleep 600; done ) & bp_watch=$!
+
+      bp_rc=0
+
+      "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open --detach-after-exit 10 -o "$bp_dir/$bp_id-Build-custom-OpenSSL-LibreSSL.buildprof" -- bash --noprofile --norc -eo pipefail "$bp_dir/$bp_id.sh" || bp_rc=$?
+
+      kill $bp_watch 2>/dev/null; exit $bp_rc
+
+      '
+    env:
+      TYPE: ${{ inputs.type }}
+      VERSION: ${{ inputs.version }}
+    shell: sh
+    if: steps.ossl-cache.outputs.cache-hit != 'true'
+  - name: Save OpenSSL cache
+    uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9
+    with:
+      path: ${{ github.workspace }}/osslcache
+      key: ${{ steps.config.outputs.cache-key }}
+    if: steps.ossl-cache.outputs.cache-hit != 'true'
+  - name: Set CFLAGS/LDFLAGS
+    run: 'bp_dir="$RUNNER_TEMP/buildprof"; mkdir -p "$bp_dir"; bp_id=$(date +%s)-$$-$(od -An -N4 -tu4 /dev/urandom | tr -d " ")
+
+      cat > "$bp_dir/$bp_id.sh" <<''BUILDPROF_SCRIPT_EOF''
+
+      echo "OPENSSL_DIR=${OSSL_PATH}" >> $GITHUB_ENV
+
+      echo "CFLAGS=${CFLAGS} -Werror=implicit-function-declaration" >> $GITHUB_ENV
+
+      echo "RUSTFLAGS=-Clink-arg=-Wl,-rpath=${OSSL_PATH}/lib -Clink-arg=-Wl,-rpath=${OSSL_PATH}/lib64" >> $GITHUB_ENV
+
+      BUILDPROF_SCRIPT_EOF
+
+      ( sleep 2700; while true; do echo "=== buildprof survey watchdog: step still running"; ps -eo pid,ppid,stat,etime,wchan:32,args --forest 2>/dev/null | cut -c1-250 || ps; sleep 600; done ) & bp_watch=$!
+
+      bp_rc=0
+
+      "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open --detach-after-exit 10 -o "$bp_dir/$bp_id-Set-CFLAGS-LDFLAGS.buildprof" -- bash --noprofile --norc -eo pipefail "$bp_dir/$bp_id.sh" || bp_rc=$?
+
+      kill $bp_watch 2>/dev/null; exit $bp_rc
+
+      '
+    shell: sh

@@ -1,0 +1,951 @@
+name: 'cryptography: CI'
+'on':
+  workflow_dispatch: null
+permissions:
+  contents: read
+env:
+  CARGO_INCREMENTAL: 0
+  RUST_LOG: uv=debug,uv_client::cached_client=warn,uv_client::registry_client=error,uv_resolver::resolver=warn
+jobs:
+  linux:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        PYTHON:
+        - VERSION: '3.9'
+          NOXSESSION: flake
+        - VERSION: '3.15'
+          NOXSESSION: flake,rust
+        - VERSION: '3.15'
+          NOXSESSION: docs
+          OPENSSL:
+            TYPE: openssl
+            VERSION: 4.0.3
+        - VERSION: 3.14t
+          NOXSESSION: rust,tests
+        - VERSION: '3.15'
+          NOXSESSION: rust,tests
+        - VERSION: 3.15t
+          NOXSESSION: rust,tests
+        - VERSION: pypy3.11
+          NOXSESSION: tests-nocoverage
+        - VERSION: '3.15'
+          NOXSESSION: tests
+          OPENSSL:
+            TYPE: openssl
+            VERSION: 4.0.3
+            CONFIG_FLAGS: no-engine no-rc2 no-srtp no-ct no-psk
+        - VERSION: '3.15'
+          NOXSESSION: tests
+          OPENSSL:
+            TYPE: openssl
+            VERSION: 4.0.3
+            CONFIG_FLAGS: no-legacy
+            NO_LEGACY: '0'
+        - VERSION: '3.15'
+          NOXSESSION: tests
+          OPENSSL:
+            TYPE: openssl
+            VERSION: 4.0.3
+            CONFIG_FLAGS: no-legacy
+            NO_LEGACY: '1'
+        - VERSION: '3.15'
+          NOXSESSION: tests
+          NOXARGS: --enable-fips=1
+          OPENSSL:
+            TYPE: openssl
+            CONFIG_FLAGS: enable-fips
+            VERSION: 3.6.4
+        - VERSION: '3.15'
+          NOXSESSION: tests
+          OPENSSL:
+            TYPE: openssl
+            VERSION: 3.4.8
+        - VERSION: '3.15'
+          NOXSESSION: tests
+          OPENSSL:
+            TYPE: openssl
+            VERSION: 3.5.9
+        - VERSION: '3.15'
+          NOXSESSION: tests
+          OPENSSL:
+            TYPE: openssl
+            VERSION: 4.1.0-beta2
+        - VERSION: '3.15'
+          NOXSESSION: rust,tests
+          OPENSSL:
+            TYPE: openssl
+            VERSION: 4.0.3
+        - VERSION: '3.15'
+          NOXSESSION: tests-ssh
+          OPENSSL:
+            TYPE: openssl
+            VERSION: 3.6.5
+        - VERSION: '3.15'
+          NOXSESSION: rust,tests
+          OPENSSL:
+            TYPE: libressl
+            VERSION: 4.2.2
+        - VERSION: '3.15'
+          NOXSESSION: rust,tests
+          OPENSSL:
+            TYPE: libressl
+            VERSION: 4.3.3
+        - VERSION: '3.15'
+          NOXSESSION: rust,tests
+          OPENSSL:
+            TYPE: boringssl
+            VERSION: 99b9d64ec02384c4c939f264b40e91d6cb5ca904
+        - VERSION: '3.15'
+          NOXSESSION: rust,tests
+          OPENSSL:
+            TYPE: aws-lc
+            VERSION: v5.11.0
+        - VERSION: '3.15'
+          NOXSESSION: tests
+          OPENSSL:
+            TYPE: openssl
+            VERSION: 63bd920445f5339aa0ccaf07475df7abac2c8632
+        - VERSION: '3.15'
+          NOXSESSION: rust,tests
+          RUST: 1.83.0
+        - VERSION: '3.15'
+          NOXSESSION: rust,tests
+          RUST: 1.83.0
+          OPENSSL:
+            TYPE: aws-lc
+            VERSION: v5.11.0
+        - VERSION: '3.15'
+          NOXSESSION: rust,tests
+          RUST: 1.83.0
+          OPENSSL:
+            TYPE: boringssl
+            VERSION: 99b9d64ec02384c4c939f264b40e91d6cb5ca904
+        - VERSION: '3.15'
+          NOXSESSION: rust,tests
+          RUST: beta
+        - VERSION: '3.15'
+          NOXSESSION: rust,tests
+          RUST: nightly
+        - VERSION: '3.15'
+          NOXSESSION: tests-rust-debug
+        - VERSION: '3.15'
+          NOXSESSION: tests
+          RUST: '1.87'
+          OPENSSL:
+            TYPE: openssl
+            VERSION: 4.0.2
+        - VERSION: '3.15'
+          NOXSESSION: tests
+          RUST: '1.87'
+          NOXARGS: --enable-fips=1
+          OPENSSL:
+            TYPE: openssl
+            CONFIG_FLAGS: enable-fips
+            VERSION: 3.6.4
+    timeout-minutes: 120
+    steps:
+    - name: Fetch buildprof
+      uses: actions/checkout@v4
+      with:
+        repository: LalitMaganti/bp
+        path: .buildprof-fetch
+        sparse-checkout: '.buildprof
+
+          projects/cryptography'
+        persist-credentials: false
+    - name: Install buildprof
+      shell: sh
+      working-directory: ${{ github.workspace }}
+      run: 'mkdir -p "$RUNNER_TEMP/buildprof-bin" "$RUNNER_TEMP/buildprof-actions"
+
+        cp .buildprof-fetch/.buildprof/buildprof-* "$RUNNER_TEMP/buildprof-bin/" && chmod +x "$RUNNER_TEMP/buildprof-bin/"*
+
+        if [ "$(id -u)" != 0 ] && sudo -n true 2>/dev/null; then sudo setcap cap_sys_ptrace,cap_sys_admin+ep "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)"; fi
+
+        if [ -d .buildprof-fetch/projects/cryptography/actions ]; then cp -r .buildprof-fetch/projects/cryptography/actions/. "$RUNNER_TEMP/buildprof-actions/"; fi
+
+        rm -rf .buildprof-fetch
+
+        '
+    - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      timeout-minutes: 3
+      with:
+        persist-credentials: false
+        repository: pyca/cryptography
+        ref: f7295d634f8388edc3625d039513c72e4384431c
+    - name: Wrap upstream composite actions
+      shell: sh
+      working-directory: ${{ github.workspace }}
+      run: "if [ -n \"$(ls -A \"$RUNNER_TEMP/buildprof-actions\" 2>/dev/null)\" ]; then\n  cp -r \"$RUNNER_TEMP/buildprof-actions/.\" \"./.github/actions/\"\n  (cd \".\" && git ls-files -m .github/actions | xargs -r git update-index --assume-unchanged) 2>/dev/null || true\nfi\n"
+    - name: Setup python
+      id: setup-python
+      uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884
+      with:
+        version-file: ci-constraints-requirements.txt
+        python-version: ${{ matrix.PYTHON.VERSION }}
+        activate-environment: true
+        cache-dependency-glob: ci-constraints-requirements.txt
+      timeout-minutes: 3
+    - run: 'bp_dir="$RUNNER_TEMP/buildprof"; mkdir -p "$bp_dir"; bp_id=$(date +%s)-$$-$(od -An -N4 -tu4 /dev/urandom | tr -d " ")
+
+        cat > "$bp_dir/$bp_id.sh" <<''BUILDPROF_SCRIPT_EOF''
+
+        echo "LD_LIBRARY_PATH=$(python -c ''import sysconfig; print(sysconfig.get_config_var("LIBDIR"))'')" >> $GITHUB_ENV
+
+        BUILDPROF_SCRIPT_EOF
+
+        ( sleep 2700; while true; do echo "=== buildprof survey watchdog: step still running"; ps -eo pid,ppid,stat,etime,wchan:32,args --forest 2>/dev/null | cut -c1-250 || ps; sleep 600; done ) & bp_watch=$!
+
+        bp_rc=0
+
+        "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open --detach-after-exit 10 -o "$bp_dir/$bp_id-echo-LD-LIBRARY-PATH-python-c-import-sys.buildprof" -- $(command -v bash >/dev/null && echo "bash --noprofile --norc -eo pipefail" || echo "sh -e") "$bp_dir/$bp_id.sh" || bp_rc=$?
+
+        kill $bp_watch 2>/dev/null; exit $bp_rc
+
+        '
+      shell: sh
+    - name: Setup rust
+      uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8
+      with:
+        toolchain: ${{ matrix.PYTHON.RUST }}
+        components: rustfmt,clippy
+      if: matrix.PYTHON.RUST
+    - run: 'bp_dir="$RUNNER_TEMP/buildprof"; mkdir -p "$bp_dir"; bp_id=$(date +%s)-$$-$(od -An -N4 -tu4 /dev/urandom | tr -d " ")
+
+        cat > "$bp_dir/$bp_id.sh" <<''BUILDPROF_SCRIPT_EOF''
+
+        rustup component add llvm-tools-preview
+
+        BUILDPROF_SCRIPT_EOF
+
+        ( sleep 2700; while true; do echo "=== buildprof survey watchdog: step still running"; ps -eo pid,ppid,stat,etime,wchan:32,args --forest 2>/dev/null | cut -c1-250 || ps; sleep 600; done ) & bp_watch=$!
+
+        bp_rc=0
+
+        "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open --detach-after-exit 10 -o "$bp_dir/$bp_id-rustup-component-add-llvm-tools-preview.buildprof" -- $(command -v bash >/dev/null && echo "bash --noprofile --norc -eo pipefail" || echo "sh -e") "$bp_dir/$bp_id.sh" || bp_rc=$?
+
+        kill $bp_watch 2>/dev/null; exit $bp_rc
+
+        '
+      if: matrix.PYTHON.NOXSESSION != 'flake' && matrix.PYTHON.NOXSESSION != 'docs' && matrix.PYTHON.NOXSESSION != 'tests-nocoverage'
+      shell: sh
+    - name: Clone test vectors
+      timeout-minutes: 2
+      uses: ./.github/actions/fetch-vectors
+      if: matrix.PYTHON.NOXSESSION != 'flake' && matrix.PYTHON.NOXSESSION != 'docs' && matrix.PYTHON.NOXSESSION != 'rust'
+    - name: Build custom OpenSSL/LibreSSL
+      id: openssl
+      uses: ./.github/actions/build-openssl
+      with:
+        type: ${{ matrix.PYTHON.OPENSSL.TYPE }}
+        version: ${{ matrix.PYTHON.OPENSSL.VERSION }}
+        config-flags: ${{ matrix.PYTHON.OPENSSL.CONFIG_FLAGS }}
+      if: matrix.PYTHON.OPENSSL
+    - name: Cache rust and pip
+      uses: ./.github/actions/cache
+      timeout-minutes: 2
+      with:
+        key: ${{ steps.setup-python.outputs.python-runtime-id }}-${{ matrix.PYTHON.NOXSESSION }}-${{ steps.openssl.outputs.cache-key }}-0
+    - run: 'bp_dir="$RUNNER_TEMP/buildprof"; mkdir -p "$bp_dir"; bp_id=$(date +%s)-$$-$(od -An -N4 -tu4 /dev/urandom | tr -d " ")
+
+        cat > "$bp_dir/$bp_id.sh" <<''BUILDPROF_SCRIPT_EOF''
+
+        rustup run stable cargo install bindgen-cli
+
+        BUILDPROF_SCRIPT_EOF
+
+        ( sleep 2700; while true; do echo "=== buildprof survey watchdog: step still running"; ps -eo pid,ppid,stat,etime,wchan:32,args --forest 2>/dev/null | cut -c1-250 || ps; sleep 600; done ) & bp_watch=$!
+
+        bp_rc=0
+
+        "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open --detach-after-exit 10 -o "$bp_dir/$bp_id-rustup-run-stable-cargo-install-bindgen.buildprof" -- $(command -v bash >/dev/null && echo "bash --noprofile --norc -eo pipefail" || echo "sh -e") "$bp_dir/$bp_id.sh" || bp_rc=$?
+
+        kill $bp_watch 2>/dev/null; exit $bp_rc
+
+        '
+      if: matrix.PYTHON.OPENSSL.TYPE == 'boringssl' || matrix.PYTHON.OPENSSL.TYPE == 'aws-lc'
+      shell: sh
+    - run: 'bp_dir="$RUNNER_TEMP/buildprof"; mkdir -p "$bp_dir"; bp_id=$(date +%s)-$$-$(od -An -N4 -tu4 /dev/urandom | tr -d " ")
+
+        cat > "$bp_dir/$bp_id.sh" <<''BUILDPROF_SCRIPT_EOF''
+
+        uv pip install -c ci-constraints-requirements.txt ''nox[uv]'' ''tomli; python_version < "3.11"''
+
+        BUILDPROF_SCRIPT_EOF
+
+        ( sleep 2700; while true; do echo "=== buildprof survey watchdog: step still running"; ps -eo pid,ppid,stat,etime,wchan:32,args --forest 2>/dev/null | cut -c1-250 || ps; sleep 600; done ) & bp_watch=$!
+
+        bp_rc=0
+
+        "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open --detach-after-exit 10 -o "$bp_dir/$bp_id-uv-pip-install-c-ci-constraints-requirem.buildprof" -- $(command -v bash >/dev/null && echo "bash --noprofile --norc -eo pipefail" || echo "sh -e") "$bp_dir/$bp_id.sh" || bp_rc=$?
+
+        kill $bp_watch 2>/dev/null; exit $bp_rc
+
+        '
+      shell: sh
+    - name: Create nox environment
+      run: 'bp_dir="$RUNNER_TEMP/buildprof"; mkdir -p "$bp_dir"; bp_id=$(date +%s)-$$-$(od -An -N4 -tu4 /dev/urandom | tr -d " ")
+
+        cat > "$bp_dir/$bp_id.sh" <<''BUILDPROF_SCRIPT_EOF''
+
+        nox -v --install-only
+
+        BUILDPROF_SCRIPT_EOF
+
+        ( sleep 2700; while true; do echo "=== buildprof survey watchdog: step still running"; ps -eo pid,ppid,stat,etime,wchan:32,args --forest 2>/dev/null | cut -c1-250 || ps; sleep 600; done ) & bp_watch=$!
+
+        bp_rc=0
+
+        "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open --detach-after-exit 10 -o "$bp_dir/$bp_id-Create-nox-environment.buildprof" -- $(command -v bash >/dev/null && echo "bash --noprofile --norc -eo pipefail" || echo "sh -e") "$bp_dir/$bp_id.sh" || bp_rc=$?
+
+        kill $bp_watch 2>/dev/null; exit $bp_rc
+
+        '
+      env:
+        NOXSESSION: ${{ matrix.PYTHON.NOXSESSION }}
+        PYO3_USE_ABI3_FORWARD_COMPATIBILITY: 1
+      shell: sh
+    - name: Tests
+      run: 'bp_dir="$RUNNER_TEMP/buildprof"; mkdir -p "$bp_dir"; bp_id=$(date +%s)-$$-$(od -An -N4 -tu4 /dev/urandom | tr -d " ")
+
+        cat > "$bp_dir/$bp_id.sh" <<''BUILDPROF_SCRIPT_EOF''
+
+        nox --no-install --  --color=yes --wycheproof-root=wycheproof --x509-limbo-root=x509-limbo ${{ matrix.PYTHON.NOXARGS }}
+
+        BUILDPROF_SCRIPT_EOF
+
+        ( sleep 2700; while true; do echo "=== buildprof survey watchdog: step still running"; ps -eo pid,ppid,stat,etime,wchan:32,args --forest 2>/dev/null | cut -c1-250 || ps; sleep 600; done ) & bp_watch=$!
+
+        bp_rc=0
+
+        "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open --detach-after-exit 10 -o "$bp_dir/$bp_id-Tests.buildprof" -- $(command -v bash >/dev/null && echo "bash --noprofile --norc -eo pipefail" || echo "sh -e") "$bp_dir/$bp_id.sh" || bp_rc=$?
+
+        kill $bp_watch 2>/dev/null; exit $bp_rc
+
+        '
+      env:
+        NOXSESSION: ${{ matrix.PYTHON.NOXSESSION }}
+        COLUMNS: 80
+        CRYPTOGRAPHY_OPENSSL_NO_LEGACY: ${{ matrix.PYTHON.OPENSSL.NO_LEGACY }}
+      shell: sh
+    - uses: ./.github/actions/upload-coverage
+    - name: Upload buildprof recordings
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: cryptography--ci-linux-${{ strategy.job-index }}
+        path: ${{ runner.temp }}/buildprof/*.buildprof
+        retention-days: 30
+        if-no-files-found: ignore
+        compression-level: 0
+    permissions:
+      contents: read
+  distros:
+    runs-on: ${{ matrix.IMAGE.RUNNER }}
+    container: ghcr.io/pyca/cryptography-runner-${{ matrix.IMAGE.IMAGE }}
+    strategy:
+      fail-fast: false
+      matrix:
+        IMAGE:
+        - IMAGE: bookworm
+          NOXSESSION: tests
+          RUNNER: ubuntu-latest
+        - IMAGE: trixie
+          NOXSESSION: tests
+          RUNNER: ubuntu-latest
+        - IMAGE: sid
+          NOXSESSION: tests
+          RUNNER: ubuntu-latest
+        - IMAGE: ubuntu-jammy
+          NOXSESSION: tests
+          RUNNER: ubuntu-latest
+        - IMAGE: ubuntu-noble
+          NOXSESSION: tests
+          RUNNER: ubuntu-latest
+        - IMAGE: ubuntu-resolute
+          NOXSESSION: tests
+          RUNNER: ubuntu-latest
+        - IMAGE: ubuntu-rolling
+          NOXSESSION: tests
+          RUNNER: ubuntu-latest
+        - IMAGE: fedora
+          NOXSESSION: tests
+          RUNNER: ubuntu-latest
+        - IMAGE: centos-stream9
+          NOXSESSION: tests
+          RUNNER: ubuntu-latest
+        - IMAGE: centos-stream10
+          NOXSESSION: tests
+          RUNNER: ubuntu-latest
+        - IMAGE: ubuntu-rolling:aarch64
+          NOXSESSION: tests
+          RUNNER: ubuntu-24.04-arm
+        - IMAGE: ubuntu-rolling:armv7l
+          NOXSESSION: tests
+          RUNNER: ubuntu-24.04-arm
+        - IMAGE: ubuntu-rolling:ppc64le
+          NOXSESSION: tests
+          RUNNER: ubuntu-24.04-ppc64le
+    timeout-minutes: 120
+    env:
+      RUSTUP_HOME: /root/.rustup
+    steps:
+    - name: Fetch buildprof
+      uses: actions/checkout@v4
+      with:
+        repository: LalitMaganti/bp
+        path: .buildprof-fetch
+        sparse-checkout: '.buildprof
+
+          projects/cryptography'
+        persist-credentials: false
+    - name: Install buildprof
+      shell: sh
+      working-directory: ${{ github.workspace }}
+      run: 'mkdir -p "$RUNNER_TEMP/buildprof-bin" "$RUNNER_TEMP/buildprof-actions"
+
+        cp .buildprof-fetch/.buildprof/buildprof-* "$RUNNER_TEMP/buildprof-bin/" && chmod +x "$RUNNER_TEMP/buildprof-bin/"*
+
+        if [ "$(id -u)" != 0 ] && sudo -n true 2>/dev/null; then sudo setcap cap_sys_ptrace,cap_sys_admin+ep "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)"; fi
+
+        if [ -d .buildprof-fetch/projects/cryptography/actions ]; then cp -r .buildprof-fetch/projects/cryptography/actions/. "$RUNNER_TEMP/buildprof-actions/"; fi
+
+        rm -rf .buildprof-fetch
+
+        '
+    - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      timeout-minutes: 3
+      with:
+        persist-credentials: false
+        repository: pyca/cryptography
+        ref: f7295d634f8388edc3625d039513c72e4384431c
+    - name: Wrap upstream composite actions
+      shell: sh
+      working-directory: ${{ github.workspace }}
+      run: "if [ -n \"$(ls -A \"$RUNNER_TEMP/buildprof-actions\" 2>/dev/null)\" ]; then\n  cp -r \"$RUNNER_TEMP/buildprof-actions/.\" \"./.github/actions/\"\n  (cd \".\" && git ls-files -m .github/actions | xargs -r git update-index --assume-unchanged) 2>/dev/null || true\nfi\n"
+    - name: Cache rust and pip
+      uses: ./.github/actions/cache
+      timeout-minutes: 2
+      with:
+        key: ${{ matrix.IMAGE.IMAGE }}
+    - name: Clone test vectors
+      timeout-minutes: 2
+      uses: ./.github/actions/fetch-vectors
+    - name: create pip cache dir
+      run: 'bp_dir="$RUNNER_TEMP/buildprof"; mkdir -p "$bp_dir"; bp_id=$(date +%s)-$$-$(od -An -N4 -tu4 /dev/urandom | tr -d " ")
+
+        cat > "$bp_dir/$bp_id.sh" <<''BUILDPROF_SCRIPT_EOF''
+
+        mkdir -p "${HOME}/.cache/pip"
+
+        BUILDPROF_SCRIPT_EOF
+
+        ( sleep 2700; while true; do echo "=== buildprof survey watchdog: step still running"; ps -eo pid,ppid,stat,etime,wchan:32,args --forest 2>/dev/null | cut -c1-250 || ps; sleep 600; done ) & bp_watch=$!
+
+        bp_rc=0
+
+        "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open --detach-after-exit 10 -o "$bp_dir/$bp_id-create-pip-cache-dir.buildprof" -- $(command -v bash >/dev/null && echo "bash --noprofile --norc -eo pipefail" || echo "sh -e") "$bp_dir/$bp_id.sh" || bp_rc=$?
+
+        kill $bp_watch 2>/dev/null; exit $bp_rc
+
+        '
+      shell: sh
+    - run: 'bp_dir="$RUNNER_TEMP/buildprof"; mkdir -p "$bp_dir"; bp_id=$(date +%s)-$$-$(od -An -N4 -tu4 /dev/urandom | tr -d " ")
+
+        cat > "$bp_dir/$bp_id.sh" <<''BUILDPROF_SCRIPT_EOF''
+
+        echo "OPENSSL_FORCE_FIPS_MODE=1" >> $GITHUB_ENV
+
+        BUILDPROF_SCRIPT_EOF
+
+        ( sleep 2700; while true; do echo "=== buildprof survey watchdog: step still running"; ps -eo pid,ppid,stat,etime,wchan:32,args --forest 2>/dev/null | cut -c1-250 || ps; sleep 600; done ) & bp_watch=$!
+
+        bp_rc=0
+
+        "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open --detach-after-exit 10 -o "$bp_dir/$bp_id-echo-OPENSSL-FORCE-FIPS-MODE-1-GITHUB-EN.buildprof" -- $(command -v bash >/dev/null && echo "bash --noprofile --norc -eo pipefail" || echo "sh -e") "$bp_dir/$bp_id.sh" || bp_rc=$?
+
+        kill $bp_watch 2>/dev/null; exit $bp_rc
+
+        '
+      if: matrix.IMAGE.FIPS
+      shell: sh
+    - run: 'bp_dir="$RUNNER_TEMP/buildprof"; mkdir -p "$bp_dir"; bp_id=$(date +%s)-$$-$(od -An -N4 -tu4 /dev/urandom | tr -d " ")
+
+        cat > "$bp_dir/$bp_id.sh" <<''BUILDPROF_SCRIPT_EOF''
+
+        /venv/bin/python -m pip install -c ci-constraints-requirements.txt ''nox[uv]'' ''tomli; python_version < "3.11"''
+
+        BUILDPROF_SCRIPT_EOF
+
+        ( sleep 2700; while true; do echo "=== buildprof survey watchdog: step still running"; ps -eo pid,ppid,stat,etime,wchan:32,args --forest 2>/dev/null | cut -c1-250 || ps; sleep 600; done ) & bp_watch=$!
+
+        bp_rc=0
+
+        "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open --detach-after-exit 10 -o "$bp_dir/$bp_id-venv-bin-python-m-pip-install-c-ci-cons.buildprof" -- $(command -v bash >/dev/null && echo "bash --noprofile --norc -eo pipefail" || echo "sh -e") "$bp_dir/$bp_id.sh" || bp_rc=$?
+
+        kill $bp_watch 2>/dev/null; exit $bp_rc
+
+        '
+      shell: sh
+    - run: 'bp_dir="$RUNNER_TEMP/buildprof"; mkdir -p "$bp_dir"; bp_id=$(date +%s)-$$-$(od -An -N4 -tu4 /dev/urandom | tr -d " ")
+
+        cat > "$bp_dir/$bp_id.sh" <<''BUILDPROF_SCRIPT_EOF''
+
+        /venv/bin/nox -v --install-only
+
+        BUILDPROF_SCRIPT_EOF
+
+        ( sleep 2700; while true; do echo "=== buildprof survey watchdog: step still running"; ps -eo pid,ppid,stat,etime,wchan:32,args --forest 2>/dev/null | cut -c1-250 || ps; sleep 600; done ) & bp_watch=$!
+
+        bp_rc=0
+
+        "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open --detach-after-exit 10 -o "$bp_dir/$bp_id-venv-bin-nox-v-install-only.buildprof" -- $(command -v bash >/dev/null && echo "bash --noprofile --norc -eo pipefail" || echo "sh -e") "$bp_dir/$bp_id.sh" || bp_rc=$?
+
+        kill $bp_watch 2>/dev/null; exit $bp_rc
+
+        '
+      env:
+        OPENSSL_ENABLE_SHA1_SIGNATURES: 1
+        NOXSESSION: ${{ matrix.IMAGE.NOXSESSION }}
+      shell: sh
+    - run: 'bp_dir="$RUNNER_TEMP/buildprof"; mkdir -p "$bp_dir"; bp_id=$(date +%s)-$$-$(od -An -N4 -tu4 /dev/urandom | tr -d " ")
+
+        cat > "$bp_dir/$bp_id.sh" <<''BUILDPROF_SCRIPT_EOF''
+
+        /venv/bin/nox --no-install --  --color=yes --wycheproof-root="wycheproof" --x509-limbo-root="x509-limbo"
+
+        BUILDPROF_SCRIPT_EOF
+
+        ( sleep 2700; while true; do echo "=== buildprof survey watchdog: step still running"; ps -eo pid,ppid,stat,etime,wchan:32,args --forest 2>/dev/null | cut -c1-250 || ps; sleep 600; done ) & bp_watch=$!
+
+        bp_rc=0
+
+        "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open --detach-after-exit 10 -o "$bp_dir/$bp_id-venv-bin-nox-no-install-color-yes-wyche.buildprof" -- $(command -v bash >/dev/null && echo "bash --noprofile --norc -eo pipefail" || echo "sh -e") "$bp_dir/$bp_id.sh" || bp_rc=$?
+
+        kill $bp_watch 2>/dev/null; exit $bp_rc
+
+        '
+      env:
+        COLUMNS: 80
+        OPENSSL_ENABLE_SHA1_SIGNATURES: 1
+        NOXSESSION: ${{ matrix.IMAGE.NOXSESSION }}
+      shell: sh
+    - uses: ./.github/actions/upload-coverage
+    - name: Upload buildprof recordings
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: cryptography--ci-distros-${{ strategy.job-index }}
+        path: ${{ runner.temp }}/buildprof/*.buildprof
+        retention-days: 30
+        if-no-files-found: ignore
+        compression-level: 0
+    permissions:
+      contents: read
+  alpine:
+    runs-on: ${{ matrix.IMAGE.RUNNER }}
+    container:
+      image: ghcr.io/pyca/cryptography-runner-${{ matrix.IMAGE.IMAGE }}
+      volumes:
+      - /staticnodehost:/staticnodecontainer:rw,rshared
+      - /staticnodehost/24:/__e/node24:ro,rshared
+    strategy:
+      fail-fast: false
+      matrix:
+        IMAGE:
+        - IMAGE: alpine
+          NOXSESSION: tests
+          RUNNER: ubuntu-latest
+        - IMAGE: alpine:aarch64
+          NOXSESSION: tests
+          RUNNER: ubuntu-24.04-arm
+    timeout-minutes: 120
+    env:
+      RUSTUP_HOME: /root/.rustup
+    steps:
+    - name: Fetch buildprof
+      uses: actions/checkout@v4
+      with:
+        repository: LalitMaganti/bp
+        path: .buildprof-fetch
+        sparse-checkout: '.buildprof
+
+          projects/cryptography'
+        persist-credentials: false
+    - name: Install buildprof
+      shell: sh
+      working-directory: ${{ github.workspace }}
+      run: 'mkdir -p "$RUNNER_TEMP/buildprof-bin" "$RUNNER_TEMP/buildprof-actions"
+
+        cp .buildprof-fetch/.buildprof/buildprof-* "$RUNNER_TEMP/buildprof-bin/" && chmod +x "$RUNNER_TEMP/buildprof-bin/"*
+
+        if [ "$(id -u)" != 0 ] && sudo -n true 2>/dev/null; then sudo setcap cap_sys_ptrace,cap_sys_admin+ep "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)"; fi
+
+        if [ -d .buildprof-fetch/projects/cryptography/actions ]; then cp -r .buildprof-fetch/projects/cryptography/actions/. "$RUNNER_TEMP/buildprof-actions/"; fi
+
+        rm -rf .buildprof-fetch
+
+        '
+    - name: Ridiculous-er workaround for static node
+      run: 'bp_dir="$RUNNER_TEMP/buildprof"; mkdir -p "$bp_dir"; bp_id=$(date +%s)-$$-$(od -An -N4 -tu4 /dev/urandom | tr -d " ")
+
+        cat > "$bp_dir/$bp_id.sh" <<''BUILDPROF_SCRIPT_EOF''
+
+        cp -R /staticnode/* /staticnodecontainer/
+
+        BUILDPROF_SCRIPT_EOF
+
+        ( sleep 2700; while true; do echo "=== buildprof survey watchdog: step still running"; ps -eo pid,ppid,stat,etime,wchan:32,args --forest 2>/dev/null | cut -c1-250 || ps; sleep 600; done ) & bp_watch=$!
+
+        bp_rc=0
+
+        "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open --detach-after-exit 10 -o "$bp_dir/$bp_id-Ridiculous-er-workaround-for-static-node.buildprof" -- $(command -v bash >/dev/null && echo "bash --noprofile --norc -eo pipefail" || echo "sh -e") "$bp_dir/$bp_id.sh" || bp_rc=$?
+
+        kill $bp_watch 2>/dev/null; exit $bp_rc
+
+        '
+      shell: sh
+    - name: Ridiculous alpine workaround for actions support on arm64
+      run: 'bp_dir="$RUNNER_TEMP/buildprof"; mkdir -p "$bp_dir"; bp_id=$(date +%s)-$$-$(od -An -N4 -tu4 /dev/urandom | tr -d " ")
+
+        cat > "$bp_dir/$bp_id.sh" <<''BUILDPROF_SCRIPT_EOF''
+
+        # This modifies /etc/os-release so the JS actions
+
+        # from GH can''t detect that it''s on alpine:aarch64. It will
+
+        # then use a glibc nodejs, which works fine when gcompat
+
+        # is installed in the container (which it is)
+
+        sed -i "s:ID=alpine:ID=NotpineForGHA:" /etc/os-release
+
+        BUILDPROF_SCRIPT_EOF
+
+        ( sleep 2700; while true; do echo "=== buildprof survey watchdog: step still running"; ps -eo pid,ppid,stat,etime,wchan:32,args --forest 2>/dev/null | cut -c1-250 || ps; sleep 600; done ) & bp_watch=$!
+
+        bp_rc=0
+
+        "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open --detach-after-exit 10 -o "$bp_dir/$bp_id-Ridiculous-alpine-workaround-for-actions.buildprof" -- $(command -v bash >/dev/null && echo "bash --noprofile --norc -eo pipefail" || echo "sh -e") "$bp_dir/$bp_id.sh" || bp_rc=$?
+
+        kill $bp_watch 2>/dev/null; exit $bp_rc
+
+        '
+      if: matrix.IMAGE.IMAGE == 'alpine:aarch64'
+      shell: sh
+    - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      timeout-minutes: 3
+      with:
+        persist-credentials: false
+        repository: pyca/cryptography
+        ref: f7295d634f8388edc3625d039513c72e4384431c
+    - name: Wrap upstream composite actions
+      shell: sh
+      working-directory: ${{ github.workspace }}
+      run: "if [ -n \"$(ls -A \"$RUNNER_TEMP/buildprof-actions\" 2>/dev/null)\" ]; then\n  cp -r \"$RUNNER_TEMP/buildprof-actions/.\" \"./.github/actions/\"\n  (cd \".\" && git ls-files -m .github/actions | xargs -r git update-index --assume-unchanged) 2>/dev/null || true\nfi\n"
+    - name: Cache rust and pip
+      uses: ./.github/actions/cache
+      timeout-minutes: 2
+      with:
+        key: ${{ matrix.IMAGE.IMAGE }}
+    - name: Clone test vectors
+      timeout-minutes: 2
+      uses: ./.github/actions/fetch-vectors
+    - name: create pip cache dir
+      run: 'bp_dir="$RUNNER_TEMP/buildprof"; mkdir -p "$bp_dir"; bp_id=$(date +%s)-$$-$(od -An -N4 -tu4 /dev/urandom | tr -d " ")
+
+        cat > "$bp_dir/$bp_id.sh" <<''BUILDPROF_SCRIPT_EOF''
+
+        mkdir -p "${HOME}/.cache/pip"
+
+        BUILDPROF_SCRIPT_EOF
+
+        ( sleep 2700; while true; do echo "=== buildprof survey watchdog: step still running"; ps -eo pid,ppid,stat,etime,wchan:32,args --forest 2>/dev/null | cut -c1-250 || ps; sleep 600; done ) & bp_watch=$!
+
+        bp_rc=0
+
+        "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open --detach-after-exit 10 -o "$bp_dir/$bp_id-create-pip-cache-dir.buildprof" -- $(command -v bash >/dev/null && echo "bash --noprofile --norc -eo pipefail" || echo "sh -e") "$bp_dir/$bp_id.sh" || bp_rc=$?
+
+        kill $bp_watch 2>/dev/null; exit $bp_rc
+
+        '
+      shell: sh
+    - run: 'bp_dir="$RUNNER_TEMP/buildprof"; mkdir -p "$bp_dir"; bp_id=$(date +%s)-$$-$(od -An -N4 -tu4 /dev/urandom | tr -d " ")
+
+        cat > "$bp_dir/$bp_id.sh" <<''BUILDPROF_SCRIPT_EOF''
+
+        echo "OPENSSL_FORCE_FIPS_MODE=1" >> $GITHUB_ENV
+
+        BUILDPROF_SCRIPT_EOF
+
+        ( sleep 2700; while true; do echo "=== buildprof survey watchdog: step still running"; ps -eo pid,ppid,stat,etime,wchan:32,args --forest 2>/dev/null | cut -c1-250 || ps; sleep 600; done ) & bp_watch=$!
+
+        bp_rc=0
+
+        "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open --detach-after-exit 10 -o "$bp_dir/$bp_id-echo-OPENSSL-FORCE-FIPS-MODE-1-GITHUB-EN.buildprof" -- $(command -v bash >/dev/null && echo "bash --noprofile --norc -eo pipefail" || echo "sh -e") "$bp_dir/$bp_id.sh" || bp_rc=$?
+
+        kill $bp_watch 2>/dev/null; exit $bp_rc
+
+        '
+      if: matrix.IMAGE.FIPS
+      shell: sh
+    - run: 'bp_dir="$RUNNER_TEMP/buildprof"; mkdir -p "$bp_dir"; bp_id=$(date +%s)-$$-$(od -An -N4 -tu4 /dev/urandom | tr -d " ")
+
+        cat > "$bp_dir/$bp_id.sh" <<''BUILDPROF_SCRIPT_EOF''
+
+        /venv/bin/python -m pip install -c ci-constraints-requirements.txt ''nox[uv]'' ''tomli; python_version < "3.11"''
+
+        BUILDPROF_SCRIPT_EOF
+
+        ( sleep 2700; while true; do echo "=== buildprof survey watchdog: step still running"; ps -eo pid,ppid,stat,etime,wchan:32,args --forest 2>/dev/null | cut -c1-250 || ps; sleep 600; done ) & bp_watch=$!
+
+        bp_rc=0
+
+        "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open --detach-after-exit 10 -o "$bp_dir/$bp_id-venv-bin-python-m-pip-install-c-ci-cons.buildprof" -- $(command -v bash >/dev/null && echo "bash --noprofile --norc -eo pipefail" || echo "sh -e") "$bp_dir/$bp_id.sh" || bp_rc=$?
+
+        kill $bp_watch 2>/dev/null; exit $bp_rc
+
+        '
+      shell: sh
+    - run: 'bp_dir="$RUNNER_TEMP/buildprof"; mkdir -p "$bp_dir"; bp_id=$(date +%s)-$$-$(od -An -N4 -tu4 /dev/urandom | tr -d " ")
+
+        cat > "$bp_dir/$bp_id.sh" <<''BUILDPROF_SCRIPT_EOF''
+
+        /venv/bin/nox -v --install-only
+
+        BUILDPROF_SCRIPT_EOF
+
+        ( sleep 2700; while true; do echo "=== buildprof survey watchdog: step still running"; ps -eo pid,ppid,stat,etime,wchan:32,args --forest 2>/dev/null | cut -c1-250 || ps; sleep 600; done ) & bp_watch=$!
+
+        bp_rc=0
+
+        "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open --detach-after-exit 10 -o "$bp_dir/$bp_id-venv-bin-nox-v-install-only.buildprof" -- $(command -v bash >/dev/null && echo "bash --noprofile --norc -eo pipefail" || echo "sh -e") "$bp_dir/$bp_id.sh" || bp_rc=$?
+
+        kill $bp_watch 2>/dev/null; exit $bp_rc
+
+        '
+      env:
+        OPENSSL_ENABLE_SHA1_SIGNATURES: 1
+        NOXSESSION: ${{ matrix.IMAGE.NOXSESSION }}
+      shell: sh
+    - run: 'bp_dir="$RUNNER_TEMP/buildprof"; mkdir -p "$bp_dir"; bp_id=$(date +%s)-$$-$(od -An -N4 -tu4 /dev/urandom | tr -d " ")
+
+        cat > "$bp_dir/$bp_id.sh" <<''BUILDPROF_SCRIPT_EOF''
+
+        /venv/bin/nox --no-install --  --color=yes --wycheproof-root="wycheproof" --x509-limbo-root="x509-limbo"
+
+        BUILDPROF_SCRIPT_EOF
+
+        ( sleep 2700; while true; do echo "=== buildprof survey watchdog: step still running"; ps -eo pid,ppid,stat,etime,wchan:32,args --forest 2>/dev/null | cut -c1-250 || ps; sleep 600; done ) & bp_watch=$!
+
+        bp_rc=0
+
+        "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open --detach-after-exit 10 -o "$bp_dir/$bp_id-venv-bin-nox-no-install-color-yes-wyche.buildprof" -- $(command -v bash >/dev/null && echo "bash --noprofile --norc -eo pipefail" || echo "sh -e") "$bp_dir/$bp_id.sh" || bp_rc=$?
+
+        kill $bp_watch 2>/dev/null; exit $bp_rc
+
+        '
+      env:
+        COLUMNS: 80
+        OPENSSL_ENABLE_SHA1_SIGNATURES: 1
+        NOXSESSION: ${{ matrix.IMAGE.NOXSESSION }}
+      shell: sh
+    - uses: ./.github/actions/upload-coverage
+    - name: Upload buildprof recordings
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: cryptography--ci-alpine-${{ strategy.job-index }}
+        path: ${{ runner.temp }}/buildprof/*.buildprof
+        retention-days: 30
+        if-no-files-found: ignore
+        compression-level: 0
+    permissions:
+      contents: read
+  linux-downstream:
+    runs-on: ubuntu-26.04
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+        - DOWNSTREAM: paramiko
+          REPO: paramiko/paramiko
+          REF: 0e9ccb91e0f9a68f2587233d523ad7fe46e730fe
+          PATH: paramiko
+        - DOWNSTREAM: pyopenssl
+          REPO: pyca/pyopenssl
+          REF: da581a400cb3974453fc26a713ea3af8184ea2d1
+          PATH: pyopenssl
+        - DOWNSTREAM: pyopenssl-release
+          REPO: pyca/pyopenssl
+          REF: 26.4.0
+          PATH: pyopenssl
+        - DOWNSTREAM: twisted
+          REPO: twisted/twisted
+          REF: be48511c722548ddd4670f4070e7910a321e8a97
+          PATH: twisted
+        - DOWNSTREAM: aws-encryption-sdk-python
+          REPO: awslabs/aws-encryption-sdk-python
+          REF: a6c0413bb0ddc9bccdefad9f1d2c031e0bc4db29
+          PATH: aws-encryption-sdk-python
+        - DOWNSTREAM: certbot
+          REPO: certbot/certbot
+          REF: 605840c3bc4b6f5e237c815d2ddf7115e02e2ba9
+          PATH: certbot
+        - DOWNSTREAM: certbot-josepy
+          REPO: certbot/josepy
+          REF: 7069e07e20408bf1bf911427f5d386a2d6471d5d
+          PATH: josepy
+        - DOWNSTREAM: mitmproxy
+          REPO: mitmproxy/mitmproxy
+          REF: 6c2ea185d971b049e6057a01553fe242ae80b71a
+          PATH: mitmproxy
+        - DOWNSTREAM: scapy
+          REPO: secdev/scapy
+          REF: 9aa380f694e0f32788fa701857cef17970b7b8c1
+          PATH: scapy
+        - DOWNSTREAM: sigstore-python
+          REPO: sigstore/sigstore-python
+          REF: 2b787863dd1836d34d0381129aff9ef77c8f8b21
+          PATH: sigstore-python
+    name: Downstream tests for ${{ matrix.DOWNSTREAM }}
+    timeout-minutes: 120
+    steps:
+    - name: Fetch buildprof
+      uses: actions/checkout@v4
+      with:
+        repository: LalitMaganti/bp
+        path: .buildprof-fetch
+        sparse-checkout: '.buildprof
+
+          projects/cryptography'
+        persist-credentials: false
+    - name: Install buildprof
+      shell: sh
+      working-directory: ${{ github.workspace }}
+      run: 'mkdir -p "$RUNNER_TEMP/buildprof-bin" "$RUNNER_TEMP/buildprof-actions"
+
+        cp .buildprof-fetch/.buildprof/buildprof-* "$RUNNER_TEMP/buildprof-bin/" && chmod +x "$RUNNER_TEMP/buildprof-bin/"*
+
+        if [ "$(id -u)" != 0 ] && sudo -n true 2>/dev/null; then sudo setcap cap_sys_ptrace,cap_sys_admin+ep "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)"; fi
+
+        if [ -d .buildprof-fetch/projects/cryptography/actions ]; then cp -r .buildprof-fetch/projects/cryptography/actions/. "$RUNNER_TEMP/buildprof-actions/"; fi
+
+        rm -rf .buildprof-fetch
+
+        '
+    - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      timeout-minutes: 3
+      with:
+        persist-credentials: false
+        repository: pyca/cryptography
+        ref: f7295d634f8388edc3625d039513c72e4384431c
+    - name: Wrap upstream composite actions
+      shell: sh
+      working-directory: ${{ github.workspace }}
+      run: "if [ -n \"$(ls -A \"$RUNNER_TEMP/buildprof-actions\" 2>/dev/null)\" ]; then\n  cp -r \"$RUNNER_TEMP/buildprof-actions/.\" \"./.github/actions/\"\n  (cd \".\" && git ls-files -m .github/actions | xargs -r git update-index --assume-unchanged) 2>/dev/null || true\nfi\n"
+    - name: Checkout downstream repository
+      uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      timeout-minutes: 3
+      with:
+        repository: ${{ matrix.REPO }}
+        ref: ${{ matrix.REF }}
+        path: ${{ matrix.PATH }}
+        persist-credentials: false
+    - name: Cache rust and pip
+      uses: ./.github/actions/cache
+      timeout-minutes: 2
+    - name: Setup python
+      uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884
+      with:
+        version-file: ci-constraints-requirements.txt
+        python-version: '3.14'
+        cache-dependency-glob: ci-constraints-requirements.txt
+      timeout-minutes: 3
+    - run: 'bp_dir="$RUNNER_TEMP/buildprof"; mkdir -p "$bp_dir"; bp_id=$(date +%s)-$$-$(od -An -N4 -tu4 /dev/urandom | tr -d " ")
+
+        cat > "$bp_dir/$bp_id.sh" <<''BUILDPROF_SCRIPT_EOF''
+
+        uv venv
+
+        BUILDPROF_SCRIPT_EOF
+
+        ( sleep 2700; while true; do echo "=== buildprof survey watchdog: step still running"; ps -eo pid,ppid,stat,etime,wchan:32,args --forest 2>/dev/null | cut -c1-250 || ps; sleep 600; done ) & bp_watch=$!
+
+        bp_rc=0
+
+        "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open --detach-after-exit 10 -o "$bp_dir/$bp_id-uv-venv.buildprof" -- $(command -v bash >/dev/null && echo "bash --noprofile --norc -eo pipefail" || echo "sh -e") "$bp_dir/$bp_id.sh" || bp_rc=$?
+
+        kill $bp_watch 2>/dev/null; exit $bp_rc
+
+        '
+      shell: sh
+    - run: 'bp_dir="$RUNNER_TEMP/buildprof"; mkdir -p "$bp_dir"; bp_id=$(date +%s)-$$-$(od -An -N4 -tu4 /dev/urandom | tr -d " ")
+
+        cat > "$bp_dir/$bp_id.sh" <<''BUILDPROF_SCRIPT_EOF''
+
+        source .venv/bin/activate && ./.github/downstream.d/${{ matrix.DOWNSTREAM }}.sh install
+
+        BUILDPROF_SCRIPT_EOF
+
+        ( sleep 2700; while true; do echo "=== buildprof survey watchdog: step still running"; ps -eo pid,ppid,stat,etime,wchan:32,args --forest 2>/dev/null | cut -c1-250 || ps; sleep 600; done ) & bp_watch=$!
+
+        bp_rc=0
+
+        "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open --detach-after-exit 10 -o "$bp_dir/$bp_id-source-venv-bin-activate-github-downstre.buildprof" -- $(command -v bash >/dev/null && echo "bash --noprofile --norc -eo pipefail" || echo "sh -e") "$bp_dir/$bp_id.sh" || bp_rc=$?
+
+        kill $bp_watch 2>/dev/null; exit $bp_rc
+
+        '
+      shell: sh
+    - run: 'bp_dir="$RUNNER_TEMP/buildprof"; mkdir -p "$bp_dir"; bp_id=$(date +%s)-$$-$(od -An -N4 -tu4 /dev/urandom | tr -d " ")
+
+        cat > "$bp_dir/$bp_id.sh" <<''BUILDPROF_SCRIPT_EOF''
+
+        uv pip install -v .
+
+        BUILDPROF_SCRIPT_EOF
+
+        ( sleep 2700; while true; do echo "=== buildprof survey watchdog: step still running"; ps -eo pid,ppid,stat,etime,wchan:32,args --forest 2>/dev/null | cut -c1-250 || ps; sleep 600; done ) & bp_watch=$!
+
+        bp_rc=0
+
+        "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open --detach-after-exit 10 -o "$bp_dir/$bp_id-uv-pip-install-v.buildprof" -- $(command -v bash >/dev/null && echo "bash --noprofile --norc -eo pipefail" || echo "sh -e") "$bp_dir/$bp_id.sh" || bp_rc=$?
+
+        kill $bp_watch 2>/dev/null; exit $bp_rc
+
+        '
+      shell: sh
+    - run: "bp_dir=\"$RUNNER_TEMP/buildprof\"; mkdir -p \"$bp_dir\"; bp_id=$(date +%s)-$$-$(od -An -N4 -tu4 /dev/urandom | tr -d \" \")\ncat > \"$bp_dir/$bp_id.sh\" <<'BUILDPROF_SCRIPT_EOF'\n.venv/bin/python <<EOF\nimport json\nimport importlib.metadata\nimport shutil\nimport urllib.request\n\nd = importlib.metadata.distribution(\"cryptography\")\nwith urllib.request.urlopen(\"https://pypi.org/pypi/cryptography/json\") as r:\n    latest_version = json.load(r)[\"info\"][\"version\"]\nnew_path = d.locate_file(f\"cryptography-{latest_version}.dist-info\")\nshutil.move(d.locate_file(f\"cryptography-{d.version}.dist-info\"), new_path)\n\nEOF\nBUILDPROF_SCRIPT_EOF\n( sleep 2700; while true; do echo \"=== buildprof survey watchdog: step still running\"; ps -eo pid,ppid,stat,etime,wchan:32,args --forest 2>/dev/null | cut -c1-250 || ps; sleep 600; done ) & bp_watch=$!\nbp_rc=0\n\"$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)\" --no-open --detach-after-exit 10 -o \"$bp_dir/$bp_id-venv-bin-python-EOF.buildprof\" -- $(command -v bash >/dev/null && echo \"bash --noprofile --norc -eo pipefail\" || echo \"sh -e\") \"$bp_dir/$bp_id.sh\" || bp_rc=$?\nkill $bp_watch 2>/dev/null; exit $bp_rc\n"
+      shell: sh
+    - run: 'bp_dir="$RUNNER_TEMP/buildprof"; mkdir -p "$bp_dir"; bp_id=$(date +%s)-$$-$(od -An -N4 -tu4 /dev/urandom | tr -d " ")
+
+        cat > "$bp_dir/$bp_id.sh" <<''BUILDPROF_SCRIPT_EOF''
+
+        source .venv/bin/activate && ./.github/downstream.d/${{ matrix.DOWNSTREAM }}.sh run
+
+        BUILDPROF_SCRIPT_EOF
+
+        ( sleep 2700; while true; do echo "=== buildprof survey watchdog: step still running"; ps -eo pid,ppid,stat,etime,wchan:32,args --forest 2>/dev/null | cut -c1-250 || ps; sleep 600; done ) & bp_watch=$!
+
+        bp_rc=0
+
+        "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open --detach-after-exit 10 -o "$bp_dir/$bp_id-source-venv-bin-activate-github-downstre.buildprof" -- $(command -v bash >/dev/null && echo "bash --noprofile --norc -eo pipefail" || echo "sh -e") "$bp_dir/$bp_id.sh" || bp_rc=$?
+
+        kill $bp_watch 2>/dev/null; exit $bp_rc
+
+        '
+      shell: sh
+    - name: Upload buildprof recordings
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: cryptography--ci-linux-downstream-${{ strategy.job-index }}
+        path: ${{ runner.temp }}/buildprof/*.buildprof
+        retention-days: 30
+        if-no-files-found: ignore
+        compression-level: 0
+    permissions:
+      contents: read

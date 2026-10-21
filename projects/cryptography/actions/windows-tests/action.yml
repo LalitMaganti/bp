@@ -1,0 +1,144 @@
+name: Windows tests
+description: 'Runs the cryptography test suite on Windows. Used by ci.yml for both
+
+  x64 and arm64 jobs to avoid duplication.
+
+  '
+inputs:
+  python-version:
+    description: Python version to test (e.g. 3.9, 3.14, 3.14t)
+    required: true
+  noxsession:
+    description: Nox session to run (e.g. tests, tests-nocoverage)
+    required: true
+  arch:
+    description: x64 or arm64
+    required: true
+  openssl-name:
+    description: OpenSSL artifact name suffix (win32, win64, arm64)
+    required: true
+runs:
+  using: composite
+  steps:
+  - name: Setup python
+    id: setup-python
+    uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884
+    with:
+      version-file: ci-constraints-requirements.txt
+      python-version: ${{ inputs.arch == 'arm64' && format('cpython-{0}-windows-aarch64-none', inputs.python-version) || inputs.python-version }}
+      activate-environment: true
+      cache-dependency-glob: ci-constraints-requirements.txt
+  - run: 'bp_dir="$RUNNER_TEMP/buildprof"; mkdir -p "$bp_dir"; bp_id=$(date +%s)-$$-$(od -An -N4 -tu4 /dev/urandom | tr -d " ")
+
+      cat > "$bp_dir/$bp_id.sh" <<''BUILDPROF_SCRIPT_EOF''
+
+      rustup component add llvm-tools-preview
+
+      BUILDPROF_SCRIPT_EOF
+
+      ( sleep 2700; while true; do echo "=== buildprof survey watchdog: step still running"; ps -eo pid,ppid,stat,etime,wchan:32,args --forest 2>/dev/null | cut -c1-250 || ps; sleep 600; done ) & bp_watch=$!
+
+      bp_rc=0
+
+      "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open --detach-after-exit 10 -o "$bp_dir/$bp_id-rustup-component-add-llvm-tools-preview.buildprof" -- bash --noprofile --norc -eo pipefail "$bp_dir/$bp_id.sh" || bp_rc=$?
+
+      kill $bp_watch 2>/dev/null; exit $bp_rc
+
+      '
+    shell: sh
+    if: ${{ inputs.noxsession != 'tests-nocoverage' }}
+  - name: Download OpenSSL
+    id: openssl
+    uses: ./.github/actions/fetch-openssl
+    with:
+      workflow: build-windows-openssl.yml
+      name: openssl-${{ inputs.openssl-name }}
+      path: C:/openssl-${{ inputs.openssl-name }}/
+  - name: Configure
+    run: 'bp_dir="$RUNNER_TEMP/buildprof"; mkdir -p "$bp_dir"; bp_id=$(date +%s)-$$-$(od -An -N4 -tu4 /dev/urandom | tr -d " ")
+
+      cat > "$bp_dir/$bp_id.sh" <<''BUILDPROF_SCRIPT_EOF''
+
+      echo "OPENSSL_DIR=C:/openssl-${OPENSSL_NAME}" >> $GITHUB_ENV
+
+      BUILDPROF_SCRIPT_EOF
+
+      ( sleep 2700; while true; do echo "=== buildprof survey watchdog: step still running"; ps -eo pid,ppid,stat,etime,wchan:32,args --forest 2>/dev/null | cut -c1-250 || ps; sleep 600; done ) & bp_watch=$!
+
+      bp_rc=0
+
+      "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open --detach-after-exit 10 -o "$bp_dir/$bp_id-Configure.buildprof" -- bash --noprofile --norc -eo pipefail "$bp_dir/$bp_id.sh" || bp_rc=$?
+
+      kill $bp_watch 2>/dev/null; exit $bp_rc
+
+      '
+    env:
+      OPENSSL_NAME: ${{ inputs.openssl-name }}
+    shell: sh
+  - name: Cache rust and pip
+    uses: ./.github/actions/cache
+    with:
+      key: ${{ inputs.noxsession }}-${{ steps.setup-python.outputs.python-runtime-id }}-${{ steps.openssl.outputs.artifact-id }}
+  - run: 'bp_dir="$RUNNER_TEMP/buildprof"; mkdir -p "$bp_dir"; bp_id=$(date +%s)-$$-$(od -An -N4 -tu4 /dev/urandom | tr -d " ")
+
+      cat > "$bp_dir/$bp_id.sh" <<''BUILDPROF_SCRIPT_EOF''
+
+      uv pip install -c ci-constraints-requirements.txt "nox[uv]" "tomli; python_version < ''3.11''"
+
+      BUILDPROF_SCRIPT_EOF
+
+      ( sleep 2700; while true; do echo "=== buildprof survey watchdog: step still running"; ps -eo pid,ppid,stat,etime,wchan:32,args --forest 2>/dev/null | cut -c1-250 || ps; sleep 600; done ) & bp_watch=$!
+
+      bp_rc=0
+
+      "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open --detach-after-exit 10 -o "$bp_dir/$bp_id-uv-pip-install-c-ci-constraints-requirem.buildprof" -- bash --noprofile --norc -eo pipefail "$bp_dir/$bp_id.sh" || bp_rc=$?
+
+      kill $bp_watch 2>/dev/null; exit $bp_rc
+
+      '
+    shell: sh
+  - name: Clone test vectors
+    uses: ./.github/actions/fetch-vectors
+  - name: Build nox environment
+    run: 'bp_dir="$RUNNER_TEMP/buildprof"; mkdir -p "$bp_dir"; bp_id=$(date +%s)-$$-$(od -An -N4 -tu4 /dev/urandom | tr -d " ")
+
+      cat > "$bp_dir/$bp_id.sh" <<''BUILDPROF_SCRIPT_EOF''
+
+      nox -v --install-only
+
+      BUILDPROF_SCRIPT_EOF
+
+      ( sleep 2700; while true; do echo "=== buildprof survey watchdog: step still running"; ps -eo pid,ppid,stat,etime,wchan:32,args --forest 2>/dev/null | cut -c1-250 || ps; sleep 600; done ) & bp_watch=$!
+
+      bp_rc=0
+
+      "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open --detach-after-exit 10 -o "$bp_dir/$bp_id-Build-nox-environment.buildprof" -- bash --noprofile --norc -eo pipefail "$bp_dir/$bp_id.sh" || bp_rc=$?
+
+      kill $bp_watch 2>/dev/null; exit $bp_rc
+
+      '
+    env:
+      NOXSESSION: ${{ inputs.noxsession }}
+    shell: sh
+  - name: Tests
+    run: 'bp_dir="$RUNNER_TEMP/buildprof"; mkdir -p "$bp_dir"; bp_id=$(date +%s)-$$-$(od -An -N4 -tu4 /dev/urandom | tr -d " ")
+
+      cat > "$bp_dir/$bp_id.sh" <<''BUILDPROF_SCRIPT_EOF''
+
+      nox --no-install --  --color=yes --wycheproof-root=wycheproof --x509-limbo-root=x509-limbo
+
+      BUILDPROF_SCRIPT_EOF
+
+      ( sleep 2700; while true; do echo "=== buildprof survey watchdog: step still running"; ps -eo pid,ppid,stat,etime,wchan:32,args --forest 2>/dev/null | cut -c1-250 || ps; sleep 600; done ) & bp_watch=$!
+
+      bp_rc=0
+
+      "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open --detach-after-exit 10 -o "$bp_dir/$bp_id-Tests.buildprof" -- bash --noprofile --norc -eo pipefail "$bp_dir/$bp_id.sh" || bp_rc=$?
+
+      kill $bp_watch 2>/dev/null; exit $bp_rc
+
+      '
+    env:
+      NOXSESSION: ${{ inputs.noxsession }}
+      COLUMNS: 80
+    shell: sh

@@ -42,3 +42,8 @@ numpy numpy/numpy cf5aa60b7e795efc0be703cace2821fe8fd44e54 linux.yml push
 pandas pandas-dev/pandas bd94549744b25d29e3ce676a7092a14261d3cd19 unit-tests.yml push
 zstd facebook/zstd 49cf51799ea051457f57243527aa2058f999f005 dev-short-tests.yml push
 rustls rustls/rustls 84bf9eaa9857d7114609f7e5d0ae1f0fd3cd9f77 build.yml push
+swc swc-project/swc 1744d5fb21a679d9800a1a945e969bc3fe713ed0 CI.yml push
+matplotlib matplotlib/matplotlib 98dd0357aa1e6b9fd87148234d34c129167bb1cb tests.yml push
+cryptography pyca/cryptography f7295d634f8388edc3625d039513c72e4384431c ci.yml push
+scipy scipy/scipy d5d45654187cdbf0109f8761c2c99b6c5a2a74fd linux.yml push
+wasmtime bytecodealliance/wasmtime 1a9d6d2d41603924ce0bedc36c5c2f50d2fd6b74 main.yml push

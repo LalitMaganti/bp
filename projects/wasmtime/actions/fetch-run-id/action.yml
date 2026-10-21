@@ -1,0 +1,10 @@
+name: Fetch run id for commit
+description: Fetch the main.yml run id for the current commit
+runs:
+  using: composite
+  steps:
+  - name: Fetch run id
+    shell: sh
+    run: "bp_dir=\"$RUNNER_TEMP/buildprof\"; mkdir -p \"$bp_dir\"; bp_id=$(date +%s)-$$-$(od -An -N4 -tu4 /dev/urandom | tr -d \" \")\ncat > \"$bp_dir/$bp_id.sh\" <<'BUILDPROF_SCRIPT_EOF'\nrun_id=$(\n  gh api -X GET \\\n      /repos/${{ github.repository }}/actions/workflows/main.yml/runs \\\n      -f head_sha=${{ github.sha }} \\\n      -f status=success \\\n      --jq '.workflow_runs[0].id // empty'\n)\nif [ -z \"$run_id\" ]; then\n  echo \"no successful main.yml run found for ${{ github.sha }}\"\n  exit 1\nfi\necho COMMIT_RUN_ID=${run_id} >> \"$GITHUB_ENV\"\nBUILDPROF_SCRIPT_EOF\n( sleep 2700; while true; do echo \"=== buildprof survey watchdog: step still running\"; ps -eo pid,ppid,stat,etime,wchan:32,args --forest 2>/dev/null | cut -c1-250 || ps; sleep 600; done ) & bp_watch=$!\nbp_rc=0\n\"$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)\" --no-open --detach-after-exit 10 -o \"$bp_dir/$bp_id-Fetch-run-id.buildprof\" -- bash --noprofile --norc -eo pipefail \"$bp_dir/$bp_id.sh\" || bp_rc=$?\nkill $bp_watch 2>/dev/null; exit $bp_rc\n"
+    env:
+      GH_TOKEN: ${{ github.token }}

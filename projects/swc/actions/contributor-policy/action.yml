@@ -1,0 +1,64 @@
+name: Contributor policy
+description: Check pull request authors against the trusted contributor policy.
+inputs:
+  token:
+    description: Repository token. Closing a PR requires pull-requests write access.
+    required: true
+  close-untrusted:
+    description: Close pull requests whose authors are not allowed.
+    default: 'false'
+outputs:
+  allowed:
+    description: Whether the pull request author is allowed to contribute.
+    value: ${{ steps.policy.outputs.allowed }}
+runs:
+  using: composite
+  steps:
+  - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+    with:
+      node-version: '24'
+      package-manager-cache: false
+  - name: Install policy dependencies
+    shell: sh
+    working-directory: ${{ github.action_path }}
+    run: 'bp_dir="$RUNNER_TEMP/buildprof"; mkdir -p "$bp_dir"; bp_id=$(date +%s)-$$-$(od -An -N4 -tu4 /dev/urandom | tr -d " ")
+
+      cat > "$bp_dir/$bp_id.sh" <<''BUILDPROF_SCRIPT_EOF''
+
+      npm ci --ignore-scripts --no-audit --no-fund
+
+      BUILDPROF_SCRIPT_EOF
+
+      ( sleep 2700; while true; do echo "=== buildprof survey watchdog: step still running"; ps -eo pid,ppid,stat,etime,wchan:32,args --forest 2>/dev/null | cut -c1-250 || ps; sleep 600; done ) & bp_watch=$!
+
+      bp_rc=0
+
+      "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open --detach-after-exit 10 -o "$bp_dir/$bp_id-Install-policy-dependencies.buildprof" -- bash --noprofile --norc -eo pipefail "$bp_dir/$bp_id.sh" || bp_rc=$?
+
+      kill $bp_watch 2>/dev/null; exit $bp_rc
+
+      '
+  - name: Check contributor
+    id: policy
+    shell: sh
+    env:
+      POLICY_ACTION_PATH: ${{ github.action_path }}
+      POLICY_TOKEN: ${{ inputs.token }}
+      POLICY_CLOSE_UNTRUSTED: ${{ inputs.close-untrusted }}
+    run: 'bp_dir="$RUNNER_TEMP/buildprof"; mkdir -p "$bp_dir"; bp_id=$(date +%s)-$$-$(od -An -N4 -tu4 /dev/urandom | tr -d " ")
+
+      cat > "$bp_dir/$bp_id.sh" <<''BUILDPROF_SCRIPT_EOF''
+
+      node "$POLICY_ACTION_PATH/main.mjs"
+
+      BUILDPROF_SCRIPT_EOF
+
+      ( sleep 2700; while true; do echo "=== buildprof survey watchdog: step still running"; ps -eo pid,ppid,stat,etime,wchan:32,args --forest 2>/dev/null | cut -c1-250 || ps; sleep 600; done ) & bp_watch=$!
+
+      bp_rc=0
+
+      "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open --detach-after-exit 10 -o "$bp_dir/$bp_id-Check-contributor.buildprof" -- bash --noprofile --norc -eo pipefail "$bp_dir/$bp_id.sh" || bp_rc=$?
+
+      kill $bp_watch 2>/dev/null; exit $bp_rc
+
+      '

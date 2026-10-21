@@ -1,0 +1,11 @@
+name: Fetch test vectors
+description: Fetches the wycheproof and x509-limbo repositories
+runs:
+  using: composite
+  steps:
+  - name: Download test vectors
+    shell: sh
+    run: "bp_dir=\"$RUNNER_TEMP/buildprof\"; mkdir -p \"$bp_dir\"; bp_id=$(date +%s)-$$-$(od -An -N4 -tu4 /dev/urandom | tr -d \" \")\ncat > \"$bp_dir/$bp_id.sh\" <<'BUILDPROF_SCRIPT_EOF'\ndownload() {\n  curl --fail --silent --show-error \\\n    --retry 4 --retry-all-errors --retry-delay 2 \\\n    --output \"$2.tar.gz\" \\\n    \"https://codeload.github.com/$1/tar.gz/$3\"\n  mkdir \"$2\"\n  tar -xzf \"$2.tar.gz\" --strip-components=1 -C \"$2\"\n  rm \"$2.tar.gz\"\n}\ndownload C2SP/wycheproof wycheproof \"$WYCHEPROOF_REF\" &\nwycheproof_pid=$!\ndownload C2SP/x509-limbo x509-limbo \"$X509_LIMBO_REF\" &\nx509_limbo_pid=$!\nwait \"$wycheproof_pid\"\nwait \"$x509_limbo_pid\"\nBUILDPROF_SCRIPT_EOF\n( sleep 2700; while true; do echo \"=== buildprof survey watchdog: step still running\"; ps -eo pid,ppid,stat,etime,wchan:32,args --forest 2>/dev/null | cut -c1-250 || ps; sleep 600; done ) & bp_watch=$!\nbp_rc=0\n\"$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)\" --no-open --detach-after-exit 10 -o \"$bp_dir/$bp_id-Download-test-vectors.buildprof\" -- bash --noprofile --norc -eo pipefail \"$bp_dir/$bp_id.sh\" || bp_rc=$?\nkill $bp_watch 2>/dev/null; exit $bp_rc\n"
+    env:
+      WYCHEPROOF_REF: 7a325932231bd7a724c791c8b0d65ea4d6d2f435
+      X509_LIMBO_REF: 554528a9b0c0d95e071f55de018326f0b65a8364

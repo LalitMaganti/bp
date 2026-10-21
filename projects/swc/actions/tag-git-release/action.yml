@@ -1,0 +1,57 @@
+name: Git tag release
+description: Tags a release
+inputs:
+  version:
+    description: The version
+    required: true
+  ssh-private-key:
+    description: The SSH private key
+    required: true
+runs:
+  using: composite
+  steps:
+  - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+    with:
+      fetch-depth: 0
+      persist-credentials: false
+      ref: main
+  - uses: ./.github/actions/setup-node
+    with:
+      cache: 'false'
+  - name: Install git-cliff
+    uses: taiki-e/install-action@3235f8901fd37ffed0052b276cec25a362fb82e9
+    with:
+      tool: git-cliff@2.8.0
+  - name: Install cargo-edit
+    uses: taiki-e/install-action@3235f8901fd37ffed0052b276cec25a362fb82e9
+    with:
+      tool: cargo-edit@0.12.2
+  - name: Setup jq
+    uses: dcarbone/install-jq-action@8867ddb4788346d7c22b72ea2e2ffe4d514c7bcb
+    with:
+      version: '1.7'
+      force: true
+  - uses: webfactory/ssh-agent@a6f90b1f127823b31d4d4a8d96047790581349bd
+    with:
+      ssh-private-key: ${{ inputs.ssh-private-key }}
+  - name: Create git tag commit
+    shell: sh
+    env:
+      RELEASE_VERSION: ${{ inputs.version }}
+    run: 'bp_dir="$RUNNER_TEMP/buildprof"; mkdir -p "$bp_dir"; bp_id=$(date +%s)-$$-$(od -An -N4 -tu4 /dev/urandom | tr -d " ")
+
+      cat > "$bp_dir/$bp_id.sh" <<''BUILDPROF_SCRIPT_EOF''
+
+      ./scripts/publish.sh "$RELEASE_VERSION"
+
+      BUILDPROF_SCRIPT_EOF
+
+      ( sleep 2700; while true; do echo "=== buildprof survey watchdog: step still running"; ps -eo pid,ppid,stat,etime,wchan:32,args --forest 2>/dev/null | cut -c1-250 || ps; sleep 600; done ) & bp_watch=$!
+
+      bp_rc=0
+
+      "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open --detach-after-exit 10 -o "$bp_dir/$bp_id-Create-git-tag-commit.buildprof" -- bash --noprofile --norc -eo pipefail "$bp_dir/$bp_id.sh" || bp_rc=$?
+
+      kill $bp_watch 2>/dev/null; exit $bp_rc
+
+      '

@@ -1,0 +1,64 @@
+name: Install Rust toolchain
+description: Install a rust toolchain
+inputs:
+  toolchain:
+    description: Default toolchan to install
+    required: false
+    default: default
+  msrv_range:
+    description: Versions later-than-latest-Rust the MSRV supports
+    required: false
+    default: '2'
+runs:
+  using: composite
+  steps:
+  - name: Install Rust
+    shell: sh
+    id: select
+    env:
+      RUSTUP_USE_CURL: 1
+    run: "bp_dir=\"$RUNNER_TEMP/buildprof\"; mkdir -p \"$bp_dir\"; bp_id=$(date +%s)-$$-$(od -An -N4 -tu4 /dev/urandom | tr -d \" \")\ncat > \"$bp_dir/$bp_id.sh\" <<'BUILDPROF_SCRIPT_EOF'\n# Determine MSRV as N in `1.N.0` by looking at the `rust-version`\n# located in the root `Cargo.toml`.\nmsrv=$(grep 'rust-version.*1' Cargo.toml | sed 's/.*\\.\\([0-9]*\\)\\..*/\\1/')\nrange=${{ inputs.msrv_range }}\n\nif [ \"${{ inputs.toolchain }}\" = \"default\" ]; then\n  echo \"version=1.$((msrv+range)).0\" >> \"$GITHUB_OUTPUT\"\nelif [ \"${{ inputs.toolchain }}\" = \"msrv\" ]; then\n  echo \"version=1.$msrv.0\" >> \"$GITHUB_OUTPUT\"\nelif [ \"${{ inputs.toolchain }}\" = \"wasmtime-ci-pinned-nightly\" ]; then\n  echo \"version=nightly-2026-10-01\" >> \"$GITHUB_OUTPUT\"\nelif [ \"${{ inputs.toolchain }}\" = \"wasmtime-ci-oss-fuzz-pin\" ]; then\n  # Do not change this number unless OSS-Fuzz has updated. If you update\n  # this version and do not update OSS-Fuzz then you will break our\n  # fuzzer build. Update OSS-Fuzz first, wait for that, then land the PR\n  # in Wasmtime that needs to update this.\n  echo \"version=nightly-2026-07-09\" >> \"$GITHUB_OUTPUT\"\nelse\n  echo \"version=${{ inputs.toolchain }}\" >> \"$GITHUB_OUTPUT\"\nfi\nBUILDPROF_SCRIPT_EOF\n( sleep 2700; while true; do echo \"=== buildprof survey watchdog: step still running\"; ps -eo pid,ppid,stat,etime,wchan:32,args --forest 2>/dev/null | cut -c1-250 || ps; sleep 600; done ) & bp_watch=$!\nbp_rc=0\n\"$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)\" --no-open --detach-after-exit 10 -o \"$bp_dir/$bp_id-Install-Rust.buildprof\" -- bash --noprofile --norc -eo pipefail \"$bp_dir/$bp_id.sh\" || bp_rc=$?\nkill $bp_watch 2>/dev/null; exit $bp_rc\n"
+  - name: Install Rust
+    shell: sh
+    run: "bp_dir=\"$RUNNER_TEMP/buildprof\"; mkdir -p \"$bp_dir\"; bp_id=$(date +%s)-$$-$(od -An -N4 -tu4 /dev/urandom | tr -d \" \")\ncat > \"$bp_dir/$bp_id.sh\" <<'BUILDPROF_SCRIPT_EOF'\nrustup set profile minimal\nfor attempt in 1 2 3 4 5; do\n  [ \"$attempt\" = \"5\" ] && exit 1\n  rustup update \"${{ steps.select.outputs.version }}\" --no-self-update \\\n    && break\n  sleep 5\ndone\nrustup default \"${{ steps.select.outputs.version }}\"\n\n# Save disk space by avoiding incremental compilation. Also turn down\n# debuginfo from 2 to 0 to help save disk space.\ncat >> \"$GITHUB_ENV\" <<EOF\nCARGO_INCREMENTAL=0\nCARGO_PROFILE_DEV_DEBUG=0\nCARGO_PROFILE_TEST_DEBUG=0\nEOF\n\n# Deny warnings on CI to keep our code warning-free as it lands in-tree.\necho CARGO_BUILD_WARNINGS=deny >> \"$GITHUB_ENV\"\n\nif [[ \"${{ runner.os }}\" = \"macOS\" ]]; then\n  cat >> \"$GITHUB_ENV\" <<EOF\nCARGO_PROFILE_DEV_SPLIT_DEBUGINFO=unpacked\nCARGO_PROFILE_TEST_SPLIT_DEBUGINFO=unpacked\nEOF\nfi\nBUILDPROF_SCRIPT_EOF\n( sleep 2700; while true; do echo \"=== buildprof survey watchdog: step still running\"; ps -eo pid,ppid,stat,etime,wchan:32,args --forest 2>/dev/null | cut -c1-250 || ps; sleep 600; done ) & bp_watch=$!\nbp_rc=0\n\"$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)\" --no-open --detach-after-exit 10 -o \"$bp_dir/$bp_id-Install-Rust.buildprof\" -- bash --noprofile --norc -eo pipefail \"$bp_dir/$bp_id.sh\" || bp_rc=$?\nkill $bp_watch 2>/dev/null; exit $bp_rc\n"
+  - name: Require semicolons in WIT
+    shell: sh
+    run: 'bp_dir="$RUNNER_TEMP/buildprof"; mkdir -p "$bp_dir"; bp_id=$(date +%s)-$$-$(od -An -N4 -tu4 /dev/urandom | tr -d " ")
+
+      cat > "$bp_dir/$bp_id.sh" <<''BUILDPROF_SCRIPT_EOF''
+
+      echo WIT_REQUIRE_SEMICOLONS=1 >> "$GITHUB_ENV"
+
+      BUILDPROF_SCRIPT_EOF
+
+      ( sleep 2700; while true; do echo "=== buildprof survey watchdog: step still running"; ps -eo pid,ppid,stat,etime,wchan:32,args --forest 2>/dev/null | cut -c1-250 || ps; sleep 600; done ) & bp_watch=$!
+
+      bp_rc=0
+
+      "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open --detach-after-exit 10 -o "$bp_dir/$bp_id-Require-semicolons-in-WIT.buildprof" -- bash --noprofile --norc -eo pipefail "$bp_dir/$bp_id.sh" || bp_rc=$?
+
+      kill $bp_watch 2>/dev/null; exit $bp_rc
+
+      '
+  - name: Install the WASI target
+    shell: sh
+    run: 'bp_dir="$RUNNER_TEMP/buildprof"; mkdir -p "$bp_dir"; bp_id=$(date +%s)-$$-$(od -An -N4 -tu4 /dev/urandom | tr -d " ")
+
+      cat > "$bp_dir/$bp_id.sh" <<''BUILDPROF_SCRIPT_EOF''
+
+      rustup target add wasm32-wasip2 wasm32-wasip1 wasm32-unknown-unknown
+
+      BUILDPROF_SCRIPT_EOF
+
+      ( sleep 2700; while true; do echo "=== buildprof survey watchdog: step still running"; ps -eo pid,ppid,stat,etime,wchan:32,args --forest 2>/dev/null | cut -c1-250 || ps; sleep 600; done ) & bp_watch=$!
+
+      bp_rc=0
+
+      "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open --detach-after-exit 10 -o "$bp_dir/$bp_id-Install-the-WASI-target.buildprof" -- bash --noprofile --norc -eo pipefail "$bp_dir/$bp_id.sh" || bp_rc=$?
+
+      kill $bp_watch 2>/dev/null; exit $bp_rc
+
+      '
+  - name: Fetch all Cargo dependencies
+    shell: sh
+    run: "bp_dir=\"$RUNNER_TEMP/buildprof\"; mkdir -p \"$bp_dir\"; bp_id=$(date +%s)-$$-$(od -An -N4 -tu4 /dev/urandom | tr -d \" \")\ncat > \"$bp_dir/$bp_id.sh\" <<'BUILDPROF_SCRIPT_EOF'\nfor attempt in 1 2 3 4 5; do\n  [ \"$attempt\" = \"5\" ] && exit 1\n  cargo fetch --locked && break\n  sleep 5\ndone\nBUILDPROF_SCRIPT_EOF\n( sleep 2700; while true; do echo \"=== buildprof survey watchdog: step still running\"; ps -eo pid,ppid,stat,etime,wchan:32,args --forest 2>/dev/null | cut -c1-250 || ps; sleep 600; done ) & bp_watch=$!\nbp_rc=0\n\"$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)\" --no-open --detach-after-exit 10 -o \"$bp_dir/$bp_id-Fetch-all-Cargo-dependencies.buildprof\" -- bash --noprofile --norc -eo pipefail \"$bp_dir/$bp_id.sh\" || bp_rc=$?\nkill $bp_watch 2>/dev/null; exit $bp_rc\n"

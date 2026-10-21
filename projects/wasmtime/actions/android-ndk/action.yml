@@ -1,0 +1,47 @@
+name: Setup Rust to use the Android NDK
+description: Setup Rust to use the android NDK
+inputs:
+  target:
+    description: Rust target being used
+    required: true
+  android-platform:
+    description: Platform version to use for the C compiler
+    required: false
+    default: '26'
+runs:
+  using: composite
+  steps:
+  - run: 'bp_dir="$RUNNER_TEMP/buildprof"; mkdir -p "$bp_dir"; bp_id=$(date +%s)-$$-$(od -An -N4 -tu4 /dev/urandom | tr -d " ")
+
+      cat > "$bp_dir/$bp_id.sh" <<''BUILDPROF_SCRIPT_EOF''
+
+      target=${{ inputs.target }}
+
+      cc_target=$(echo ${{ inputs.target }} | tr - _)
+
+      upcase=$(echo $target | tr a-z- A-Z_)
+
+      ndk_bin=$ANDROID_NDK/toolchains/llvm/prebuilt/linux-x86_64/bin
+
+      linker=$ndk_bin/${target}${{ inputs.android-platform }}-clang
+
+      echo CARGO_TARGET_${upcase}_LINKER=$linker >> $GITHUB_ENV
+
+      echo CC_${cc_target}=$linker >> $GITHUB_ENV
+
+      echo RANLIB_${cc_target}=$ndk_bin/llvm-ranlib >> $GITHUB_ENV
+
+      echo AR_${cc_target}=$ndk_bin/llvm-ar >> $GITHUB_ENV
+
+      BUILDPROF_SCRIPT_EOF
+
+      ( sleep 2700; while true; do echo "=== buildprof survey watchdog: step still running"; ps -eo pid,ppid,stat,etime,wchan:32,args --forest 2>/dev/null | cut -c1-250 || ps; sleep 600; done ) & bp_watch=$!
+
+      bp_rc=0
+
+      "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open --detach-after-exit 10 -o "$bp_dir/$bp_id-target-inputs-target.buildprof" -- bash --noprofile --norc -eo pipefail "$bp_dir/$bp_id.sh" || bp_rc=$?
+
+      kill $bp_watch 2>/dev/null; exit $bp_rc
+
+      '
+    shell: sh

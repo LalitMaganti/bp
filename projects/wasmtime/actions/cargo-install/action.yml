@@ -1,0 +1,45 @@
+name: Run `cargo install`
+description: Run `cargo install`
+inputs:
+  crate:
+    description: Crate to install
+    required: true
+  version:
+    description: Version to install
+    required: true
+runs:
+  using: composite
+  steps:
+  - uses: actions/cache/restore@v5
+    id: cache-restore
+    with:
+      path: ${{ runner.tool_cache }}/${{ inputs.crate }}
+      key: ${{ inputs.crate }}-bin-${{ inputs.version }}
+  - name: Add installation destination to PATH
+    shell: sh
+    run: 'bp_dir="$RUNNER_TEMP/buildprof"; mkdir -p "$bp_dir"; bp_id=$(date +%s)-$$-$(od -An -N4 -tu4 /dev/urandom | tr -d " ")
+
+      cat > "$bp_dir/$bp_id.sh" <<''BUILDPROF_SCRIPT_EOF''
+
+      echo "${{ runner.tool_cache }}/${{ inputs.crate }}/bin" >> $GITHUB_PATH
+
+      BUILDPROF_SCRIPT_EOF
+
+      ( sleep 2700; while true; do echo "=== buildprof survey watchdog: step still running"; ps -eo pid,ppid,stat,etime,wchan:32,args --forest 2>/dev/null | cut -c1-250 || ps; sleep 600; done ) & bp_watch=$!
+
+      bp_rc=0
+
+      "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open --detach-after-exit 10 -o "$bp_dir/$bp_id-Add-installation-destination-to-PATH.buildprof" -- bash --noprofile --norc -eo pipefail "$bp_dir/$bp_id.sh" || bp_rc=$?
+
+      kill $bp_watch 2>/dev/null; exit $bp_rc
+
+      '
+  - name: Run cargo install
+    shell: sh
+    run: "bp_dir=\"$RUNNER_TEMP/buildprof\"; mkdir -p \"$bp_dir\"; bp_id=$(date +%s)-$$-$(od -An -N4 -tu4 /dev/urandom | tr -d \" \")\ncat > \"$bp_dir/$bp_id.sh\" <<'BUILDPROF_SCRIPT_EOF'\ncargo install \\\n  --root ${{ runner.tool_cache }}/${{ inputs.crate }} \\\n  --version ${{ inputs.version }} \\\n  --locked \\\n  ${{ inputs.crate }}\nBUILDPROF_SCRIPT_EOF\n( sleep 2700; while true; do echo \"=== buildprof survey watchdog: step still running\"; ps -eo pid,ppid,stat,etime,wchan:32,args --forest 2>/dev/null | cut -c1-250 || ps; sleep 600; done ) & bp_watch=$!\nbp_rc=0\n\"$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)\" --no-open --detach-after-exit 10 -o \"$bp_dir/$bp_id-Run-cargo-install.buildprof\" -- bash --noprofile --norc -eo pipefail \"$bp_dir/$bp_id.sh\" || bp_rc=$?\nkill $bp_watch 2>/dev/null; exit $bp_rc\n"
+  - name: Save Github Actions cache
+    uses: actions/cache/save@v5
+    if: github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/heads/release-')
+    with:
+      path: ${{ runner.tool_cache }}/${{ inputs.crate }}
+      key: ${{ steps.cache-restore.outputs.cache-primary-key }}
