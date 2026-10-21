@@ -37,3 +37,8 @@ helix helix-editor/helix ba40e547426b0f9896c8bdc699a4ab11f2b37dbc build.yml push
 biome biomejs/biome 50d2a4e483e5bceeb9f1e5c5ce491ae5d59ae666 main.yml push
 duckdb duckdb/duckdb fd355a84131834bbbc0b86a639909adf6f145537 Main.yml push
 nushell nushell/nushell f196eaf8a757d005647f582ccc735b0bed7058e5 ci.yml push
+zellij zellij-org/zellij ccabe137c4c81b0cd29ca406ec8d69763452b82d rust.yml push
+rustls rustls/rustls 84bf9eaa9857d7114609f7e5d0ae1f0fd3cd9f77 build.yml push
+numpy numpy/numpy cf5aa60b7e795efc0be703cace2821fe8fd44e54 linux.yml push
+pandas pandas-dev/pandas bd94549744b25d29e3ce676a7092a14261d3cd19 unit-tests.yml push
+zstd facebook/zstd 49cf51799ea051457f57243527aa2058f999f005 dev-short-tests.yml push
