@@ -1,0 +1,36 @@
+name: 'valkey: DH params for TLS tests, generated vs ffdhe2048 vs -dsaparam'
+on:
+  workflow_dispatch: null
+permissions:
+  contents: read
+jobs:
+  certs:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        variant: [baseline, ffdhe2048, dsaparam]
+        rep: [1, 2, 3]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          repository: valkey-io/valkey
+          ref: 1074b3cada6d5509daeaaa9db27a43308207250a
+          persist-credentials: false
+      - name: Change how the DH params are made
+        run: |
+          case "${{ matrix.variant }}" in
+            ffdhe2048) sed -i 's#openssl dhparam -out tests/tls/valkey.dh 2048#openssl genpkey -genparam -algorithm DH -pkeyopt group:ffdhe2048 -out tests/tls/valkey.dh#' utils/gen-test-certs.sh ;;
+            dsaparam) sed -i 's#openssl dhparam -out#openssl dhparam -dsaparam -out#' utils/gen-test-certs.sh ;;
+          esac
+          grep -n 'valkey.dh' utils/gen-test-certs.sh
+      - name: Generate test certificates
+        run: |
+          start=$(date +%s.%N)
+          ./utils/gen-test-certs.sh > /dev/null 2>&1
+          end=$(date +%s.%N)
+          echo "CERTS ${{ matrix.variant }} $(echo "$end - $start" | bc)"
+          openssl dhparam -in tests/tls/valkey.dh -noout -text | head -3
+      - run: sudo apt-get install -y tcl8.6 tclx tcl-tls > /dev/null
+      - run: make -j4 BUILD_TLS=yes SERVER_CFLAGS='-Werror' > /dev/null
+      - run: ./runtest --single unit/tls --tls
