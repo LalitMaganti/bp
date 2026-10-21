@@ -1,0 +1,66 @@
+name: 'buildprof: reproduce orphaned processes'
+on:
+  workflow_dispatch: null
+permissions:
+  contents: read
+jobs:
+  record:
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - binary: main
+            mode: user
+          - binary: ci-recording-fixes
+            mode: user
+          - binary: ci-recording-fixes
+            mode: setcap-run-as
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: survey
+          persist-credentials: false
+      - uses: actions/checkout@v4
+        with:
+          repository: LalitMaganti/buildprof
+          ref: orphan-repro
+          path: buildprof
+          persist-credentials: false
+      - uses: actions/checkout@v4
+        with:
+          repository: BurntSushi/ripgrep
+          ref: 14.1.1
+          path: ripgrep
+          persist-credentials: false
+      - name: Build buildprof, the fixture and the counter's dependencies
+        run: |
+          cd buildprof && cargo build --locked -q
+          cc -std=c11 -O0 -o $RUNNER_TEMP/process-fixture tests/fixtures/process_fixture.c
+          python3 -m pip install --user -q perfetto==0.58.2
+      - name: Pick the recorder
+        run: |
+          mkdir -p $RUNNER_TEMP/bin $RUNNER_TEMP/rec
+          if [ "${{ matrix.binary }}" = main ]; then
+            cp buildprof/target/debug/buildprof $RUNNER_TEMP/bin/buildprof
+          else
+            cp survey/.buildprof/buildprof-x86_64 $RUNNER_TEMP/bin/buildprof
+          fi
+          if [ "${{ matrix.mode }}" = setcap-run-as ]; then
+            sudo setcap cap_sys_ptrace,cap_sys_admin+ep $RUNNER_TEMP/bin/buildprof
+            echo "BP=sudo $RUNNER_TEMP/bin/buildprof --no-open --detach-after-exit 10 --run-as runner" >> $GITHUB_ENV
+          else
+            echo "BP=$RUNNER_TEMP/bin/buildprof --no-open" >> $GITHUB_ENV
+          fi
+      - name: Record threads that fork as they start
+        run: |
+          $BP -o $RUNNER_TEMP/rec/thread-forks.buildprof -- sh -c 'for i in $(seq 1 30); do '$RUNNER_TEMP'/process-fixture thread-forks 64 || exit 1; done'
+      - name: Record a cargo build of ripgrep
+        run: |
+          cd ripgrep && $BP -o $RUNNER_TEMP/rec/ripgrep.buildprof -- cargo build --locked -q
+      - name: Count orphaned processes
+        run: python3 buildprof/tools/count_orphans.py $RUNNER_TEMP/rec/*.buildprof
+      - uses: actions/upload-artifact@v4
+        with:
+          name: orphans-${{ matrix.binary }}-${{ matrix.mode }}
+          path: ${{ runner.temp }}/rec/*.buildprof
