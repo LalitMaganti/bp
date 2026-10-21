@@ -1,0 +1,40 @@
+name: 'neovim: oldtest serial vs make -j'
+on:
+  workflow_dispatch: null
+permissions:
+  contents: read
+jobs:
+  oldtest:
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        variant: [serial, j4]
+        rep: [1, 2]
+    env:
+      BIN_DIR: ${{ github.workspace }}/.deps/bin
+      CC: gcc
+      GEM_HOME: ${{ github.workspace }}/.deps/ruby
+      PERL5LIB: ${{ github.workspace }}/.deps/perl5/lib/perl5
+      BUILD_FLAGS: -D CMAKE_BUILD_TYPE=Release -D ENABLE_TRANSLATIONS=ON
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          repository: neovim/neovim
+          ref: 1944cb3201a5e729dbc4b0d614dfd355fd01620f
+          persist-credentials: false
+      - uses: ./.github/actions/setup
+      - name: Set up interpreter packages
+        run: |
+          gem install --no-document --bindir "$BIN_DIR" --conservative --pre neovim
+          cpanm -n -L .deps/perl5 --skip-satisfied Neovim::Ext || true
+      - run: cmake -S cmake.deps --preset ci -D CMAKE_BUILD_TYPE=Debug && cmake --build .deps
+      - run: cmake --preset ci -D CMAKE_BUILD_TYPE=Debug $BUILD_FLAGS && cmake --build build
+      - name: oldtest
+        run: |
+          start=$(date +%s)
+          if [ "${{ matrix.variant }}" = j4 ]; then J=-j4; else J=; fi
+          make $J -C test/old/testdir NVIM_PRG=$(realpath build)/bin/nvim > oldtest.log 2>&1; rc=$?
+          echo "OLDTEST ${{ matrix.variant }} $(( $(date +%s) - start )) s rc=$rc"
+          tail -15 oldtest.log
+          exit $rc
