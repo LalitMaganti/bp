@@ -1,0 +1,83 @@
+name: Install packages
+description: Installs packages for local workflows
+inputs:
+  apt:
+    description: Optional space-separated list of apt package names
+  brew:
+    description: Optional space-separated list of Homebrew package names
+  pip:
+    description: Optional pip command-line options
+runs:
+  using: composite
+  steps:
+  - name: install (apt)
+    if: ${{ inputs.apt }}
+    shell: sh
+    env:
+      PACKAGES: ${{ inputs.apt }}
+    run: 'bp_dir="$RUNNER_TEMP/buildprof"; mkdir -p "$bp_dir"; bp_id=$(date +%s)-$$-$(od -An -N4 -tu4 /dev/urandom | tr -d " ")
+
+      cat > "$bp_dir/$bp_id.sh" <<''BUILDPROF_SCRIPT_EOF''
+
+      sudo rm -f /etc/apt/apt.conf.d/20apt-esm-hook.conf || true
+
+      ls -l /etc/apt/sources.list.d
+
+      sudo find /etc/apt/sources.list.d -type f -not -name ''ubuntu.sources'' -delete -print
+
+      sudo sed -i ''/\/archive\.ubuntu\.com/d'' /etc/apt/apt-mirrors.txt
+
+      sudo sed -i ''/\/security\.ubuntu\.com/d'' /etc/apt/apt-mirrors.txt
+
+      # sudo sed -i ''s/priority:1/priority:9/'' /etc/apt/apt-mirrors.txt
+
+      cat /etc/apt/apt-mirrors.txt
+
+      [[ "${PACKAGES}" = *'':i386''* ]] && sudo dpkg --add-architecture i386
+
+      sudo apt-get -o Dpkg::Use-Pty=0 update
+
+      sudo apt-get -o Dpkg::Use-Pty=0 install ${PACKAGES}
+
+      BUILDPROF_SCRIPT_EOF
+
+      ( sleep 2700; while true; do echo "=== buildprof survey watchdog: step still running"; ps -eo pid,ppid,stat,etime,wchan:32,args --forest 2>/dev/null | cut -c1-250 || ps; sleep 600; done ) & bp_watch=$!
+
+      bp_rc=0
+
+      "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open --detach-after-exit 10 -o "$bp_dir/$bp_id-install-apt.buildprof" -- bash --noprofile --norc -eo pipefail "$bp_dir/$bp_id.sh" || bp_rc=$?
+
+      kill $bp_watch 2>/dev/null; exit $bp_rc
+
+      '
+  - name: install (brew)
+    if: ${{ inputs.brew }}
+    shell: sh
+    env:
+      HOMEBREW_NO_INSTALL_CLEANUP: '1'
+      PACKAGES: ${{ inputs.brew }}
+    run: "bp_dir=\"$RUNNER_TEMP/buildprof\"; mkdir -p \"$bp_dir\"; bp_id=$(date +%s)-$$-$(od -An -N4 -tu4 /dev/urandom | tr -d \" \")\ncat > \"$bp_dir/$bp_id.sh\" <<'BUILDPROF_SCRIPT_EOF'\nif [[ \"$(uname)\" != *'Darwin'* ]]; then\n  brewroot='/home/linuxbrew/.linuxbrew/bin/'\nfi\n# Run this command with retries because of spurious failures seen while running the tests.\n# shellcheck disable=SC2181\nwhile [[ $? == 0 ]]; do\n  for i in 1 2 3; do\n    if ${brewroot}brew install ${PACKAGES}; then\n      break 2\n    else\n      echo \"Error: wait to try again: $i\"\n      sleep 10\n    fi\n  done\n  false Too many retries\ndone\nBUILDPROF_SCRIPT_EOF\n( sleep 2700; while true; do echo \"=== buildprof survey watchdog: step still running\"; ps -eo pid,ppid,stat,etime,wchan:32,args --forest 2>/dev/null | cut -c1-250 || ps; sleep 600; done ) & bp_watch=$!\nbp_rc=0\n\"$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)\" --no-open --detach-after-exit 10 -o \"$bp_dir/$bp_id-install-brew.buildprof\" -- bash --noprofile --norc -eo pipefail \"$bp_dir/$bp_id.sh\" || bp_rc=$?\nkill $bp_watch 2>/dev/null; exit $bp_rc\n"
+  - name: install (pip)
+    if: ${{ inputs.pip }}
+    shell: sh
+    env:
+      PACKAGES: ${{ inputs.pip }}
+    run: 'bp_dir="$RUNNER_TEMP/buildprof"; mkdir -p "$bp_dir"; bp_id=$(date +%s)-$$-$(od -An -N4 -tu4 /dev/urandom | tr -d " ")
+
+      cat > "$bp_dir/$bp_id.sh" <<''BUILDPROF_SCRIPT_EOF''
+
+      [ -d ~/venv ] || python3 -m venv ~/venv
+
+      ~/venv/bin/pip --disable-pip-version-check --no-input --no-cache-dir install --progress-bar off --prefer-binary ${PACKAGES}
+
+      BUILDPROF_SCRIPT_EOF
+
+      ( sleep 2700; while true; do echo "=== buildprof survey watchdog: step still running"; ps -eo pid,ppid,stat,etime,wchan:32,args --forest 2>/dev/null | cut -c1-250 || ps; sleep 600; done ) & bp_watch=$!
+
+      bp_rc=0
+
+      "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open --detach-after-exit 10 -o "$bp_dir/$bp_id-install-pip.buildprof" -- bash --noprofile --norc -eo pipefail "$bp_dir/$bp_id.sh" || bp_rc=$?
+
+      kill $bp_watch 2>/dev/null; exit $bp_rc
+
+      '
