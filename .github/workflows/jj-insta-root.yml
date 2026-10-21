@@ -54,7 +54,7 @@ jobs:
     - shell: bash
       run: lscpu 2>/dev/null | grep -E 'Model name' || (wmic cpu get name 2>/dev/null | sed -n 2p) || true
     - name: Test
-      run: '[ "${{ matrix.mode }}" = root ] && export INSTA_WORKSPACE_ROOT="$PWD"
+      run: '[ "${{ matrix.mode }}" = root ] && export INSTA_WORKSPACE_ROOT="$(pwd -W 2>/dev/null || pwd)"
 
         start=$(date +%s); rc=0
 
