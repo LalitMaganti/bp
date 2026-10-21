@@ -44,7 +44,6 @@ jobs:
 
         '
     - name: Install maturin
-      if: matrix.python-version == '3.14t'
       run: 'pip install uv
 
         uv pip install maturin
