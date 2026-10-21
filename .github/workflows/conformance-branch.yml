@@ -1,0 +1,39 @@
+name: 'buildprof: Linux conformance for a branch'
+on:
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: Buildprof branch or commit
+        default: orphan-repro
+permissions:
+  contents: read
+env:
+  RUST_VERSION: "1.91"
+jobs:
+  linux:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          repository: LalitMaganti/buildprof
+          ref: ${{ inputs.ref }}
+          persist-credentials: false
+      - name: Install build systems
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            gcc g++ clang ccache libc6-dev make cmake ninja-build meson golang-go binutils llvm \
+            podman nodejs npm zstd
+      - run: sudo sh dev/install-bazel
+      - run: sudo sh dev/install-buck2
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: ${{ env.RUST_VERSION }}
+          components: clippy, rustfmt
+      - run: rustup toolchain install nightly --profile minimal
+      - uses: astral-sh/setup-uv@v6
+      - run: uv sync --frozen
+      - name: Format, lint, build, unit tests, conformance suite
+        env:
+          BUILDPROF_REQUIRE_TOOLS: "1"
+        run: uv run dev/in-container-test
