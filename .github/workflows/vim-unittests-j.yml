@@ -1,0 +1,73 @@
+name: 'vim: unittests serial vs parallel build (untraced)'
+'on':
+  workflow_dispatch: null
+permissions:
+  contents: read
+jobs:
+  linux:
+    runs-on: ubuntu-24.04
+    env:
+      CC: ${{ matrix.compiler }}
+      GCC_VER: 14
+      CLANG_VER: 22
+      TEST: test
+      SRCDIR: ./src
+      LEAK_CFLAGS: -DEXITFREE
+      LOG_DIR: ${{ github.workspace }}/logs
+      TERM: xterm
+      DISPLAY: :99
+      WAYLAND_DISPLAY: /tmp/weston_sock
+      GTK_A11Y: none
+      GDK_DEBUG: no-portals
+      DEBIAN_FRONTEND: noninteractive
+    strategy:
+      fail-fast: false
+      matrix:
+        features:
+        - huge
+        compiler:
+        - gcc
+        coverage:
+        - true
+        extra:
+        - - unittests
+        architecture:
+        - native
+        mode:
+        - serial
+        - par
+        rep:
+        - 1
+        - 2
+        - 3
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        repository: vim/vim
+        ref: b79efe0f40c177fa80262dd9aab9ff7c64a4f8fb
+    - name: Build
+      timeout-minutes: 15
+      uses: ./.github/actions/build_vim_on_linux
+      with:
+        features: ${{ matrix.features }}
+        compiler: ${{ matrix.compiler }}
+        architecture: ${{ matrix.architecture }}
+        extra: ${{ toJSON(matrix.extra) }}
+        shadow: ${{ matrix.shadow }}
+        interface: ${{ matrix.interface }}
+        lua_ver: ${{ matrix.lua_ver }}
+        python3: ${{ matrix.python3 }}
+        coverage: ${{ matrix.coverage }}
+    - run: lscpu | grep -E 'Model name|^CPU\(s\)'
+    - name: Test
+      timeout-minutes: 20
+      continue-on-error: ${{ contains(matrix.extra, 'use_gtk4') }}
+      run: 'start=$(date +%s)
+
+        if [ "${{ matrix.mode }}" = par ]; then make -C src -j$(nproc) unittesttargets > build.log 2>&1 || { tail -40 build.log; exit 1; }; fi
+
+        rc=0; make ${SHADOWOPT} ${TEST} > test.log 2>&1 || rc=$?
+
+        echo "UNITTESTS ${{ matrix.mode }} $(( $(date +%s) - start )) s rc=$rc"; tail -8 test.log; exit $rc
+
+        '
