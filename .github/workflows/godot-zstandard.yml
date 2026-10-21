@@ -1,0 +1,25 @@
+name: 'godot: pip install with and without zstandard (untraced)'
+on: workflow_dispatch
+permissions:
+  contents: read
+jobs:
+  deps:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, windows-latest, macos-latest]
+        mode: [with, marker]
+        rep: [1, 2]
+    steps:
+    - uses: actions/setup-python@v6
+      with:
+        python-version: 3.x
+    - shell: bash
+      run: |
+        python -c "import sys; print(sys.version)"
+        if [ "${{ matrix.mode }}" = with ]; then pkgs="scons==4.11.1 zstandard"; else pkgs="scons==4.11.1 zstandard; python_version < '3.14'"; fi
+        start=$(date +%s.%N)
+        python -m pip install $pkgs > pip.log 2>&1 || { tail -30 pip.log; exit 1; }
+        echo "PIP ${{ matrix.os }} ${{ matrix.mode }} $(python -c "print(round($(date +%s.%N) - $start, 1))") s"
+        grep -iE 'Building wheel|Successfully installed' pip.log
