@@ -1,0 +1,12 @@
+name: 'servo: Linux only'
+'on':
+  workflow_dispatch: null
+permissions:
+  contents: read
+jobs:
+  linux:
+    uses: ./.github/workflows/servo--linux.yml
+    with:
+      profile: release
+      unit-tests: true
+      wpt: false

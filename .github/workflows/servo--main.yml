@@ -47,7 +47,7 @@ jobs:
           '
         sparse-checkout-cone-mode: false
         repository: servo/servo
-        ref: 24c74eaaee66593bbf812141d83acc17bf91b2dc
+        ref: 7536f434969ff66f9d342197fbb55a6e1fe75177
     - name: Wrap upstream composite actions
       shell: sh
       working-directory: ${{ github.workspace }}

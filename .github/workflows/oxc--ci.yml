@@ -34,7 +34,14 @@ jobs:
         rm -rf .buildprof-fetch
 
         '
-    - uses: taiki-e/checkout-action@7d1e50e93dc4fb3bba58f85018fadf77898aee8b
+    - uses: actions/checkout@v4
+      with:
+        repository: oxc-project/oxc
+        ref: 15e2070a247a24bfe0fd79dda678e5e28e8c280a
+    - name: Wrap upstream composite actions
+      shell: sh
+      working-directory: ${{ github.workspace }}
+      run: "if [ -n \"$(ls -A \"$RUNNER_TEMP/buildprof-actions\" 2>/dev/null)\" ]; then\n  cp -r \"$RUNNER_TEMP/buildprof-actions/.\" \"./.github/actions/\"\n  (cd \".\" && git ls-files -m .github/actions | xargs -r git update-index --assume-unchanged) 2>/dev/null || true\nfi\n"
     - parallel:
       - uses: oxc-project/setup-node@f46a72f95efdc55273fcd042d61c84e723b2892c
       - uses: oxc-project/setup-rust@3d6fb132fbe7cdcb66bf8ec193911c2945369d12
@@ -134,7 +141,14 @@ jobs:
         rm -rf .buildprof-fetch
 
         '
-    - uses: taiki-e/checkout-action@7d1e50e93dc4fb3bba58f85018fadf77898aee8b
+    - uses: actions/checkout@v4
+      with:
+        repository: oxc-project/oxc
+        ref: 15e2070a247a24bfe0fd79dda678e5e28e8c280a
+    - name: Wrap upstream composite actions
+      shell: sh
+      working-directory: ${{ github.workspace }}
+      run: "if [ -n \"$(ls -A \"$RUNNER_TEMP/buildprof-actions\" 2>/dev/null)\" ]; then\n  cp -r \"$RUNNER_TEMP/buildprof-actions/.\" \"./.github/actions/\"\n  (cd \".\" && git ls-files -m .github/actions | xargs -r git update-index --assume-unchanged) 2>/dev/null || true\nfi\n"
     - uses: crate-ci/typos@7f9d0819ca1c008ade73f4b41fa9d258d48f605b
       with:
         files: .
@@ -186,7 +200,14 @@ jobs:
         rm -rf .buildprof-fetch
 
         '
-    - uses: taiki-e/checkout-action@7d1e50e93dc4fb3bba58f85018fadf77898aee8b
+    - uses: actions/checkout@v4
+      with:
+        repository: oxc-project/oxc
+        ref: 15e2070a247a24bfe0fd79dda678e5e28e8c280a
+    - name: Wrap upstream composite actions
+      shell: sh
+      working-directory: ${{ github.workspace }}
+      run: "if [ -n \"$(ls -A \"$RUNNER_TEMP/buildprof-actions\" 2>/dev/null)\" ]; then\n  cp -r \"$RUNNER_TEMP/buildprof-actions/.\" \"./.github/actions/\"\n  (cd \".\" && git ls-files -m .github/actions | xargs -r git update-index --assume-unchanged) 2>/dev/null || true\nfi\n"
     - name: Check if lexer checks should run
       id: filter
       uses: ./.github/actions/check-changes

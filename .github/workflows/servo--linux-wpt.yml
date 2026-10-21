@@ -128,7 +128,14 @@ jobs:
         tool-cache: false
         large-packages: false
         swap-storage: false
-    - uses: servo/ci-runners/actions/checkout@b42c96524cdd72126255602c69c4ad649c750ebf
+    - uses: actions/checkout@v4
+      with:
+        repository: servo/servo
+        ref: 7536f434969ff66f9d342197fbb55a6e1fe75177
+    - name: Wrap upstream composite actions
+      shell: sh
+      working-directory: ${{ github.workspace }}
+      run: "if [ -n \"$(ls -A \"$RUNNER_TEMP/buildprof-actions\" 2>/dev/null)\" ]; then\n  cp -r \"$RUNNER_TEMP/buildprof-actions/.\" \"./.github/actions/\"\n  (cd \".\" && git ls-files -m .github/actions | xargs -r git update-index --assume-unchanged) 2>/dev/null || true\nfi\n"
     - uses: actions/download-artifact@v8
       with:
         name: ${{ inputs.profile }}-binary-linux
@@ -276,8 +283,15 @@ jobs:
         name: wpt-filtered-logs-linux
         pattern: wpt-filtered-logs-linux-*
         delete-merged: true
-    - uses: servo/ci-runners/actions/checkout@b42c96524cdd72126255602c69c4ad649c750ebf
+    - uses: actions/checkout@v4
       if: ${{ !cancelled() && !inputs.wpt-sync-from-upstream }}
+      with:
+        repository: servo/servo
+        ref: 7536f434969ff66f9d342197fbb55a6e1fe75177
+    - name: Wrap upstream composite actions
+      shell: sh
+      working-directory: ${{ github.workspace }}
+      run: "if [ -n \"$(ls -A \"$RUNNER_TEMP/buildprof-actions\" 2>/dev/null)\" ]; then\n  cp -r \"$RUNNER_TEMP/buildprof-actions/.\" \"./.github/actions/\"\n  (cd \".\" && git ls-files -m .github/actions | xargs -r git update-index --assume-unchanged) 2>/dev/null || true\nfi\n"
     - uses: actions/download-artifact@v8
       if: ${{ !cancelled() && !inputs.wpt-sync-from-upstream }}
       with:
