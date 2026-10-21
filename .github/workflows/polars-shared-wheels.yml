@@ -1,0 +1,234 @@
+name: 'polars: build the abi3 wheels once vs per job'
+'on':
+  workflow_dispatch: null
+permissions:
+  contents: read
+env:
+  RUSTFLAGS: -C debuginfo=0
+  RUST_BACKTRACE: 1
+  PYTHONUTF8: 1
+defaults:
+  run:
+    working-directory: py-polars
+    shell: bash
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+    - &id001
+      uses: actions/checkout@v4
+      with:
+        repository: pola-rs/polars
+        ref: 04e0a7e625288e41dadf837992553b02d30380db
+        persist-credentials: false
+    - name: Clone polars-iceberg
+      if: ${{ !inputs.polars-iceberg-version }}
+      uses: ./.github/actions/clone-polars-iceberg
+    - name: Free some disk space (remove unused packages)
+      uses: jlumbroso/free-disk-space@v1.3.1
+      if: ${{ runner.os == 'Linux' }}
+    - name: Set up Python
+      uses: actions/setup-python@v6
+      with:
+        python-version: '3.11'
+    - name: Create virtual environment
+      env:
+        BIN: ${{ matrix.os == 'windows-latest' && 'Scripts' || 'bin' }}
+      run: 'python -m venv .venv
+
+        echo "$GITHUB_WORKSPACE/py-polars/.venv/$BIN" >> $GITHUB_PATH
+
+        echo "VIRTUAL_ENV=$GITHUB_WORKSPACE/py-polars/.venv" >> $GITHUB_ENV
+
+        echo "VENV=$GITHUB_WORKSPACE/py-polars/.venv" >> $GITHUB_ENV
+
+        '
+    - name: Install maturin
+      if: matrix.python-version == '3.14t'
+      run: 'pip install uv
+
+        uv pip install maturin
+
+        '
+    - name: Set up Rust
+      run: rustup show
+    - name: Cache Rust
+      uses: Swatinem/rust-cache@v2
+      with:
+        env-vars: ImageVersion
+        save-if: ${{ github.event_name == 'push' }}
+        shared-key: test-python
+    - name: Build wheels once
+      run: 'mkdir -p "$GITHUB_WORKSPACE/wheels"
+
+        maturin build --profile dev --manifest-path runtime/polars-runtime-32/Cargo.toml --features numa --out "$GITHUB_WORKSPACE/wheels"
+
+        maturin build --profile dev --manifest-path ../crates/polars-iceberg/Cargo.toml --out "$GITHUB_WORKSPACE/wheels"
+
+        ls -la "$GITHUB_WORKSPACE/wheels"
+
+        '
+    - uses: actions/upload-artifact@v4
+      with:
+        name: wheels
+        path: ${{ github.workspace }}/wheels/*.whl
+  test-python:
+    runs-on: ${{ matrix.os }}
+    env:
+      POLARS_IDEAL_MORSEL_SIZE: ${{ matrix.ideal_morsel_size }}
+      EXTRA_PYTEST_MARKERS: ${{ matrix.ideal_morsel_size < 10 && ' and not slow' || '' }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os:
+        - ubuntu-latest
+        python-version:
+        - '3.11'
+        - '3.12'
+        - '3.13'
+        - '3.14'
+        variant:
+        - null
+        ideal_morsel_size:
+        - 100000
+        mode:
+        - baseline
+        - shared
+    steps:
+    - *id001
+    - name: Clone polars-iceberg
+      if: ${{ !inputs.polars-iceberg-version }}
+      uses: ./.github/actions/clone-polars-iceberg
+    - name: Free some disk space (remove unused packages)
+      uses: jlumbroso/free-disk-space@v1.3.1
+      if: ${{ runner.os == 'Linux' }}
+    - name: Enable long paths on Windows
+      if: matrix.os == 'windows-latest'
+      shell: powershell
+      run: 'Set-ItemProperty -Path ''HKLM:\SYSTEM\CurrentControlSet\Control\FileSystem'' -Name ''LongPathsEnabled'' -Value 1
+
+        '
+    - name: Set up Python
+      uses: actions/setup-python@v6
+      with:
+        python-version: ${{ matrix.python-version }}
+    - name: Set up Graphviz
+      uses: ts-graphviz/setup-graphviz@v2
+    - name: Create virtual environment
+      env:
+        BIN: ${{ matrix.os == 'windows-latest' && 'Scripts' || 'bin' }}
+      run: 'python -m venv .venv
+
+        echo "$GITHUB_WORKSPACE/py-polars/.venv/$BIN" >> $GITHUB_PATH
+
+        echo "VIRTUAL_ENV=$GITHUB_WORKSPACE/py-polars/.venv" >> $GITHUB_ENV
+
+        echo "VENV=$GITHUB_WORKSPACE/py-polars/.venv" >> $GITHUB_ENV
+
+        '
+    - name: Install maturin
+      if: matrix.python-version == '3.14t'
+      run: 'pip install uv
+
+        uv pip install maturin
+
+        '
+    - name: Install Python dependencies
+      if: matrix.python-version != '3.14t'
+      run: 'pip install uv
+
+        # Install typing-extensions separately whilst the `--extra-index-url` in `requirements-ci.txt`
+
+        # doesn''t have an up-to-date typing-extensions, see
+
+        # https://github.com/astral-sh/uv/issues/6028#issuecomment-2287232150
+
+        uv pip install -U typing-extensions
+
+        uv pip install --compile-bytecode -r requirements-dev.txt -r requirements-ci.txt --verbose --index-strategy=unsafe-best-match
+
+        '
+    - name: Set up Rust
+      run: rustup show
+    - name: Cache Rust
+      uses: Swatinem/rust-cache@v2
+      with:
+        env-vars: ImageVersion
+        save-if: ${{ github.event_name == 'push' }}
+    - name: Install Polars
+      run: '# Make sure we use the Polars we''re about to build.
+
+        uv pip uninstall polars-runtime-32 polars-runtime-64 polars-runtime-compat
+
+        pip install --no-deps -e .
+
+        maturin develop --manifest-path runtime/polars-runtime-32/Cargo.toml --features numa
+
+        '
+      if: matrix.mode == 'baseline'
+    - uses: actions/download-artifact@v4
+      if: matrix.mode == 'shared'
+      with:
+        name: wheels
+        path: ${{ github.workspace }}/wheels
+    - name: Install Polars from the shared wheels
+      if: matrix.mode == 'shared'
+      run: 'uv pip uninstall polars-runtime-32 polars-runtime-64 polars-runtime-compat
+
+        pip install --no-deps -e .
+
+        uv pip install --no-deps "$GITHUB_WORKSPACE"/wheels/polars_runtime_32-*.whl
+
+        '
+    - name: Install polars_iceberg plugin
+      if: matrix.mode == 'baseline' && (matrix.python-version != '3.14t')
+      env:
+        POLARS_ICEBERG_VERSION: ${{ inputs.polars-iceberg-version }}
+      run: "if [[ -n \"$POLARS_ICEBERG_VERSION\" ]]; then\n  uv pip install --no-deps \"polars-iceberg==$POLARS_ICEBERG_VERSION\"\nelse\n  maturin develop --manifest-path ../crates/polars-iceberg/Cargo.toml\nfi\n# The plugin tests skip when the module is missing; fail here instead.\npython -c 'import polars_iceberg'\n"
+    - name: Install polars_iceberg plugin from the shared wheels
+      if: matrix.mode == 'shared'
+      run: 'uv pip install --no-deps "$GITHUB_WORKSPACE"/wheels/polars_iceberg-*.whl
+
+        '
+    - name: Run doctests
+      if: github.event_name != 'push' && matrix.python-version == '3.14' && matrix.os == 'ubuntu-latest' && !matrix.variant
+      run: 'python tests/docs/run_doctest.py
+
+        pytest tests/docs/test_user_guide.py -m docs
+
+        '
+    - name: Run tests
+      if: github.event_name != 'push' && matrix.python-version != '3.14t' && !matrix.variant
+      env:
+        POLARS_TIMEOUT_MS: 60000
+      run: pytest -n auto -m "not release and not benchmark and not docs$EXTRA_PYTEST_MARKERS"
+    - name: Run Python tests - POLARS_ENGINE_AFFINITY=in-memory
+      if: github.event_name != 'push' && matrix.python-version != '3.14t' && matrix.variant == 'engine_affinity_in_memory'
+      env:
+        POLARS_ENGINE_AFFINITY: in-memory
+        POLARS_TIMEOUT_MS: 60000
+      run: pytest -n auto -m "not release and not benchmark and not docs$EXTRA_PYTEST_MARKERS"
+    - name: Run tests async reader tests
+      if: github.event_name != 'push' && matrix.os != 'windows-latest' && matrix.python-version != '3.14t' && !matrix.variant
+      env:
+        POLARS_FORCE_ASYNC: 1
+        POLARS_TIMEOUT_MS: 60000
+      run: pytest -n auto -m "not release and not benchmark and not docs$EXTRA_PYTEST_MARKERS" tests/unit/io/
+    - name: Run tests multiscan force empty capabilities
+      if: github.event_name != 'push' && matrix.python-version != '3.14t' && !matrix.variant
+      env:
+        POLARS_FORCE_EMPTY_READER_CAPABILITIES: 1
+        POLARS_TIMEOUT_MS: 60000
+      run: 'pytest -n auto -m "not release and not benchmark and not docs$EXTRA_PYTEST_MARKERS" tests/unit/io/test_multiscan.py
+
+        pytest -n auto -m "not release and not benchmark and not docs$EXTRA_PYTEST_MARKERS" tests/unit/io/test_scan_row_deletion.py
+
+        pytest -n auto -m "not release and not benchmark and not docs$EXTRA_PYTEST_MARKERS" tests/unit/io/test_iceberg.py
+
+        pytest -n auto -m "not release and not benchmark and not docs$EXTRA_PYTEST_MARKERS" tests/unit/io/test_iceberg_plugin_suite.py
+
+        '
+    - name: Check import without optional dependencies
+      if: github.event_name != 'push' && matrix.os == 'ubuntu-latest' && (matrix.python-version == '3.14' || matrix.python-version == '3.14t')
+      run: "declare -a deps=(\"pandas\"\n\"pyarrow\"\n\"fsspec\"\n\"matplotlib\"\n\"backports.zoneinfo\"\n\"connectorx\"\n\"pyiceberg\"\n\"deltalake\"\n\"xlsx2csv\"\n)\nfor d in \"${deps[@]}\"\ndo\n  echo \"uninstall $i and check imports...\"\n  pip uninstall \"$d\" -y\n  python -c 'import polars'\ndone\n"
+    needs: build
