@@ -1,4 +1,4 @@
-name: 'llama.cpp: test-chat.cpp -ftime-report under GCC 11 and 13'
+name: 'llama.cpp: test-chat.cpp under GCC 11 with -fno-tree-pta'
 on:
   workflow_dispatch: null
 permissions:
@@ -25,9 +25,15 @@ jobs:
                   print(e['command'])
           PY
           cmd=$(cat cmd.sh)
-          for v in 11 13; do
-            c=$(echo "$cmd" | sed "s#^[^ ]*#g++-$v#; s# -o [^ ]*# -o /tmp/tc.o -ftime-report#")
-            echo "=== GCC $v -O3"
-            (cd build && bash -c "$c") 2>&1 | grep -E '^ [a-zA-Z].*:.*\(' | sort -t'(' -k3 -g -r 2>/dev/null | awk '{print}' | head -0
-            (cd build && bash -c "$c") 2>&1 | grep -E '^ [^ ].* : ' | awk -F: '{split($2,a," "); print a[3], $0}' | sort -g -r | head -12 | cut -d' ' -f2-
+          for flags in "" "-fno-tree-pta"; do
+            c=$(echo "$cmd" | sed "s#^[^ ]*#g++-11#; s# -o [^ ]*# -o /tmp/tc.o $flags#")
+            start=$(date +%s.%N)
+            (cd build && bash -c "$c") > /dev/null 2>&1 || echo "failed: $flags"
+            echo "GCC11 -O3 $flags: $(echo "$(date +%s.%N) - $start" | bc | cut -c1-6) s"
           done
+      - name: test-chat built by GCC 11 with -fno-tree-pta still passes
+        run: |
+          sed -i 's#^    target_link_libraries(test-chat PRIVATE server-context)#&\n    set_source_files_properties(test-chat.cpp PROPERTIES COMPILE_OPTIONS -fno-tree-pta)#' tests/CMakeLists.txt
+          rm -rf build && CC=gcc-11 CXX=g++-11 cmake -B build -DGGML_NATIVE=OFF -DGGML_RPC=ON > /dev/null
+          cmake --build build --target test-chat -j $(nproc) > /dev/null 2>&1
+          cd build && ctest -R '^test-chat$' --timeout 900 --output-on-failure > ctest.log 2>&1; rc=$?; tail -3 ctest.log; exit $rc
