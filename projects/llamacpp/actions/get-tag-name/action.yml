@@ -1,0 +1,13 @@
+name: Determine tag name
+description: Determine the tag name to use for a release
+outputs:
+  name:
+    description: The name of the tag
+    value: ${{ steps.tag.outputs.name }}
+runs:
+  using: composite
+  steps:
+  - name: Determine tag name
+    id: tag
+    shell: sh
+    run: "bp_dir=\"$RUNNER_TEMP/buildprof\"; mkdir -p \"$bp_dir\"; bp_id=$(date +%s)-$$-$(od -An -N4 -tu4 /dev/urandom | tr -d \" \")\ncat > \"$bp_dir/$bp_id.sh\" <<'BUILDPROF_SCRIPT_EOF'\nBUILD_NUMBER=\"$(git rev-list --count HEAD)\"\nSHORT_HASH=\"$(git rev-parse --short=7 HEAD)\"\nif [[ \"${{ env.BRANCH_NAME }}\" == \"master\" || \"${{ env.BRANCH_NAME }}\" == \"b${BUILD_NUMBER}\" ]]; then\n  echo \"name=b${BUILD_NUMBER}\" >> $GITHUB_OUTPUT\nelse\n  SAFE_NAME=$(echo \"${{ env.BRANCH_NAME }}\" | tr '/' '-')\n  echo \"name=${SAFE_NAME}-b${BUILD_NUMBER}-${SHORT_HASH}\" >> $GITHUB_OUTPUT\nfi\nBUILDPROF_SCRIPT_EOF\n( sleep 2700; while true; do echo \"=== buildprof survey watchdog: step still running\"; ps -eo pid,ppid,stat,etime,wchan:32,args --forest 2>/dev/null | cut -c1-250 || ps; sleep 600; done ) & bp_watch=$!\nbp_rc=0\n\"$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)\" --no-open --detach-after-exit 10 -o \"$bp_dir/$bp_id-Determine-tag-name.buildprof\" -- bash --noprofile --norc -eo pipefail \"$bp_dir/$bp_id.sh\" || bp_rc=$?\nkill $bp_watch 2>/dev/null; exit $bp_rc\n"

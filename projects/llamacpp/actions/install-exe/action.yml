@@ -1,0 +1,19 @@
+name: Install exe
+description: Download and install exe
+inputs:
+  url:
+    description: URL of the exe installer
+    required: true
+  args:
+    description: Installer arguments
+    required: true
+  timeout:
+    description: Timeout (in ms)
+    required: false
+    default: '600000'
+runs:
+  using: composite
+  steps:
+  - name: Install EXE
+    shell: pwsh
+    run: "$ErrorActionPreference = \"Stop\"\nwrite-host \"Downloading Installer EXE\"\nInvoke-WebRequest -Uri \"${{ inputs.url }}\" -OutFile \"${env:RUNNER_TEMP}\\temp-install.exe\"\nwrite-host \"Installing\"\n$proc = Start-Process \"${env:RUNNER_TEMP}\\temp-install.exe\" -ArgumentList '${{ inputs.args }}' -NoNewWindow -PassThru\n$completed = $proc.WaitForExit(${{ inputs.timeout }})\nif (-not $completed) {\n    Write-Error \"Installer timed out. Killing the process\"\n    $proc.Kill()\n    exit 1\n}\nif ($proc.ExitCode -ne 0) {\n    Write-Error \"Installer failed with exit code $($proc.ExitCode)\"\n    exit 1\n}\nwrite-host \"Completed installation\"\n"

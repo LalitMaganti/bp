@@ -1,0 +1,56 @@
+name: ccache-buckets
+description: Save/restore latest GitHub Actions ccache matching a key prefix to/from HF buckets
+inputs:
+  key:
+    description: Cache key prefix to match and load
+    required: true
+  folder:
+    description: Bucket folder containing ccache files
+    required: true
+  evict-old-files:
+    description: Corresponds to the ccache --evict-older-than AGE option, where AGE is the number of seconds or days followed by the 's' or 'd' suffix respectively.
+    default: ''
+  save:
+    description: Save ccache
+    required: false
+    default: false
+    type: boolean
+  hf_bucket:
+    description: Hugging Face buckets path
+    required: true
+runs:
+  using: composite
+  steps:
+  - name: Install Hugging Face Hub CLI
+    shell: sh
+    run: 'bp_dir="$RUNNER_TEMP/buildprof"; mkdir -p "$bp_dir"; bp_id=$(date +%s)-$$-$(od -An -N4 -tu4 /dev/urandom | tr -d " ")
+
+      cat > "$bp_dir/$bp_id.sh" <<''BUILDPROF_SCRIPT_EOF''
+
+      python3 -m venv .venv-hf
+
+      .venv-hf/bin/pip install -U huggingface_hub==1.28.0
+
+      BUILDPROF_SCRIPT_EOF
+
+      ( sleep 2700; while true; do echo "=== buildprof survey watchdog: step still running"; ps -eo pid,ppid,stat,etime,wchan:32,args --forest 2>/dev/null | cut -c1-250 || ps; sleep 600; done ) & bp_watch=$!
+
+      bp_rc=0
+
+      "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open --detach-after-exit 10 -o "$bp_dir/$bp_id-Install-Hugging-Face-Hub-CLI.buildprof" -- bash --noprofile --norc -eo pipefail "$bp_dir/$bp_id.sh" || bp_rc=$?
+
+      kill $bp_watch 2>/dev/null; exit $bp_rc
+
+      '
+  - name: Restore ccache from buckets
+    if: ${{ inputs.save != 'true' }}
+    shell: sh
+    run: "bp_dir=\"$RUNNER_TEMP/buildprof\"; mkdir -p \"$bp_dir\"; bp_id=$(date +%s)-$$-$(od -An -N4 -tu4 /dev/urandom | tr -d \" \")\ncat > \"$bp_dir/$bp_id.sh\" <<'BUILDPROF_SCRIPT_EOF'\nset +e -uo pipefail\nsource .venv-hf/bin/activate\nCCACHE_DIR=$(ccache -k cache_dir)\nif [[ -d \"$CCACHE_DIR\" ]]; then\n    CACHE_PATH=$(hf buckets list \"hf://buckets/${{ inputs.hf_bucket }}/${{ inputs.folder }}\" --json | jq -r '[.[] | select(.type == \"file\") | select(.path | startswith(\"${{ inputs.folder }}/${{ inputs.key }}\") and endswith(\".tar.gz\"))] | sort_by(.path) | last | .path // \"\"')\n    if [[ -n \"$CACHE_PATH\" ]]; then\n        echo \"Restoring ccache from '$CACHE_PATH'.\"\n        hf buckets cp \"hf://buckets/${{ inputs.hf_bucket }}/$CACHE_PATH\" ccache_bucket.tar.gz\n        mkdir -p ccache_bucket\n        if tar -xzf ccache_bucket.tar.gz -C ccache_bucket; then\n            rm -rf \"$CCACHE_DIR\"\n            mv ccache_bucket \"$CCACHE_DIR\"\n            ccache -z\n        fi\n        rm ccache_bucket.tar.gz\n    else\n        echo \"No ccache found.\"\n    fi\nelse\n    echo \"'$CCACHE_DIR' not found.\"\nfi\nBUILDPROF_SCRIPT_EOF\n( sleep 2700; while true; do echo \"=== buildprof survey watchdog: step still running\"; ps -eo pid,ppid,stat,etime,wchan:32,args --forest 2>/dev/null | cut -c1-250 || ps; sleep 600; done ) & bp_watch=$!\nbp_rc=0\n\"$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)\" --no-open --detach-after-exit 10 -o \"$bp_dir/$bp_id-Restore-ccache-from-buckets.buildprof\" -- bash --noprofile --norc -eo pipefail \"$bp_dir/$bp_id.sh\" || bp_rc=$?\nkill $bp_watch 2>/dev/null; exit $bp_rc\n"
+  - name: Save ccache to buckets
+    if: ${{ inputs.save == 'true' }}
+    shell: sh
+    run: "bp_dir=\"$RUNNER_TEMP/buildprof\"; mkdir -p \"$bp_dir\"; bp_id=$(date +%s)-$$-$(od -An -N4 -tu4 /dev/urandom | tr -d \" \")\ncat > \"$bp_dir/$bp_id.sh\" <<'BUILDPROF_SCRIPT_EOF'\nif [[ -n \"$HF_TOKEN\" ]]; then\n    set +e -uo pipefail\n    source .venv-hf/bin/activate\n    CCACHE_DIR=$(ccache -k cache_dir)\n    if [[ -d \"$CCACHE_DIR\" ]]; then\n        ccache -s\n        if [[ -n \"${{ inputs.evict-old-files }}\" ]]; then\n            ccache --evict-older-than \"${{ inputs.evict-old-files }}\"\n        fi\n        DATESTAMP=$(date -u +'%Y-%m-%dT%H:%M:%SZ')\n        CACHEFILE=\"${{ inputs.key }}-$DATESTAMP.tar.gz\"\n        if tar -czf ccache_bucket.tar.gz -C \"$CCACHE_DIR\" .; then\n            hf buckets cp ccache_bucket.tar.gz \"hf://buckets/${{ inputs.hf_bucket }}/${{ inputs.folder }}/$CACHEFILE\"\n        fi\n        rm ccache_bucket.tar.gz\n    else\n        echo \"'$CCACHE_DIR' not found.\"\n    fi\nfi\nBUILDPROF_SCRIPT_EOF\n( sleep 2700; while true; do echo \"=== buildprof survey watchdog: step still running\"; ps -eo pid,ppid,stat,etime,wchan:32,args --forest 2>/dev/null | cut -c1-250 || ps; sleep 600; done ) & bp_watch=$!\nbp_rc=0\n\"$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)\" --no-open --detach-after-exit 10 -o \"$bp_dir/$bp_id-Save-ccache-to-buckets.buildprof\" -- bash --noprofile --norc -eo pipefail \"$bp_dir/$bp_id.sh\" || bp_rc=$?\nkill $bp_watch 2>/dev/null; exit $bp_rc\n"
+  - name: Remove old ccache files from buckets
+    if: ${{ inputs.save == 'true' }}
+    shell: sh
+    run: "bp_dir=\"$RUNNER_TEMP/buildprof\"; mkdir -p \"$bp_dir\"; bp_id=$(date +%s)-$$-$(od -An -N4 -tu4 /dev/urandom | tr -d \" \")\ncat > \"$bp_dir/$bp_id.sh\" <<'BUILDPROF_SCRIPT_EOF'\nif [[ -n \"$HF_TOKEN\" ]]; then\n    set +e -uo pipefail\n    source .venv-hf/bin/activate\n    CACHE_FILES=$(hf buckets list \"hf://buckets/${{ inputs.hf_bucket }}/${{ inputs.folder }}\" --json | jq -r '[.[] | select(.type == \"file\") | select((.uploaded_at | .[:19]+\"Z\" | fromdateiso8601) < (now - 5 * 60)) | select(.path | startswith(\"${{ inputs.folder }}/${{ inputs.key }}\") and endswith(\".tar.gz\"))] | sort_by(.path)[:-1] | .[] | [.path // \"\"] | @tsv')\n    if [[ -n \"$CACHE_FILES\" ]]; then\n        echo \"Removing old ccache files...\"\n        while IFS=$'\\t' read -r CACHE_PATH; do\n            hf buckets rm \"hf://buckets/${{ inputs.hf_bucket }}/$CACHE_PATH\" -y\n        done <<< \"$CACHE_FILES\"\n    fi\nfi\nBUILDPROF_SCRIPT_EOF\n( sleep 2700; while true; do echo \"=== buildprof survey watchdog: step still running\"; ps -eo pid,ppid,stat,etime,wchan:32,args --forest 2>/dev/null | cut -c1-250 || ps; sleep 600; done ) & bp_watch=$!\nbp_rc=0\n\"$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)\" --no-open --detach-after-exit 10 -o \"$bp_dir/$bp_id-Remove-old-ccache-files-from-buckets.buildprof\" -- bash --noprofile --norc -eo pipefail \"$bp_dir/$bp_id.sh\" || bp_rc=$?\nkill $bp_watch 2>/dev/null; exit $bp_rc\n"

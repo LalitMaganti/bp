@@ -1,0 +1,79 @@
+name: 'cpython: Reusable CIFuzz'
+'on':
+  workflow_call:
+    inputs:
+      oss-fuzz-project-name:
+        description: OSS-Fuzz project name
+        required: true
+        type: string
+      sanitizer:
+        description: OSS-Fuzz sanitizer
+        required: true
+        type: string
+permissions:
+  contents: read
+jobs:
+  cifuzz:
+    name: ${{ inputs.oss-fuzz-project-name }} (${{ inputs.sanitizer }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+    - name: Fetch buildprof
+      uses: actions/checkout@v4
+      with:
+        repository: LalitMaganti/bp
+        path: .buildprof-fetch
+        sparse-checkout: '.buildprof
+
+          projects/cpython'
+        persist-credentials: false
+    - name: Install buildprof
+      shell: sh
+      working-directory: ${{ github.workspace }}
+      run: 'mkdir -p "$RUNNER_TEMP/buildprof-bin" "$RUNNER_TEMP/buildprof-actions"
+
+        cp .buildprof-fetch/.buildprof/buildprof-* "$RUNNER_TEMP/buildprof-bin/" && chmod +x "$RUNNER_TEMP/buildprof-bin/"*
+
+        if [ "$(id -u)" != 0 ] && sudo -n true 2>/dev/null; then sudo setcap cap_sys_ptrace,cap_sys_admin+ep "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)"; fi
+
+        if [ -d .buildprof-fetch/projects/cpython/actions ]; then cp -r .buildprof-fetch/projects/cpython/actions/. "$RUNNER_TEMP/buildprof-actions/"; fi
+
+        rm -rf .buildprof-fetch
+
+        '
+    - name: Build fuzzers (${{ inputs.sanitizer }})
+      id: build
+      uses: google/oss-fuzz/infra/cifuzz/actions/build_fuzzers@ed23f8af80ff82b25ca67cd9b101e690b8897b3f
+      with:
+        oss-fuzz-project-name: ${{ inputs.oss-fuzz-project-name }}
+        sanitizer: ${{ inputs.sanitizer }}
+    - name: Run fuzzers (${{ inputs.sanitizer }})
+      uses: google/oss-fuzz/infra/cifuzz/actions/run_fuzzers@ed23f8af80ff82b25ca67cd9b101e690b8897b3f
+      with:
+        fuzz-seconds: 600
+        oss-fuzz-project-name: ${{ inputs.oss-fuzz-project-name }}
+        output-sarif: true
+        sanitizer: ${{ inputs.sanitizer }}
+    - name: Upload crash
+      if: failure() && steps.build.outcome == 'success'
+      uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+      with:
+        name: ${{ inputs.sanitizer }}-artifacts
+        path: ./out/artifacts
+    - name: Upload SARIF
+      if: always() && steps.build.outcome == 'success'
+      uses: github/codeql-action/upload-sarif@2892aa5e19bbd11bc0cff5427e3b750a04d9e3c2
+      with:
+        sarif_file: cifuzz-sarif/results.sarif
+        checkout_path: cifuzz-sarif
+    - name: Upload buildprof recordings
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: cpython--reusable-cifuzz-cifuzz-${{ strategy.job-index }}
+        path: ${{ runner.temp }}/buildprof/*.buildprof
+        retention-days: 30
+        if-no-files-found: ignore
+        compression-level: 0
+    permissions:
+      contents: read

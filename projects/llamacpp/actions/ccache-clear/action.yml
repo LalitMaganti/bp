@@ -1,0 +1,27 @@
+name: ccache-clear
+description: Delete GitHub Actions caches matching a key prefix, oldest first
+inputs:
+  key:
+    description: Cache key prefix to match and delete
+    required: true
+  older:
+    description: Only delete caches created more than this long ago (e.g. 90m, 1h, 1d). By default all matching caches are deleted
+    required: false
+    default: ''
+  min:
+    description: Stop deleting if fewer than this many caches would remain (e.g. 1). By default there is no minimum
+    required: false
+    default: '0'
+  dry-run:
+    description: Only print the caches that would be deleted, without deleting them
+    required: false
+    default: 'false'
+runs:
+  using: composite
+  steps:
+  - name: Install GitHub CLI if missing
+    shell: sh
+    run: "bp_dir=\"$RUNNER_TEMP/buildprof\"; mkdir -p \"$bp_dir\"; bp_id=$(date +%s)-$$-$(od -An -N4 -tu4 /dev/urandom | tr -d \" \")\ncat > \"$bp_dir/$bp_id.sh\" <<'BUILDPROF_SCRIPT_EOF'\n# e.g. in container jobs, where it is not preinstalled\nif ! command -v gh >/dev/null 2>&1; then\n  echo \"GitHub CLI not found, installing...\"\n  if ! command -v curl >/dev/null 2>&1; then\n    apt-get update >/dev/null 2>&1 || true\n    apt-get install -y curl >/dev/null 2>&1 || true\n  fi\n  mkdir -p -m 755 /etc/apt/keyrings\n  curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg | tee /etc/apt/keyrings/githubcli-archive-keyring.gpg >/dev/null\n  chmod go+r /etc/apt/keyrings/githubcli-archive-keyring.gpg\n  echo \"deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main\" > /etc/apt/sources.list.d/github-cli.list\n  apt-get update >/dev/null 2>&1 || true\n  apt-get install -y gh || { echo \"Failed to install GitHub CLI (gh)\" >&2; exit 1; }\nfi\ncommand -v gh >/dev/null 2>&1 || { echo \"GitHub CLI (gh) is required but could not be installed\" >&2; exit 1; }\nBUILDPROF_SCRIPT_EOF\n( sleep 2700; while true; do echo \"=== buildprof survey watchdog: step still running\"; ps -eo pid,ppid,stat,etime,wchan:32,args --forest 2>/dev/null | cut -c1-250 || ps; sleep 600; done ) & bp_watch=$!\nbp_rc=0\n\"$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)\" --no-open --detach-after-exit 10 -o \"$bp_dir/$bp_id-Install-GitHub-CLI-if-missing.buildprof\" -- bash --noprofile --norc -eo pipefail \"$bp_dir/$bp_id.sh\" || bp_rc=$?\nkill $bp_watch 2>/dev/null; exit $bp_rc\n"
+  - name: Clear caches
+    shell: sh
+    run: "bp_dir=\"$RUNNER_TEMP/buildprof\"; mkdir -p \"$bp_dir\"; bp_id=$(date +%s)-$$-$(od -An -N4 -tu4 /dev/urandom | tr -d \" \")\ncat > \"$bp_dir/$bp_id.sh\" <<'BUILDPROF_SCRIPT_EOF'\nbash scripts/ccache-clear.sh \\\n  --key \"${{ inputs.key }}\" \\\n  --older \"${{ inputs.older }}\" \\\n  --min \"${{ inputs.min }}\" \\\n  ${{ inputs.dry-run == 'true' && '--dry-run' || '' }}\nBUILDPROF_SCRIPT_EOF\n( sleep 2700; while true; do echo \"=== buildprof survey watchdog: step still running\"; ps -eo pid,ppid,stat,etime,wchan:32,args --forest 2>/dev/null | cut -c1-250 || ps; sleep 600; done ) & bp_watch=$!\nbp_rc=0\n\"$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)\" --no-open --detach-after-exit 10 -o \"$bp_dir/$bp_id-Clear-caches.buildprof\" -- bash --noprofile --norc -eo pipefail \"$bp_dir/$bp_id.sh\" || bp_rc=$?\nkill $bp_watch 2>/dev/null; exit $bp_rc\n"

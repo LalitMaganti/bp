@@ -14,3 +14,7 @@ uv astral-sh/uv 5477928f71f0634db593a8a10a8012044fe02349 ci.yml push
 uv-pr astral-sh/uv 5477928f71f0634db593a8a10a8012044fe02349 ci.yml pr
 git git/git 47fdf2208c5b94c8cc01c106b8f7c85efb91c926 main.yml push
 git-pr git/git 47fdf2208c5b94c8cc01c106b8f7c85efb91c926 main.yml pr
+cpython python/cpython b577a5403ad513e6f28ec28630b5ee09a5f521ab build.yml push
+typst typst/typst 300fe3cf4bf301032beb24c24833a9d628670207 ci.yml push
+valkey valkey-io/valkey 1074b3cada6d5509daeaaa9db27a43308207250a ci.yml push
+llamacpp ggml-org/llama.cpp 8baabd53b77d1c48c6ef8d3b620436292f3f6231 build-cpu.yml push
