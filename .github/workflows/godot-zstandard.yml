@@ -14,12 +14,13 @@ jobs:
     steps:
     - uses: actions/setup-python@v6
       with:
-        python-version: 3.x
+        python-version: '3.15'
     - shell: bash
       run: |
         python -c "import sys; print(sys.version)"
-        if [ "${{ matrix.mode }}" = with ]; then pkgs="scons==4.11.1 zstandard"; else pkgs="scons==4.11.1 zstandard; python_version < '3.14'"; fi
+        if [ "${{ matrix.mode }}" = with ]; then z="zstandard"; else z="zstandard; python_version < '3.14'"; fi
         start=$(date +%s.%N)
-        python -m pip install $pkgs > pip.log 2>&1 || { tail -30 pip.log; exit 1; }
+        python -m pip install scons==4.11.1 "$z" > pip.log 2>&1 || { tail -30 pip.log; exit 1; }
         echo "PIP ${{ matrix.os }} ${{ matrix.mode }} $(python -c "print(round($(date +%s.%N) - $start, 1))") s"
-        grep -iE 'Building wheel|Successfully installed' pip.log
+        grep -iE 'Building wheel|Successfully installed|Ignoring' pip.log
+        python -c "import compression.zstd; print('stdlib zstd ok')"
