@@ -1,0 +1,34 @@
+name: 'zstd: compat and clangbuild jobs with and without -j4 (untraced)'
+on: workflow_dispatch
+permissions:
+  contents: read
+jobs:
+  compat:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        mode: [serial, j4]
+        job: [gnu90-c99, clangbuild]
+        rep: [1, 2, 3]
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        repository: facebook/zstd
+        ref: 49cf51799ea051457f57243527aa2058f999f005
+    - run: lscpu | grep -E 'Model name'
+    - run: |
+        [ "${{ matrix.mode }}" = j4 ] && export MAKEFLAGS=-j4
+        start=$(date +%s)
+        if [ "${{ matrix.job }}" = gnu90-c99 ]; then
+          make cxxtest
+          make clean
+          make gnu90build
+          make clean
+          make c99build
+          make clean
+          make travis-install
+        else
+          make clangbuild
+        fi > build.log 2>&1 || { tail -40 build.log; exit 1; }
+        echo "ZSTD ${{ matrix.job }} ${{ matrix.mode }} $(( $(date +%s) - start )) s"
