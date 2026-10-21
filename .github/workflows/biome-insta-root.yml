@@ -1,0 +1,39 @@
+name: 'biome: nextest with and without INSTA_WORKSPACE_ROOT (untraced)'
+on: workflow_dispatch
+permissions:
+  contents: read
+jobs:
+  test:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04-arm, windows-2022]
+        mode: [default, root]
+        rep: [1, 2]
+    steps:
+    - name: Enable Git long paths
+      if: matrix.os == 'windows-2022'
+      run: git config --system core.longpaths true
+    - uses: actions/checkout@v4
+      with:
+        repository: biomejs/biome
+        ref: 50d2a4e483e5bceeb9f1e5c5ce491ae5d59ae666
+    - uses: moonrepo/setup-rust@abb2d32350334249b178c401e5ec5836e0cd88d3
+      with:
+        bins: cargo-nextest
+        cache: false
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    - shell: bash
+      env:
+        CARGO_PROFILE_TEST_DEBUG: ${{ matrix.os == 'windows-2022' && '0' || '' }}
+        CARGO_INCREMENTAL: ${{ matrix.os == 'windows-2022' && '0' || '' }}
+      run: |
+        [ -z "$CARGO_PROFILE_TEST_DEBUG" ] && unset CARGO_PROFILE_TEST_DEBUG CARGO_INCREMENTAL
+        start=$(date +%s); cargo nextest run --workspace --no-run > build.log 2>&1 || { tail -30 build.log; exit 1; }
+        echo "BUILD ${{ matrix.os }} ${{ matrix.mode }} $(( $(date +%s) - start )) s"
+        [ "${{ matrix.mode }}" = root ] && export INSTA_WORKSPACE_ROOT="$(pwd -W 2>/dev/null || pwd)"
+        start=$(date +%s); rc=0; cargo nextest run --workspace --no-fail-fast > test.log 2>&1 || rc=$?
+        echo "NEXTEST ${{ matrix.os }} ${{ matrix.mode }} $(( $(date +%s) - start )) s rc=$rc"; grep -E '^ *Summary' test.log | tail -1
+        exit $rc
