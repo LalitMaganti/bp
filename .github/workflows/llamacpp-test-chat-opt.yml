@@ -1,0 +1,40 @@
+name: 'llama.cpp: build with test-chat.cpp at -O3 vs -O1 vs -O0'
+on:
+  workflow_dispatch: null
+permissions:
+  contents: read
+jobs:
+  build:
+    runs-on: ubuntu-22.04
+    strategy:
+      fail-fast: false
+      matrix:
+        opt: [default, O1, O0]
+        rep: [1, 2]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          repository: ggml-org/llama.cpp
+          ref: 8baabd53b77d1c48c6ef8d3b620436292f3f6231
+          persist-credentials: false
+      - run: |
+          sudo apt-get update > /dev/null
+          sudo apt-get install -y --no-install-recommends python3 python3-pip python3-dev python3-wheel libjpeg-dev build-essential libssl-dev git-lfs > /dev/null
+      - name: Compile test-chat.cpp at a lower optimisation level
+        if: matrix.opt != 'default'
+        run: |
+          sed -i 's#^    target_link_libraries(test-chat PRIVATE server-context)#&\n    set_source_files_properties(test-chat.cpp PROPERTIES COMPILE_OPTIONS -${{ matrix.opt }})#' tests/CMakeLists.txt
+          sed -n 188,194p tests/CMakeLists.txt
+      - name: Build
+        run: |
+          cmake -B build -DGGML_NATIVE=OFF -DLLAMA_FATAL_WARNINGS=ON -DGGML_RPC=ON -DCMAKE_EXPORT_COMPILE_COMMANDS=ON > /dev/null
+          grep -o '"command": "[^"]*test-chat.cpp"' build/compile_commands.json | grep -o ' -O[0-3]' | tr '\n' ' '; echo
+          start=$(date +%s)
+          cmake --build build --config Release -j $(nproc) > build.log 2>&1 || { tail -40 build.log; exit 1; }
+          echo "BUILD ${{ matrix.opt }} $(( $(date +%s) - start )) s"
+      - name: test-chat still passes
+        run: |
+          cd build
+          start=$(date +%s)
+          ctest -R '^test-chat$' --timeout 900 --output-on-failure | tail -5
+          echo "TESTCHAT ${{ matrix.opt }} $(( $(date +%s) - start )) s"
