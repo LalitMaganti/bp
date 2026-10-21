@@ -55,6 +55,9 @@ jobs:
       - name: Record threads that fork as they start
         run: |
           $BP -o $RUNNER_TEMP/rec/thread-forks.buildprof -- sh -c 'for i in $(seq 1 30); do '$RUNNER_TEMP'/process-fixture thread-forks 64 || exit 1; done'
+      - name: Record threads that return at once
+        run: |
+          $BP -o $RUNNER_TEMP/rec/short-threads.buildprof -- sh -c 'for i in $(seq 1 30); do '$RUNNER_TEMP'/process-fixture short-threads 64 || exit 1; done'
       - name: Record a cargo build of ripgrep
         run: |
           cd ripgrep && $BP -o $RUNNER_TEMP/rec/ripgrep.buildprof -- cargo build --locked -q
