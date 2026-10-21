@@ -10,7 +10,7 @@ jobs:
       fail-fast: false
       matrix:
         opt: [default, O1, O0]
-        rep: [1, 2]
+        rep: [1, 2, 3, 4]
     steps:
       - uses: actions/checkout@v4
         with:
@@ -36,5 +36,8 @@ jobs:
         run: |
           cd build
           start=$(date +%s)
-          ctest -R '^test-chat$' --timeout 900 --output-on-failure | tail -5
+          ctest -R '^test-chat$' --timeout 900 --output-on-failure > ctest.log 2>&1; rc=$?
+          tail -3 ctest.log
+          echo "TESTCHAT_RC ${{ matrix.opt }} $rc"
           echo "TESTCHAT ${{ matrix.opt }} $(( $(date +%s) - start )) s"
+          exit $rc
