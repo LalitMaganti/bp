@@ -1,0 +1,26 @@
+name: "git: make sparse, serial vs parallel"
+on: workflow_dispatch
+permissions:
+  contents: read
+jobs:
+  sparse:
+    strategy:
+      fail-fast: false
+      matrix:
+        variant: [serial, parallel]
+        attempt: [1, 2]
+    runs-on: ubuntu-22.04
+    env:
+      jobname: sparse
+      CI_JOB_IMAGE: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          repository: git/git
+          ref: 47fdf2208c5b94c8cc01c106b8f7c85efb91c926
+          persist-credentials: false
+      - name: Install other dependencies
+        run: ci/install-dependencies.sh
+      - name: make sparse
+        run: |
+          if [ "${{ matrix.variant }}" = parallel ]; then make -j"$(nproc)" sparse; else make sparse; fi
