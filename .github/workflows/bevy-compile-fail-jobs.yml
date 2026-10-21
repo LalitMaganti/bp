@@ -1,0 +1,49 @@
+name: "bevy: compile-fail dependency builds, --jobs 1 vs all cores"
+on: workflow_dispatch
+permissions:
+  contents: read
+env:
+  CARGO_TERM_COLOR: always
+  CARGO_INCREMENTAL: 0
+  CARGO_PROFILE_TEST_DEBUG: 0
+  CARGO_PROFILE_DEV_DEBUG: 0
+  RUSTFLAGS: -C debuginfo=0 -D warnings
+jobs:
+  compile-fail:
+    strategy:
+      fail-fast: false
+      matrix:
+        variant: [baseline, all-cores]
+        attempt: [1, 2]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          repository: bevyengine/bevy
+          ref: 2614884437512e310eeb196241828162b6507533
+          persist-credentials: false
+      - uses: ./.github/actions/install-rust
+      - uses: ./.github/actions/install-linux-deps
+      - name: Build the ci tool
+        run: cargo build -p ci
+      - name: Let ui_test build dependencies on all cores
+        if: matrix.variant == 'all-cores'
+        run: |
+          python3 - <<'P'
+          p = 'tools/compile_fail_utils/src/lib.rs'
+          s = open(p).read()
+          old = 'Spanned::dummy(vec![Box::new(DependencyBuilder::default())]),'
+          assert old in s
+          new = '''Spanned::dummy(vec![Box::new({
+                  let mut builder = DependencyBuilder::default();
+                  // ui_test builds dependencies with `--jobs 1`; let cargo use every core.
+                  if let Some(i) = builder.program.args.iter().position(|arg| arg == "--jobs") {
+                      builder.program.args.drain(i..i + 2);
+                  }
+                  builder
+              })]),'''
+          open(p, 'w').write(s.replace(old, new))
+          P
+          git diff --stat
+      - name: Compile-fail tests
+        run: cargo run -p ci -- compile-fail
