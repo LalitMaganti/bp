@@ -385,9 +385,6 @@ jobs:
         - IMAGE: ubuntu-rolling:armv7l
           NOXSESSION: tests
           RUNNER: ubuntu-24.04-arm
-        - IMAGE: ubuntu-rolling:ppc64le
-          NOXSESSION: tests
-          RUNNER: ubuntu-24.04-ppc64le
     timeout-minutes: 120
     env:
       RUSTUP_HOME: /root/.rustup
