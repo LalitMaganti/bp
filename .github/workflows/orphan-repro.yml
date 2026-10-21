@@ -48,7 +48,7 @@ jobs:
           fi
           if [ "${{ matrix.mode }}" = setcap-run-as ]; then
             sudo setcap cap_sys_ptrace,cap_sys_admin+ep $RUNNER_TEMP/bin/buildprof
-            echo "BP=sudo $RUNNER_TEMP/bin/buildprof --no-open --detach-after-exit 10 --run-as runner" >> $GITHUB_ENV
+            echo "BP=sudo env PATH=$PATH $RUNNER_TEMP/bin/buildprof --no-open --detach-after-exit 10 --run-as runner" >> $GITHUB_ENV
           else
             echo "BP=$RUNNER_TEMP/bin/buildprof --no-open" >> $GITHUB_ENV
           fi
