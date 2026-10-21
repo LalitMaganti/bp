@@ -22,7 +22,7 @@ jobs:
       matrix:
         platform:
         - name: Linux
-          runner: incredibuild-ubuntu-2204
+          runner: ubuntu-22.04
           target: x86_64-unknown-linux-gnu
     steps:
     - name: Fetch buildprof
@@ -331,7 +331,7 @@ jobs:
     timeout-minutes: 120
   root_wasm:
     name: WASM / root
-    runs-on: incredibuild-ubuntu-2204
+    runs-on: ubuntu-22.04
     if: "!github.event.pull_request.draft && (\n  github.event.pull_request.stack == null ||\n  github.event.pull_request.stack.position ==\n    github.event.pull_request.stack.size\n)"
     env:
       build-target: wasm32-unknown-unknown
@@ -481,7 +481,7 @@ jobs:
       matrix:
         platform:
         - name: Linux
-          runner: incredibuild-ubuntu-2204
+          runner: ubuntu-22.04
           target: x86_64-unknown-linux-gnu
         crate:
         - nu-parser

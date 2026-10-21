@@ -33,7 +33,7 @@ deno denoland/deno 9766cc5e3bc958d11f4fdb98ea841a47d13da8e4 ci.generated.yml pus
 oxc oxc-project/oxc 15e2070a247a24bfe0fd79dda678e5e28e8c280a ci.yml push
 servo servo/servo 7536f434969ff66f9d342197fbb55a6e1fe75177 main.yml push
 jj jj-vcs/jj 7f96d3ebad9049ccf363973ca7e534e595c3c48b ci.yml push
-nushell nushell/nushell f196eaf8a757d005647f582ccc735b0bed7058e5 ci.yml push
 helix helix-editor/helix ba40e547426b0f9896c8bdc699a4ab11f2b37dbc build.yml push
 biome biomejs/biome 50d2a4e483e5bceeb9f1e5c5ce491ae5d59ae666 main.yml push
 duckdb duckdb/duckdb fd355a84131834bbbc0b86a639909adf6f145537 Main.yml push
+nushell nushell/nushell f196eaf8a757d005647f582ccc735b0bed7058e5 ci.yml push
