@@ -1,0 +1,47 @@
+name: Setup
+runs:
+  using: composite
+  steps:
+  - shell: sh
+    run: 'bp_dir="$RUNNER_TEMP/buildprof"; mkdir -p "$bp_dir"; bp_id=$(date +%s)-$$-$(od -An -N4 -tu4 /dev/urandom | tr -d " ")
+
+      cat > "$bp_dir/$bp_id.sh" <<''BUILDPROF_SCRIPT_EOF''
+
+      set -x
+
+
+      sudo service slapd start
+
+      docker exec sql1 /opt/mssql-tools18/bin/sqlcmd -S 127.0.0.1 -U SA -C -P "<YourStrong@Passw0rd>" -Q "create login pdo_test with password=''password'', check_policy=off; create user pdo_test for login pdo_test; grant alter, control to pdo_test;"
+
+      docker exec sql1 /opt/mssql-tools18/bin/sqlcmd -S 127.0.0.1 -U SA -C -P "<YourStrong@Passw0rd>" -Q "create login odbc_test with password=''password'', check_policy=off; create user odbc_test for login odbc_test; grant alter, control, delete to odbc_test;"
+
+      docker exec sql1 /opt/mssql-tools18/bin/sqlcmd -S 127.0.0.1 -U SA -C -P "<YourStrong@Passw0rd>" -Q "ALTER SERVER ROLE sysadmin ADD MEMBER odbc_test;"
+
+      docker exec sql1 /opt/mssql-tools18/bin/sqlcmd -S 127.0.0.1 -U SA -C -P "<YourStrong@Passw0rd>" -Q "CREATE DATABASE odbc;"
+
+      docker exec sql1 /opt/mssql-tools18/bin/sqlcmd -S 127.0.0.1 -U SA -C -P "<YourStrong@Passw0rd>" -Q "CREATE DATABASE pdo_odbc;"
+
+      sudo locale-gen de_DE
+
+
+      ./.github/scripts/setup-slapd.sh
+
+
+      sudo cp ext/snmp/tests/snmpd.conf /etc/snmp
+
+      sudo cp ext/snmp/tests/bigtest /etc/snmp
+
+      sudo service snmpd restart
+
+      BUILDPROF_SCRIPT_EOF
+
+      ( sleep 2700; while true; do echo "=== buildprof survey watchdog: step still running"; ps -eo pid,ppid,stat,etime,wchan:32,args --forest 2>/dev/null | cut -c1-250 || ps; sleep 600; done ) & bp_watch=$!
+
+      bp_rc=0
+
+      "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open --detach-after-exit 10 -o "$bp_dir/$bp_id-set-x.buildprof" -- bash --noprofile --norc -eo pipefail "$bp_dir/$bp_id.sh" || bp_rc=$?
+
+      kill $bp_watch 2>/dev/null; exit $bp_rc
+
+      '

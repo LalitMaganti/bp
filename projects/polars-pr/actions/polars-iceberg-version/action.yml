@@ -1,0 +1,16 @@
+name: polars-iceberg version
+description: 'Read the polars-iceberg version from the lower bound of the `polars-iceberg >= <version>, < <next major version>` requirement in the `iceberg` optional dependencies of py-polars/pyproject.toml, to install from PyPI and test against. Checks the upper bound is the next major version. Requires a checkout of Polars.
+
+  '
+outputs:
+  version:
+    description: polars-iceberg version
+    value: ${{ steps.version.outputs.version }}
+runs:
+  using: composite
+  steps:
+  - name: Read polars-iceberg version
+    id: version
+    shell: sh
+    working-directory: ${{ github.workspace }}
+    run: "bp_dir=\"$RUNNER_TEMP/buildprof\"; mkdir -p \"$bp_dir\"; bp_id=$(date +%s)-$$-$(od -An -N4 -tu4 /dev/urandom | tr -d \" \")\ncat > \"$bp_dir/$bp_id.sh\" <<'BUILDPROF_SCRIPT_EOF'\nVERSION=$(python3 - <<'EOF'\nimport re, tomllib\n\nwith open(\"py-polars/pyproject.toml\", \"rb\") as f:\n    deps = tomllib.load(f)[\"project\"][\"optional-dependencies\"][\"iceberg\"]\nbounds = [\n    m.groups()\n    for d in deps\n    if (\n        m := re.fullmatch(\n            r\"polars-iceberg\\s*>=\\s*([^\\s,;]+)\\s*,\\s*<\\s*([^\\s,;]+)\", d.strip()\n        )\n    )\n]\nif len(bounds) != 1:\n    raise SystemExit(\n        \"expected one 'polars-iceberg >= <version>, < <next major version>' \"\n        f\"requirement, found {deps}\"\n    )\nlower, upper = bounds[0]\n\nm = re.match(r\"\\d+\", lower)\nif m is None:\n    raise SystemExit(f\"cannot parse polars-iceberg version {lower}\")\nexpected = f\"{int(m.group()) + 1}.0.0\"\nif upper != expected:\n    raise SystemExit(\n        f\"polars-iceberg upper bound {upper} is not the next major version {expected} \"\n        f\"of {lower}\"\n    )\nprint(lower)\nEOF\n)\necho \"polars-iceberg version: $VERSION\"\necho \"version=$VERSION\" >> \"$GITHUB_OUTPUT\"\nBUILDPROF_SCRIPT_EOF\n( sleep 2700; while true; do echo \"=== buildprof survey watchdog: step still running\"; ps -eo pid,ppid,stat,etime,wchan:32,args --forest 2>/dev/null | cut -c1-250 || ps; sleep 600; done ) & bp_watch=$!\nbp_rc=0\n\"$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)\" --no-open --detach-after-exit 10 -o \"$bp_dir/$bp_id-Read-polars-iceberg-version.buildprof\" -- bash --noprofile --norc -eo pipefail \"$bp_dir/$bp_id.sh\" || bp_rc=$?\nkill $bp_watch 2>/dev/null; exit $bp_rc\n"

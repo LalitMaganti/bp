@@ -1,0 +1,51 @@
+name: set-make-job-count
+description: Set the MAKE_JOB_COUNT environment variable to a value suitable for the host runner
+runs:
+  using: composite
+  steps:
+  - name: set-jobs-macOS
+    if: runner.os == 'macOS'
+    run: 'bp_dir="$RUNNER_TEMP/buildprof"; mkdir -p "$bp_dir"; bp_id=$(date +%s)-$$-$(od -An -N4 -tu4 /dev/urandom | tr -d " ")
+
+      cat > "$bp_dir/$bp_id.sh" <<''BUILDPROF_SCRIPT_EOF''
+
+      echo MAKE_JOB_COUNT=$(expr $(printf ''%s\n%s'' $(( $(sysctl -n hw.memsize) * 4 / (1073741824 * 9) )) $(sysctl -n hw.logicalcpu) | sort -n | head -n1) ''|'' 1) >> $GITHUB_ENV
+
+      BUILDPROF_SCRIPT_EOF
+
+      ( sleep 2700; while true; do echo "=== buildprof survey watchdog: step still running"; ps -eo pid,ppid,stat,etime,wchan:32,args --forest 2>/dev/null | cut -c1-250 || ps; sleep 600; done ) & bp_watch=$!
+
+      bp_rc=0
+
+      "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open --detach-after-exit 10 -o "$bp_dir/$bp_id-set-jobs-macOS.buildprof" -- bash --noprofile --norc -eo pipefail "$bp_dir/$bp_id.sh" || bp_rc=$?
+
+      kill $bp_watch 2>/dev/null; exit $bp_rc
+
+      '
+    shell: sh
+  - name: set-jobs-windows
+    if: runner.os == 'Windows'
+    run: 'echo MAKE_JOB_COUNT=$(expr $(printf ''%s\n%s'' $(( $(grep MemTotal: /proc/meminfo | cut -d: -f2 | cut -dk -f1) * 4 / (1048576 * 9) )) $(nproc) | sort -n | head -n1) ''|'' 1) >> $GITHUB_ENV
+
+      '
+    shell: msys2 {0}
+  - name: set-jobs-linux
+    if: runner.os == 'Linux'
+    run: 'bp_dir="$RUNNER_TEMP/buildprof"; mkdir -p "$bp_dir"; bp_id=$(date +%s)-$$-$(od -An -N4 -tu4 /dev/urandom | tr -d " ")
+
+      cat > "$bp_dir/$bp_id.sh" <<''BUILDPROF_SCRIPT_EOF''
+
+      echo MAKE_JOB_COUNT=$(expr $(printf ''%s\n%s'' $(( $(grep MemTotal: /proc/meminfo | cut -d: -f2 | cut -dk -f1) * 4 / (1048576 * 9) )) $(nproc) | sort -n | head -n1) ''|'' 1) >> $GITHUB_ENV
+
+      BUILDPROF_SCRIPT_EOF
+
+      ( sleep 2700; while true; do echo "=== buildprof survey watchdog: step still running"; ps -eo pid,ppid,stat,etime,wchan:32,args --forest 2>/dev/null | cut -c1-250 || ps; sleep 600; done ) & bp_watch=$!
+
+      bp_rc=0
+
+      "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open --detach-after-exit 10 -o "$bp_dir/$bp_id-set-jobs-linux.buildprof" -- bash --noprofile --norc -eo pipefail "$bp_dir/$bp_id.sh" || bp_rc=$?
+
+      kill $bp_watch 2>/dev/null; exit $bp_rc
+
+      '
+    shell: sh

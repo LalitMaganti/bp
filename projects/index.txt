@@ -1,10 +1,16 @@
-bevy bevyengine/bevy 2614884437512e310eeb196241828162b6507533 ci.yml
-git git/git 47fdf2208c5b94c8cc01c106b8f7c85efb91c926 main.yml
-monero monero-project/monero 8340be5e920d881edc006e0896d6074cd06dfb2e build.yml
-neovim neovim/neovim 1944cb3201a5e729dbc4b0d614dfd355fd01620f test.yml
-openssl-arm openssl/openssl 152ac8b6cadd2cb611154f90228466cf2b4c143d aarch64-more-cross-compiles.yml
-openssl-riscv openssl/openssl 152ac8b6cadd2cb611154f90228466cf2b4c143d riscv-more-cross-compiles.yml
-php-src php/php-src b9ea38ef639f5b9bbb67d27834be9c52b922520b test.yml
-polars pola-rs/polars 04e0a7e625288e41dadf837992553b02d30380db test-python.yml
-ruff astral-sh/ruff 84e3f4f79016e95ccff09c318605cba3551a11d8 ci.yaml
-uv astral-sh/uv 5477928f71f0634db593a8a10a8012044fe02349 ci.yml
+bevy bevyengine/bevy 2614884437512e310eeb196241828162b6507533 ci.yml push
+bevy-pr bevyengine/bevy 2614884437512e310eeb196241828162b6507533 ci.yml pr
+monero monero-project/monero 8340be5e920d881edc006e0896d6074cd06dfb2e build.yml push
+monero-pr monero-project/monero 8340be5e920d881edc006e0896d6074cd06dfb2e build.yml pr
+neovim neovim/neovim 1944cb3201a5e729dbc4b0d614dfd355fd01620f test.yml push
+neovim-pr neovim/neovim 1944cb3201a5e729dbc4b0d614dfd355fd01620f test.yml pr
+php-src php/php-src b9ea38ef639f5b9bbb67d27834be9c52b922520b test.yml push
+php-src-pr php/php-src b9ea38ef639f5b9bbb67d27834be9c52b922520b test.yml pr
+polars pola-rs/polars 04e0a7e625288e41dadf837992553b02d30380db test-python.yml push
+polars-pr pola-rs/polars 04e0a7e625288e41dadf837992553b02d30380db test-python.yml pr
+ruff astral-sh/ruff 7111ca7f50ef650663ef78e68a0aeff3698d1dd4 ci.yaml push
+ruff-pr astral-sh/ruff 7111ca7f50ef650663ef78e68a0aeff3698d1dd4 ci.yaml pr
+uv astral-sh/uv 5477928f71f0634db593a8a10a8012044fe02349 ci.yml push
+uv-pr astral-sh/uv 5477928f71f0634db593a8a10a8012044fe02349 ci.yml pr
+git git/git 47fdf2208c5b94c8cc01c106b8f7c85efb91c926 main.yml push
+git-pr git/git 47fdf2208c5b94c8cc01c106b8f7c85efb91c926 main.yml pr

@@ -1,0 +1,109 @@
+name: 'uv-pr: test-ecosystem.yml'
+'on':
+  workflow_call:
+    inputs:
+      sha:
+        required: true
+        type: string
+permissions:
+  contents: read
+env:
+  UV_LOCKED: 1
+jobs:
+  ecosystem-test:
+    name: ${{ matrix.repo }}
+    timeout-minutes: 120
+    runs-on: ${{ 'astral-sh' == 'astral-sh' && 'ubuntu-24.04' || 'ubuntu-latest' }}
+    strategy:
+      matrix:
+        include:
+        - repo: prefecthq/prefect
+          ref: 7f25bbdf45fc81cca6dc23fb6a7377d436b70c83
+          commands:
+          - uv venv
+          - uv pip install -e '.[dev]'
+          python: '3.9'
+        - repo: pallets/flask
+          ref: b78b5a210bde49e7e04b62a2a4f453ca10e0048c
+          commands:
+          - uv venv
+          - uv pip install -r requirements/dev.txt
+          python: '3.12'
+        - repo: pydantic/pydantic-core
+          ref: d03bf4a01ca3b378cc8590bd481f307e82115bc6
+          commands:
+          - uv sync --group all
+          - uv lock --upgrade
+          python: '3.12'
+      fail-fast: false
+    steps:
+    - name: Fetch buildprof
+      uses: actions/checkout@v4
+      with:
+        repository: LalitMaganti/bp
+        path: .buildprof-fetch
+        sparse-checkout: '.buildprof
+
+          projects/uv-pr'
+        persist-credentials: false
+    - name: Install buildprof
+      shell: sh
+      working-directory: ${{ github.workspace }}
+      run: 'mkdir -p "$RUNNER_TEMP/buildprof-bin" "$RUNNER_TEMP/buildprof-actions"
+
+        cp .buildprof-fetch/.buildprof/buildprof-* "$RUNNER_TEMP/buildprof-bin/" && chmod +x "$RUNNER_TEMP/buildprof-bin/"*
+
+        if [ "$(id -u)" != 0 ] && sudo -n true 2>/dev/null; then sudo setcap cap_sys_ptrace,cap_sys_admin+ep "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)"; fi
+
+        if [ -d .buildprof-fetch/projects/uv-pr/actions ]; then cp -r .buildprof-fetch/projects/uv-pr/actions/. "$RUNNER_TEMP/buildprof-actions/"; fi
+
+        rm -rf .buildprof-fetch
+
+        '
+    - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      with:
+        repository: ${{ matrix.repo }}
+        ref: ${{ matrix.ref }}
+        persist-credentials: false
+    - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97
+      with:
+        python-version: ${{ matrix.python }}
+    - name: Download binary
+      uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
+      with:
+        name: uv-linux-libc-${{ inputs.sha }}
+    - name: Prepare binary
+      run: 'bp_dir="$RUNNER_TEMP/buildprof"; mkdir -p "$bp_dir"; bp_id=$(date +%s)-$$-$(od -An -N4 -tu4 /dev/urandom | tr -d " ")
+
+        cat > "$bp_dir/$bp_id.sh" <<''BUILDPROF_SCRIPT_EOF''
+
+        chmod +x ./uv
+
+        BUILDPROF_SCRIPT_EOF
+
+        ( sleep 2700; while true; do echo "=== buildprof survey watchdog: step still running"; ps -eo pid,ppid,stat,etime,wchan:32,args --forest 2>/dev/null | cut -c1-250 || ps; sleep 600; done ) & bp_watch=$!
+
+        bp_rc=0
+
+        "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open --detach-after-exit 10 -o "$bp_dir/$bp_id-Prepare-binary.buildprof" -- $(command -v bash >/dev/null && echo "bash --noprofile --norc -eo pipefail" || echo "sh -e") "$bp_dir/$bp_id.sh" || bp_rc=$?
+
+        kill $bp_watch 2>/dev/null; exit $bp_rc
+
+        '
+      shell: sh
+    - name: Test
+      env:
+        UV_LOCKED: 0
+      run: "bp_dir=\"$RUNNER_TEMP/buildprof\"; mkdir -p \"$bp_dir\"; bp_id=$(date +%s)-$$-$(od -An -N4 -tu4 /dev/urandom | tr -d \" \")\ncat > \"$bp_dir/$bp_id.sh\" <<'BUILDPROF_SCRIPT_EOF'\necho '${{ toJSON(matrix.commands) }}' | jq -r '.[]' | while read cmd; do\n  echo \"+ $cmd\" >&2\n  if [[ $cmd == uv* ]]; then\n    ./$cmd\n  else\n    $cmd\n  fi\ndone\nBUILDPROF_SCRIPT_EOF\n( sleep 2700; while true; do echo \"=== buildprof survey watchdog: step still running\"; ps -eo pid,ppid,stat,etime,wchan:32,args --forest 2>/dev/null | cut -c1-250 || ps; sleep 600; done ) & bp_watch=$!\nbp_rc=0\n\"$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)\" --no-open --detach-after-exit 10 -o \"$bp_dir/$bp_id-Test.buildprof\" -- $(command -v bash >/dev/null && echo \"bash --noprofile --norc -eo pipefail\" || echo \"sh -e\") \"$bp_dir/$bp_id.sh\" || bp_rc=$?\nkill $bp_watch 2>/dev/null; exit $bp_rc\n"
+      shell: sh
+    - name: Upload buildprof recordings
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: uv-pr--test-ecosystem-ecosystem-test-${{ strategy.job-index }}
+        path: ${{ runner.temp }}/buildprof/*.buildprof
+        retention-days: 30
+        if-no-files-found: ignore
+        compression-level: 0
+    permissions:
+      contents: read

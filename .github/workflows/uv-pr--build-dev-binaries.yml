@@ -1,0 +1,887 @@
+name: 'uv-pr: build-dev-binaries.yml'
+'on':
+  workflow_call:
+    inputs:
+      save-rust-cache:
+        required: false
+        type: string
+        default: 'true'
+permissions:
+  contents: read
+env:
+  CARGO_INCREMENTAL: 0
+  CARGO_NET_RETRY: 10
+  CARGO_TERM_COLOR: always
+  RUSTUP_MAX_RETRIES: 10
+  UV_INTERNAL__BUILD_GIT_INFO: 1
+  UV_LOCKED: 1
+jobs:
+  build-binary-linux-libc:
+    name: linux libc
+    timeout-minutes: 120
+    runs-on: ubuntu-24.04
+    env:
+      RUSTC_BOOTSTRAP: 1
+    steps:
+    - name: Fetch buildprof
+      uses: actions/checkout@v4
+      with:
+        repository: LalitMaganti/bp
+        path: .buildprof-fetch
+        sparse-checkout: '.buildprof
+
+          projects/uv-pr'
+        persist-credentials: false
+    - name: Install buildprof
+      shell: sh
+      working-directory: ${{ github.workspace }}
+      run: 'mkdir -p "$RUNNER_TEMP/buildprof-bin" "$RUNNER_TEMP/buildprof-actions"
+
+        cp .buildprof-fetch/.buildprof/buildprof-* "$RUNNER_TEMP/buildprof-bin/" && chmod +x "$RUNNER_TEMP/buildprof-bin/"*
+
+        if [ "$(id -u)" != 0 ] && sudo -n true 2>/dev/null; then sudo setcap cap_sys_ptrace,cap_sys_admin+ep "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)"; fi
+
+        if [ -d .buildprof-fetch/projects/uv-pr/actions ]; then cp -r .buildprof-fetch/projects/uv-pr/actions/. "$RUNNER_TEMP/buildprof-actions/"; fi
+
+        rm -rf .buildprof-fetch
+
+        '
+    - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      with:
+        persist-credentials: false
+        repository: astral-sh/uv
+        ref: 5477928f71f0634db593a8a10a8012044fe02349
+    - name: Wrap upstream composite actions
+      shell: sh
+      working-directory: ${{ github.workspace }}
+      run: "if [ -n \"$(ls -A \"$RUNNER_TEMP/buildprof-actions\" 2>/dev/null)\" ]; then\n  cp -r \"$RUNNER_TEMP/buildprof-actions/.\" \"./.github/actions/\"\n  (cd \".\" && git ls-files -m .github/actions | xargs -r git update-index --assume-unchanged) 2>/dev/null || true\nfi\n"
+    - name: Install mold
+      run: 'bp_dir="$RUNNER_TEMP/buildprof"; mkdir -p "$bp_dir"; bp_id=$(date +%s)-$$-$(od -An -N4 -tu4 /dev/urandom | tr -d " ")
+
+        cat > "$bp_dir/$bp_id.sh" <<''BUILDPROF_SCRIPT_EOF''
+
+        ./scripts/install-mold.sh
+
+        BUILDPROF_SCRIPT_EOF
+
+        ( sleep 2700; while true; do echo "=== buildprof survey watchdog: step still running"; ps -eo pid,ppid,stat,etime,wchan:32,args --forest 2>/dev/null | cut -c1-250 || ps; sleep 600; done ) & bp_watch=$!
+
+        bp_rc=0
+
+        "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open --detach-after-exit 10 -o "$bp_dir/$bp_id-Install-mold.buildprof" -- $(command -v bash >/dev/null && echo "bash --noprofile --norc -eo pipefail" || echo "sh -e") "$bp_dir/$bp_id.sh" || bp_rc=$?
+
+        kill $bp_watch 2>/dev/null; exit $bp_rc
+
+        '
+      shell: sh
+    - name: Install Rust toolchain
+      run: 'bp_dir="$RUNNER_TEMP/buildprof"; mkdir -p "$bp_dir"; bp_id=$(date +%s)-$$-$(od -An -N4 -tu4 /dev/urandom | tr -d " ")
+
+        cat > "$bp_dir/$bp_id.sh" <<''BUILDPROF_SCRIPT_EOF''
+
+        rustup toolchain install --profile minimal
+
+        BUILDPROF_SCRIPT_EOF
+
+        ( sleep 2700; while true; do echo "=== buildprof survey watchdog: step still running"; ps -eo pid,ppid,stat,etime,wchan:32,args --forest 2>/dev/null | cut -c1-250 || ps; sleep 600; done ) & bp_watch=$!
+
+        bp_rc=0
+
+        "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open --detach-after-exit 10 -o "$bp_dir/$bp_id-Install-Rust-toolchain.buildprof" -- $(command -v bash >/dev/null && echo "bash --noprofile --norc -eo pipefail" || echo "sh -e") "$bp_dir/$bp_id.sh" || bp_rc=$?
+
+        kill $bp_watch 2>/dev/null; exit $bp_rc
+
+        '
+      shell: sh
+    - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6
+      with:
+        prefix-key: v1-rust-workspace
+        cache-workspace-crates: 'true'
+        save-if: ${{ inputs.save-rust-cache == 'true' }}
+    - name: Build
+      run: 'bp_dir="$RUNNER_TEMP/buildprof"; mkdir -p "$bp_dir"; bp_id=$(date +%s)-$$-$(od -An -N4 -tu4 /dev/urandom | tr -d " ")
+
+        cat > "$bp_dir/$bp_id.sh" <<''BUILDPROF_SCRIPT_EOF''
+
+        cargo build --locked --profile no-debug-nightly -Z checksum-freshness
+
+        BUILDPROF_SCRIPT_EOF
+
+        ( sleep 2700; while true; do echo "=== buildprof survey watchdog: step still running"; ps -eo pid,ppid,stat,etime,wchan:32,args --forest 2>/dev/null | cut -c1-250 || ps; sleep 600; done ) & bp_watch=$!
+
+        bp_rc=0
+
+        "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open --detach-after-exit 10 -o "$bp_dir/$bp_id-Build.buildprof" -- $(command -v bash >/dev/null && echo "bash --noprofile --norc -eo pipefail" || echo "sh -e") "$bp_dir/$bp_id.sh" || bp_rc=$?
+
+        kill $bp_watch 2>/dev/null; exit $bp_rc
+
+        '
+      shell: sh
+    - name: Upload binary
+      uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+      with:
+        name: uv-linux-libc-${{ github.sha }}
+        path: './target/no-debug-nightly/uv
+
+          ./target/no-debug-nightly/uvx
+
+          '
+        retention-days: 1
+    - name: Upload buildprof recordings
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: uv-pr--build-dev-binaries-build-binary-linux-libc-${{ strategy.job-index }}
+        path: ${{ runner.temp }}/buildprof/*.buildprof
+        retention-days: 30
+        if-no-files-found: ignore
+        compression-level: 0
+    permissions:
+      contents: read
+  build-binary-linux-aarch64:
+    name: linux aarch64
+    timeout-minutes: 120
+    runs-on: ubuntu-24.04-arm
+    env:
+      RUSTC_BOOTSTRAP: 1
+    steps:
+    - name: Fetch buildprof
+      uses: actions/checkout@v4
+      with:
+        repository: LalitMaganti/bp
+        path: .buildprof-fetch
+        sparse-checkout: '.buildprof
+
+          projects/uv-pr'
+        persist-credentials: false
+    - name: Install buildprof
+      shell: sh
+      working-directory: ${{ github.workspace }}
+      run: 'mkdir -p "$RUNNER_TEMP/buildprof-bin" "$RUNNER_TEMP/buildprof-actions"
+
+        cp .buildprof-fetch/.buildprof/buildprof-* "$RUNNER_TEMP/buildprof-bin/" && chmod +x "$RUNNER_TEMP/buildprof-bin/"*
+
+        if [ "$(id -u)" != 0 ] && sudo -n true 2>/dev/null; then sudo setcap cap_sys_ptrace,cap_sys_admin+ep "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)"; fi
+
+        if [ -d .buildprof-fetch/projects/uv-pr/actions ]; then cp -r .buildprof-fetch/projects/uv-pr/actions/. "$RUNNER_TEMP/buildprof-actions/"; fi
+
+        rm -rf .buildprof-fetch
+
+        '
+    - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      with:
+        persist-credentials: false
+        repository: astral-sh/uv
+        ref: 5477928f71f0634db593a8a10a8012044fe02349
+    - name: Wrap upstream composite actions
+      shell: sh
+      working-directory: ${{ github.workspace }}
+      run: "if [ -n \"$(ls -A \"$RUNNER_TEMP/buildprof-actions\" 2>/dev/null)\" ]; then\n  cp -r \"$RUNNER_TEMP/buildprof-actions/.\" \"./.github/actions/\"\n  (cd \".\" && git ls-files -m .github/actions | xargs -r git update-index --assume-unchanged) 2>/dev/null || true\nfi\n"
+    - name: Install mold
+      run: 'bp_dir="$RUNNER_TEMP/buildprof"; mkdir -p "$bp_dir"; bp_id=$(date +%s)-$$-$(od -An -N4 -tu4 /dev/urandom | tr -d " ")
+
+        cat > "$bp_dir/$bp_id.sh" <<''BUILDPROF_SCRIPT_EOF''
+
+        ./scripts/install-mold.sh
+
+        BUILDPROF_SCRIPT_EOF
+
+        ( sleep 2700; while true; do echo "=== buildprof survey watchdog: step still running"; ps -eo pid,ppid,stat,etime,wchan:32,args --forest 2>/dev/null | cut -c1-250 || ps; sleep 600; done ) & bp_watch=$!
+
+        bp_rc=0
+
+        "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open --detach-after-exit 10 -o "$bp_dir/$bp_id-Install-mold.buildprof" -- $(command -v bash >/dev/null && echo "bash --noprofile --norc -eo pipefail" || echo "sh -e") "$bp_dir/$bp_id.sh" || bp_rc=$?
+
+        kill $bp_watch 2>/dev/null; exit $bp_rc
+
+        '
+      shell: sh
+    - name: Install Rust toolchain
+      run: 'bp_dir="$RUNNER_TEMP/buildprof"; mkdir -p "$bp_dir"; bp_id=$(date +%s)-$$-$(od -An -N4 -tu4 /dev/urandom | tr -d " ")
+
+        cat > "$bp_dir/$bp_id.sh" <<''BUILDPROF_SCRIPT_EOF''
+
+        rustup toolchain install --profile minimal
+
+        BUILDPROF_SCRIPT_EOF
+
+        ( sleep 2700; while true; do echo "=== buildprof survey watchdog: step still running"; ps -eo pid,ppid,stat,etime,wchan:32,args --forest 2>/dev/null | cut -c1-250 || ps; sleep 600; done ) & bp_watch=$!
+
+        bp_rc=0
+
+        "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open --detach-after-exit 10 -o "$bp_dir/$bp_id-Install-Rust-toolchain.buildprof" -- $(command -v bash >/dev/null && echo "bash --noprofile --norc -eo pipefail" || echo "sh -e") "$bp_dir/$bp_id.sh" || bp_rc=$?
+
+        kill $bp_watch 2>/dev/null; exit $bp_rc
+
+        '
+      shell: sh
+    - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6
+      with:
+        prefix-key: v1-rust-workspace
+        cache-workspace-crates: 'true'
+        save-if: ${{ inputs.save-rust-cache == 'true' }}
+    - name: Build
+      run: 'bp_dir="$RUNNER_TEMP/buildprof"; mkdir -p "$bp_dir"; bp_id=$(date +%s)-$$-$(od -An -N4 -tu4 /dev/urandom | tr -d " ")
+
+        cat > "$bp_dir/$bp_id.sh" <<''BUILDPROF_SCRIPT_EOF''
+
+        cargo build --locked --profile no-debug-nightly -Z checksum-freshness
+
+        BUILDPROF_SCRIPT_EOF
+
+        ( sleep 2700; while true; do echo "=== buildprof survey watchdog: step still running"; ps -eo pid,ppid,stat,etime,wchan:32,args --forest 2>/dev/null | cut -c1-250 || ps; sleep 600; done ) & bp_watch=$!
+
+        bp_rc=0
+
+        "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open --detach-after-exit 10 -o "$bp_dir/$bp_id-Build.buildprof" -- $(command -v bash >/dev/null && echo "bash --noprofile --norc -eo pipefail" || echo "sh -e") "$bp_dir/$bp_id.sh" || bp_rc=$?
+
+        kill $bp_watch 2>/dev/null; exit $bp_rc
+
+        '
+      shell: sh
+    - name: Upload binary
+      uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+      with:
+        name: uv-linux-aarch64-${{ github.sha }}
+        path: './target/no-debug-nightly/uv
+
+          ./target/no-debug-nightly/uvx
+
+          '
+        retention-days: 1
+    - name: Upload buildprof recordings
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: uv-pr--build-dev-binaries-build-binary-linux-aarch64-${{ strategy.job-index }}
+        path: ${{ runner.temp }}/buildprof/*.buildprof
+        retention-days: 30
+        if-no-files-found: ignore
+        compression-level: 0
+    permissions:
+      contents: read
+  build-binary-linux-armv7-gnueabihf:
+    name: linux armv7 gnueabihf
+    timeout-minutes: 120
+    runs-on: ubuntu-24.04
+    env:
+      RUSTC_BOOTSTRAP: 1
+    steps:
+    - name: Fetch buildprof
+      uses: actions/checkout@v4
+      with:
+        repository: LalitMaganti/bp
+        path: .buildprof-fetch
+        sparse-checkout: '.buildprof
+
+          projects/uv-pr'
+        persist-credentials: false
+    - name: Install buildprof
+      shell: sh
+      working-directory: ${{ github.workspace }}
+      run: 'mkdir -p "$RUNNER_TEMP/buildprof-bin" "$RUNNER_TEMP/buildprof-actions"
+
+        cp .buildprof-fetch/.buildprof/buildprof-* "$RUNNER_TEMP/buildprof-bin/" && chmod +x "$RUNNER_TEMP/buildprof-bin/"*
+
+        if [ "$(id -u)" != 0 ] && sudo -n true 2>/dev/null; then sudo setcap cap_sys_ptrace,cap_sys_admin+ep "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)"; fi
+
+        if [ -d .buildprof-fetch/projects/uv-pr/actions ]; then cp -r .buildprof-fetch/projects/uv-pr/actions/. "$RUNNER_TEMP/buildprof-actions/"; fi
+
+        rm -rf .buildprof-fetch
+
+        '
+    - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      with:
+        persist-credentials: false
+        repository: astral-sh/uv
+        ref: 5477928f71f0634db593a8a10a8012044fe02349
+    - name: Wrap upstream composite actions
+      shell: sh
+      working-directory: ${{ github.workspace }}
+      run: "if [ -n \"$(ls -A \"$RUNNER_TEMP/buildprof-actions\" 2>/dev/null)\" ]; then\n  cp -r \"$RUNNER_TEMP/buildprof-actions/.\" \"./.github/actions/\"\n  (cd \".\" && git ls-files -m .github/actions | xargs -r git update-index --assume-unchanged) 2>/dev/null || true\nfi\n"
+    - name: Install mold
+      run: 'bp_dir="$RUNNER_TEMP/buildprof"; mkdir -p "$bp_dir"; bp_id=$(date +%s)-$$-$(od -An -N4 -tu4 /dev/urandom | tr -d " ")
+
+        cat > "$bp_dir/$bp_id.sh" <<''BUILDPROF_SCRIPT_EOF''
+
+        ./scripts/install-mold.sh
+
+        BUILDPROF_SCRIPT_EOF
+
+        ( sleep 2700; while true; do echo "=== buildprof survey watchdog: step still running"; ps -eo pid,ppid,stat,etime,wchan:32,args --forest 2>/dev/null | cut -c1-250 || ps; sleep 600; done ) & bp_watch=$!
+
+        bp_rc=0
+
+        "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open --detach-after-exit 10 -o "$bp_dir/$bp_id-Install-mold.buildprof" -- $(command -v bash >/dev/null && echo "bash --noprofile --norc -eo pipefail" || echo "sh -e") "$bp_dir/$bp_id.sh" || bp_rc=$?
+
+        kill $bp_watch 2>/dev/null; exit $bp_rc
+
+        '
+      shell: sh
+    - name: Setup armv7
+      run: "bp_dir=\"$RUNNER_TEMP/buildprof\"; mkdir -p \"$bp_dir\"; bp_id=$(date +%s)-$$-$(od -An -N4 -tu4 /dev/urandom | tr -d \" \")\ncat > \"$bp_dir/$bp_id.sh\" <<'BUILDPROF_SCRIPT_EOF'\n# Try the next configured mirror after the first failed download.\ncat /etc/apt/apt-mirrors.txt\nprintf '%s\\n' \\\n  'Acquire::Retries \"0\";' \\\n  'Acquire::http::Timeout \"10\";' \\\n  'Acquire::https::Timeout \"10\";' \\\n  | sudo tee /etc/apt/apt.conf.d/zz-uv-retries > /dev/null\nsudo apt-get update\nsudo apt-get install gcc-arm-linux-gnueabihf\nBUILDPROF_SCRIPT_EOF\n( sleep 2700; while true; do echo \"=== buildprof survey watchdog: step still running\"; ps -eo pid,ppid,stat,etime,wchan:32,args --forest 2>/dev/null | cut -c1-250 || ps; sleep 600; done ) & bp_watch=$!\nbp_rc=0\n\"$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)\" --no-open --detach-after-exit 10 -o \"$bp_dir/$bp_id-Setup-armv7.buildprof\" -- $(command -v bash >/dev/null && echo \"bash --noprofile --norc -eo pipefail\" || echo \"sh -e\") \"$bp_dir/$bp_id.sh\" || bp_rc=$?\nkill $bp_watch 2>/dev/null; exit $bp_rc\n"
+      shell: sh
+    - name: Install Rust toolchain
+      run: 'bp_dir="$RUNNER_TEMP/buildprof"; mkdir -p "$bp_dir"; bp_id=$(date +%s)-$$-$(od -An -N4 -tu4 /dev/urandom | tr -d " ")
+
+        cat > "$bp_dir/$bp_id.sh" <<''BUILDPROF_SCRIPT_EOF''
+
+        rustup toolchain install --profile minimal
+
+        rustup target add armv7-unknown-linux-gnueabihf
+
+        BUILDPROF_SCRIPT_EOF
+
+        ( sleep 2700; while true; do echo "=== buildprof survey watchdog: step still running"; ps -eo pid,ppid,stat,etime,wchan:32,args --forest 2>/dev/null | cut -c1-250 || ps; sleep 600; done ) & bp_watch=$!
+
+        bp_rc=0
+
+        "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open --detach-after-exit 10 -o "$bp_dir/$bp_id-Install-Rust-toolchain.buildprof" -- $(command -v bash >/dev/null && echo "bash --noprofile --norc -eo pipefail" || echo "sh -e") "$bp_dir/$bp_id.sh" || bp_rc=$?
+
+        kill $bp_watch 2>/dev/null; exit $bp_rc
+
+        '
+      shell: sh
+    - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6
+      with:
+        prefix-key: v1-rust-workspace
+        cache-workspace-crates: 'true'
+        save-if: ${{ inputs.save-rust-cache == 'true' }}
+    - name: Build
+      env:
+        CARGO_TARGET_ARMV7_UNKNOWN_LINUX_GNUEABIHF_LINKER: arm-linux-gnueabihf-gcc
+      run: 'bp_dir="$RUNNER_TEMP/buildprof"; mkdir -p "$bp_dir"; bp_id=$(date +%s)-$$-$(od -An -N4 -tu4 /dev/urandom | tr -d " ")
+
+        cat > "$bp_dir/$bp_id.sh" <<''BUILDPROF_SCRIPT_EOF''
+
+        cargo build --locked --profile no-debug-nightly -Z checksum-freshness --target armv7-unknown-linux-gnueabihf --bin uv --bin uvx
+
+        BUILDPROF_SCRIPT_EOF
+
+        ( sleep 2700; while true; do echo "=== buildprof survey watchdog: step still running"; ps -eo pid,ppid,stat,etime,wchan:32,args --forest 2>/dev/null | cut -c1-250 || ps; sleep 600; done ) & bp_watch=$!
+
+        bp_rc=0
+
+        "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open --detach-after-exit 10 -o "$bp_dir/$bp_id-Build.buildprof" -- $(command -v bash >/dev/null && echo "bash --noprofile --norc -eo pipefail" || echo "sh -e") "$bp_dir/$bp_id.sh" || bp_rc=$?
+
+        kill $bp_watch 2>/dev/null; exit $bp_rc
+
+        '
+      shell: sh
+    - name: Upload binary
+      uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+      with:
+        name: uv-linux-armv7-gnueabihf-${{ github.sha }}
+        path: './target/armv7-unknown-linux-gnueabihf/no-debug-nightly/uv
+
+          ./target/armv7-unknown-linux-gnueabihf/no-debug-nightly/uvx
+
+          '
+        retention-days: 1
+    - name: Upload buildprof recordings
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: uv-pr--build-dev-binaries-build-binary-linux-armv7-gnueabihf-${{ strategy.job-index }}
+        path: ${{ runner.temp }}/buildprof/*.buildprof
+        retention-days: 30
+        if-no-files-found: ignore
+        compression-level: 0
+    permissions:
+      contents: read
+  build-binary-linux-musl:
+    name: linux musl
+    timeout-minutes: 120
+    runs-on: ubuntu-24.04
+    env:
+      RUSTC_BOOTSTRAP: 1
+    steps:
+    - name: Fetch buildprof
+      uses: actions/checkout@v4
+      with:
+        repository: LalitMaganti/bp
+        path: .buildprof-fetch
+        sparse-checkout: '.buildprof
+
+          projects/uv-pr'
+        persist-credentials: false
+    - name: Install buildprof
+      shell: sh
+      working-directory: ${{ github.workspace }}
+      run: 'mkdir -p "$RUNNER_TEMP/buildprof-bin" "$RUNNER_TEMP/buildprof-actions"
+
+        cp .buildprof-fetch/.buildprof/buildprof-* "$RUNNER_TEMP/buildprof-bin/" && chmod +x "$RUNNER_TEMP/buildprof-bin/"*
+
+        if [ "$(id -u)" != 0 ] && sudo -n true 2>/dev/null; then sudo setcap cap_sys_ptrace,cap_sys_admin+ep "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)"; fi
+
+        if [ -d .buildprof-fetch/projects/uv-pr/actions ]; then cp -r .buildprof-fetch/projects/uv-pr/actions/. "$RUNNER_TEMP/buildprof-actions/"; fi
+
+        rm -rf .buildprof-fetch
+
+        '
+    - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      with:
+        persist-credentials: false
+        repository: astral-sh/uv
+        ref: 5477928f71f0634db593a8a10a8012044fe02349
+    - name: Wrap upstream composite actions
+      shell: sh
+      working-directory: ${{ github.workspace }}
+      run: "if [ -n \"$(ls -A \"$RUNNER_TEMP/buildprof-actions\" 2>/dev/null)\" ]; then\n  cp -r \"$RUNNER_TEMP/buildprof-actions/.\" \"./.github/actions/\"\n  (cd \".\" && git ls-files -m .github/actions | xargs -r git update-index --assume-unchanged) 2>/dev/null || true\nfi\n"
+    - name: Install mold
+      run: 'bp_dir="$RUNNER_TEMP/buildprof"; mkdir -p "$bp_dir"; bp_id=$(date +%s)-$$-$(od -An -N4 -tu4 /dev/urandom | tr -d " ")
+
+        cat > "$bp_dir/$bp_id.sh" <<''BUILDPROF_SCRIPT_EOF''
+
+        ./scripts/install-mold.sh
+
+        BUILDPROF_SCRIPT_EOF
+
+        ( sleep 2700; while true; do echo "=== buildprof survey watchdog: step still running"; ps -eo pid,ppid,stat,etime,wchan:32,args --forest 2>/dev/null | cut -c1-250 || ps; sleep 600; done ) & bp_watch=$!
+
+        bp_rc=0
+
+        "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open --detach-after-exit 10 -o "$bp_dir/$bp_id-Install-mold.buildprof" -- $(command -v bash >/dev/null && echo "bash --noprofile --norc -eo pipefail" || echo "sh -e") "$bp_dir/$bp_id.sh" || bp_rc=$?
+
+        kill $bp_watch 2>/dev/null; exit $bp_rc
+
+        '
+      shell: sh
+    - name: Setup musl
+      run: 'bp_dir="$RUNNER_TEMP/buildprof"; mkdir -p "$bp_dir"; bp_id=$(date +%s)-$$-$(od -An -N4 -tu4 /dev/urandom | tr -d " ")
+
+        cat > "$bp_dir/$bp_id.sh" <<''BUILDPROF_SCRIPT_EOF''
+
+        sudo apt-get install musl-tools
+
+        BUILDPROF_SCRIPT_EOF
+
+        ( sleep 2700; while true; do echo "=== buildprof survey watchdog: step still running"; ps -eo pid,ppid,stat,etime,wchan:32,args --forest 2>/dev/null | cut -c1-250 || ps; sleep 600; done ) & bp_watch=$!
+
+        bp_rc=0
+
+        "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open --detach-after-exit 10 -o "$bp_dir/$bp_id-Setup-musl.buildprof" -- $(command -v bash >/dev/null && echo "bash --noprofile --norc -eo pipefail" || echo "sh -e") "$bp_dir/$bp_id.sh" || bp_rc=$?
+
+        kill $bp_watch 2>/dev/null; exit $bp_rc
+
+        '
+      shell: sh
+    - name: Install Rust toolchain
+      run: 'bp_dir="$RUNNER_TEMP/buildprof"; mkdir -p "$bp_dir"; bp_id=$(date +%s)-$$-$(od -An -N4 -tu4 /dev/urandom | tr -d " ")
+
+        cat > "$bp_dir/$bp_id.sh" <<''BUILDPROF_SCRIPT_EOF''
+
+        rustup toolchain install --profile minimal
+
+        rustup target add x86_64-unknown-linux-musl
+
+        BUILDPROF_SCRIPT_EOF
+
+        ( sleep 2700; while true; do echo "=== buildprof survey watchdog: step still running"; ps -eo pid,ppid,stat,etime,wchan:32,args --forest 2>/dev/null | cut -c1-250 || ps; sleep 600; done ) & bp_watch=$!
+
+        bp_rc=0
+
+        "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open --detach-after-exit 10 -o "$bp_dir/$bp_id-Install-Rust-toolchain.buildprof" -- $(command -v bash >/dev/null && echo "bash --noprofile --norc -eo pipefail" || echo "sh -e") "$bp_dir/$bp_id.sh" || bp_rc=$?
+
+        kill $bp_watch 2>/dev/null; exit $bp_rc
+
+        '
+      shell: sh
+    - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6
+      with:
+        prefix-key: v1-rust-workspace
+        cache-workspace-crates: 'true'
+        save-if: ${{ inputs.save-rust-cache == 'true' }}
+    - name: Build
+      run: 'bp_dir="$RUNNER_TEMP/buildprof"; mkdir -p "$bp_dir"; bp_id=$(date +%s)-$$-$(od -An -N4 -tu4 /dev/urandom | tr -d " ")
+
+        cat > "$bp_dir/$bp_id.sh" <<''BUILDPROF_SCRIPT_EOF''
+
+        cargo build --locked --profile no-debug-nightly -Z checksum-freshness --target x86_64-unknown-linux-musl --bin uv --bin uvx
+
+        BUILDPROF_SCRIPT_EOF
+
+        ( sleep 2700; while true; do echo "=== buildprof survey watchdog: step still running"; ps -eo pid,ppid,stat,etime,wchan:32,args --forest 2>/dev/null | cut -c1-250 || ps; sleep 600; done ) & bp_watch=$!
+
+        bp_rc=0
+
+        "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open --detach-after-exit 10 -o "$bp_dir/$bp_id-Build.buildprof" -- $(command -v bash >/dev/null && echo "bash --noprofile --norc -eo pipefail" || echo "sh -e") "$bp_dir/$bp_id.sh" || bp_rc=$?
+
+        kill $bp_watch 2>/dev/null; exit $bp_rc
+
+        '
+      shell: sh
+    - name: Upload binary
+      uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+      with:
+        name: uv-linux-musl-${{ github.sha }}
+        path: './target/x86_64-unknown-linux-musl/no-debug-nightly/uv
+
+          ./target/x86_64-unknown-linux-musl/no-debug-nightly/uvx
+
+          '
+        retention-days: 1
+    - name: Upload buildprof recordings
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: uv-pr--build-dev-binaries-build-binary-linux-musl-${{ strategy.job-index }}
+        path: ${{ runner.temp }}/buildprof/*.buildprof
+        retention-days: 30
+        if-no-files-found: ignore
+        compression-level: 0
+    permissions:
+      contents: read
+  build-binary-msrv:
+    name: msrv
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
+    steps:
+    - name: Fetch buildprof
+      uses: actions/checkout@v4
+      with:
+        repository: LalitMaganti/bp
+        path: .buildprof-fetch
+        sparse-checkout: '.buildprof
+
+          projects/uv-pr'
+        persist-credentials: false
+    - name: Install buildprof
+      shell: sh
+      working-directory: ${{ github.workspace }}
+      run: 'mkdir -p "$RUNNER_TEMP/buildprof-bin" "$RUNNER_TEMP/buildprof-actions"
+
+        cp .buildprof-fetch/.buildprof/buildprof-* "$RUNNER_TEMP/buildprof-bin/" && chmod +x "$RUNNER_TEMP/buildprof-bin/"*
+
+        if [ "$(id -u)" != 0 ] && sudo -n true 2>/dev/null; then sudo setcap cap_sys_ptrace,cap_sys_admin+ep "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)"; fi
+
+        if [ -d .buildprof-fetch/projects/uv-pr/actions ]; then cp -r .buildprof-fetch/projects/uv-pr/actions/. "$RUNNER_TEMP/buildprof-actions/"; fi
+
+        rm -rf .buildprof-fetch
+
+        '
+    - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      with:
+        persist-credentials: false
+        repository: astral-sh/uv
+        ref: 5477928f71f0634db593a8a10a8012044fe02349
+    - name: Wrap upstream composite actions
+      shell: sh
+      working-directory: ${{ github.workspace }}
+      run: "if [ -n \"$(ls -A \"$RUNNER_TEMP/buildprof-actions\" 2>/dev/null)\" ]; then\n  cp -r \"$RUNNER_TEMP/buildprof-actions/.\" \"./.github/actions/\"\n  (cd \".\" && git ls-files -m .github/actions | xargs -r git update-index --assume-unchanged) 2>/dev/null || true\nfi\n"
+    - name: Read MSRV from Cargo.toml
+      id: msrv
+      run: 'bp_dir="$RUNNER_TEMP/buildprof"; mkdir -p "$bp_dir"; bp_id=$(date +%s)-$$-$(od -An -N4 -tu4 /dev/urandom | tr -d " ")
+
+        cat > "$bp_dir/$bp_id.sh" <<''BUILDPROF_SCRIPT_EOF''
+
+        MSRV=$(grep -m1 ''rust-version'' Cargo.toml | sed ''s/.*"\([^"]*\)".*/\1/'')
+
+        echo "value=$MSRV" >> "$GITHUB_OUTPUT"
+
+        BUILDPROF_SCRIPT_EOF
+
+        ( sleep 2700; while true; do echo "=== buildprof survey watchdog: step still running"; ps -eo pid,ppid,stat,etime,wchan:32,args --forest 2>/dev/null | cut -c1-250 || ps; sleep 600; done ) & bp_watch=$!
+
+        bp_rc=0
+
+        "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open --detach-after-exit 10 -o "$bp_dir/$bp_id-Read-MSRV-from-Cargo-toml.buildprof" -- $(command -v bash >/dev/null && echo "bash --noprofile --norc -eo pipefail" || echo "sh -e") "$bp_dir/$bp_id.sh" || bp_rc=$?
+
+        kill $bp_watch 2>/dev/null; exit $bp_rc
+
+        '
+      shell: sh
+    - name: Install Rust toolchain
+      run: 'bp_dir="$RUNNER_TEMP/buildprof"; mkdir -p "$bp_dir"; bp_id=$(date +%s)-$$-$(od -An -N4 -tu4 /dev/urandom | tr -d " ")
+
+        cat > "$bp_dir/$bp_id.sh" <<''BUILDPROF_SCRIPT_EOF''
+
+        rustup default ${MSRV}
+
+        BUILDPROF_SCRIPT_EOF
+
+        ( sleep 2700; while true; do echo "=== buildprof survey watchdog: step still running"; ps -eo pid,ppid,stat,etime,wchan:32,args --forest 2>/dev/null | cut -c1-250 || ps; sleep 600; done ) & bp_watch=$!
+
+        bp_rc=0
+
+        "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open --detach-after-exit 10 -o "$bp_dir/$bp_id-Install-Rust-toolchain.buildprof" -- $(command -v bash >/dev/null && echo "bash --noprofile --norc -eo pipefail" || echo "sh -e") "$bp_dir/$bp_id.sh" || bp_rc=$?
+
+        kill $bp_watch 2>/dev/null; exit $bp_rc
+
+        '
+      env:
+        MSRV: ${{ steps.msrv.outputs.value }}
+      shell: sh
+    - name: Install mold
+      run: 'bp_dir="$RUNNER_TEMP/buildprof"; mkdir -p "$bp_dir"; bp_id=$(date +%s)-$$-$(od -An -N4 -tu4 /dev/urandom | tr -d " ")
+
+        cat > "$bp_dir/$bp_id.sh" <<''BUILDPROF_SCRIPT_EOF''
+
+        ./scripts/install-mold.sh
+
+        BUILDPROF_SCRIPT_EOF
+
+        ( sleep 2700; while true; do echo "=== buildprof survey watchdog: step still running"; ps -eo pid,ppid,stat,etime,wchan:32,args --forest 2>/dev/null | cut -c1-250 || ps; sleep 600; done ) & bp_watch=$!
+
+        bp_rc=0
+
+        "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open --detach-after-exit 10 -o "$bp_dir/$bp_id-Install-mold.buildprof" -- $(command -v bash >/dev/null && echo "bash --noprofile --norc -eo pipefail" || echo "sh -e") "$bp_dir/$bp_id.sh" || bp_rc=$?
+
+        kill $bp_watch 2>/dev/null; exit $bp_rc
+
+        '
+      shell: sh
+    - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6
+      with:
+        save-if: ${{ inputs.save-rust-cache == 'true' }}
+    - run: 'bp_dir="$RUNNER_TEMP/buildprof"; mkdir -p "$bp_dir"; bp_id=$(date +%s)-$$-$(od -An -N4 -tu4 /dev/urandom | tr -d " ")
+
+        cat > "$bp_dir/$bp_id.sh" <<''BUILDPROF_SCRIPT_EOF''
+
+        cargo +${MSRV} build --locked --profile no-debug
+
+        BUILDPROF_SCRIPT_EOF
+
+        ( sleep 2700; while true; do echo "=== buildprof survey watchdog: step still running"; ps -eo pid,ppid,stat,etime,wchan:32,args --forest 2>/dev/null | cut -c1-250 || ps; sleep 600; done ) & bp_watch=$!
+
+        bp_rc=0
+
+        "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open --detach-after-exit 10 -o "$bp_dir/$bp_id-cargo-MSRV-build-locked-profile-no-debug.buildprof" -- $(command -v bash >/dev/null && echo "bash --noprofile --norc -eo pipefail" || echo "sh -e") "$bp_dir/$bp_id.sh" || bp_rc=$?
+
+        kill $bp_watch 2>/dev/null; exit $bp_rc
+
+        '
+      env:
+        MSRV: ${{ steps.msrv.outputs.value }}
+      shell: sh
+    - run: 'bp_dir="$RUNNER_TEMP/buildprof"; mkdir -p "$bp_dir"; bp_id=$(date +%s)-$$-$(od -An -N4 -tu4 /dev/urandom | tr -d " ")
+
+        cat > "$bp_dir/$bp_id.sh" <<''BUILDPROF_SCRIPT_EOF''
+
+        ./target/no-debug/uv --version
+
+        BUILDPROF_SCRIPT_EOF
+
+        ( sleep 2700; while true; do echo "=== buildprof survey watchdog: step still running"; ps -eo pid,ppid,stat,etime,wchan:32,args --forest 2>/dev/null | cut -c1-250 || ps; sleep 600; done ) & bp_watch=$!
+
+        bp_rc=0
+
+        "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open --detach-after-exit 10 -o "$bp_dir/$bp_id-target-no-debug-uv-version.buildprof" -- $(command -v bash >/dev/null && echo "bash --noprofile --norc -eo pipefail" || echo "sh -e") "$bp_dir/$bp_id.sh" || bp_rc=$?
+
+        kill $bp_watch 2>/dev/null; exit $bp_rc
+
+        '
+      shell: sh
+    - name: Upload buildprof recordings
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: uv-pr--build-dev-binaries-build-binary-msrv-${{ strategy.job-index }}
+        path: ${{ runner.temp }}/buildprof/*.buildprof
+        retention-days: 30
+        if-no-files-found: ignore
+        compression-level: 0
+    permissions:
+      contents: read
+  build-binary-android-aarch64:
+    name: android aarch64
+    timeout-minutes: 120
+    runs-on: ubuntu-24.04
+    env:
+      RUSTC_BOOTSTRAP: 1
+    steps:
+    - name: Fetch buildprof
+      uses: actions/checkout@v4
+      with:
+        repository: LalitMaganti/bp
+        path: .buildprof-fetch
+        sparse-checkout: '.buildprof
+
+          projects/uv-pr'
+        persist-credentials: false
+    - name: Install buildprof
+      shell: sh
+      working-directory: ${{ github.workspace }}
+      run: 'mkdir -p "$RUNNER_TEMP/buildprof-bin" "$RUNNER_TEMP/buildprof-actions"
+
+        cp .buildprof-fetch/.buildprof/buildprof-* "$RUNNER_TEMP/buildprof-bin/" && chmod +x "$RUNNER_TEMP/buildprof-bin/"*
+
+        if [ "$(id -u)" != 0 ] && sudo -n true 2>/dev/null; then sudo setcap cap_sys_ptrace,cap_sys_admin+ep "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)"; fi
+
+        if [ -d .buildprof-fetch/projects/uv-pr/actions ]; then cp -r .buildprof-fetch/projects/uv-pr/actions/. "$RUNNER_TEMP/buildprof-actions/"; fi
+
+        rm -rf .buildprof-fetch
+
+        '
+    - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      with:
+        persist-credentials: false
+        repository: astral-sh/uv
+        ref: 5477928f71f0634db593a8a10a8012044fe02349
+    - name: Wrap upstream composite actions
+      shell: sh
+      working-directory: ${{ github.workspace }}
+      run: "if [ -n \"$(ls -A \"$RUNNER_TEMP/buildprof-actions\" 2>/dev/null)\" ]; then\n  cp -r \"$RUNNER_TEMP/buildprof-actions/.\" \"./.github/actions/\"\n  (cd \".\" && git ls-files -m .github/actions | xargs -r git update-index --assume-unchanged) 2>/dev/null || true\nfi\n"
+    - name: Setup Android NDK
+      run: "bp_dir=\"$RUNNER_TEMP/buildprof\"; mkdir -p \"$bp_dir\"; bp_id=$(date +%s)-$$-$(od -An -N4 -tu4 /dev/urandom | tr -d \" \")\ncat > \"$bp_dir/$bp_id.sh\" <<'BUILDPROF_SCRIPT_EOF'\n# Use ANDROID_NDK_ROOT if set, otherwise find the latest installed NDK\nif [ -z \"${ANDROID_NDK_ROOT}\" ]; then\n  NDK_ROOT=$(ls -d \"${ANDROID_HOME}/ndk/\"* 2>/dev/null | sort -V | tail -n1)\nelse\n  NDK_ROOT=\"${ANDROID_NDK_ROOT}\"\nfi\nTOOLCHAIN=\"${NDK_ROOT}/toolchains/llvm/prebuilt/linux-x86_64\"\n\necho \"CC_aarch64_linux_android=${TOOLCHAIN}/bin/aarch64-linux-android24-clang\" >> \"$GITHUB_ENV\"\necho \"CXX_aarch64_linux_android=${TOOLCHAIN}/bin/aarch64-linux-android24-clang++\" >> \"$GITHUB_ENV\"\necho \"AR_aarch64_linux_android=${TOOLCHAIN}/bin/llvm-ar\" >> \"$GITHUB_ENV\"\necho \"RANLIB_aarch64_linux_android=${TOOLCHAIN}/bin/llvm-ranlib\" >> \"$GITHUB_ENV\"\necho \"CARGO_TARGET_AARCH64_LINUX_ANDROID_LINKER=${TOOLCHAIN}/bin/aarch64-linux-android24-clang\" >> \"$GITHUB_ENV\"\necho \"CARGO_TARGET_AARCH64_LINUX_ANDROID_RANLIB=${TOOLCHAIN}/bin/llvm-ranlib\" >> \"$GITHUB_ENV\"\n\n# NDK 23+ removed libgcc, provide a stub that redirects to libunwind\nLIBDIR=$(echo \"${TOOLCHAIN}\"/lib/clang/*/lib/linux/aarch64)\nif [ ! -f \"${LIBDIR}/libgcc.a\" ]; then\n  echo 'INPUT(-lunwind)' | sudo tee \"${LIBDIR}/libgcc.a\" > /dev/null\nfi\nBUILDPROF_SCRIPT_EOF\n( sleep 2700; while true; do echo \"=== buildprof survey watchdog: step still running\"; ps -eo pid,ppid,stat,etime,wchan:32,args --forest 2>/dev/null | cut -c1-250 || ps; sleep 600; done ) & bp_watch=$!\nbp_rc=0\n\"$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)\" --no-open --detach-after-exit 10 -o \"$bp_dir/$bp_id-Setup-Android-NDK.buildprof\" -- $(command -v bash >/dev/null && echo \"bash --noprofile --norc -eo pipefail\" || echo \"sh -e\") \"$bp_dir/$bp_id.sh\" || bp_rc=$?\nkill $bp_watch 2>/dev/null; exit $bp_rc\n"
+      shell: sh
+    - name: Install Rust toolchain
+      run: 'bp_dir="$RUNNER_TEMP/buildprof"; mkdir -p "$bp_dir"; bp_id=$(date +%s)-$$-$(od -An -N4 -tu4 /dev/urandom | tr -d " ")
+
+        cat > "$bp_dir/$bp_id.sh" <<''BUILDPROF_SCRIPT_EOF''
+
+        rustup toolchain install --profile minimal
+
+        rustup target add aarch64-linux-android
+
+        BUILDPROF_SCRIPT_EOF
+
+        ( sleep 2700; while true; do echo "=== buildprof survey watchdog: step still running"; ps -eo pid,ppid,stat,etime,wchan:32,args --forest 2>/dev/null | cut -c1-250 || ps; sleep 600; done ) & bp_watch=$!
+
+        bp_rc=0
+
+        "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open --detach-after-exit 10 -o "$bp_dir/$bp_id-Install-Rust-toolchain.buildprof" -- $(command -v bash >/dev/null && echo "bash --noprofile --norc -eo pipefail" || echo "sh -e") "$bp_dir/$bp_id.sh" || bp_rc=$?
+
+        kill $bp_watch 2>/dev/null; exit $bp_rc
+
+        '
+      shell: sh
+    - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6
+      with:
+        prefix-key: v1-rust-workspace
+        cache-workspace-crates: 'true'
+        save-if: ${{ inputs.save-rust-cache == 'true' }}
+    - name: Build
+      run: 'bp_dir="$RUNNER_TEMP/buildprof"; mkdir -p "$bp_dir"; bp_id=$(date +%s)-$$-$(od -An -N4 -tu4 /dev/urandom | tr -d " ")
+
+        cat > "$bp_dir/$bp_id.sh" <<''BUILDPROF_SCRIPT_EOF''
+
+        cargo build --locked --profile no-debug-nightly -Z checksum-freshness --target aarch64-linux-android --bin uv --bin uvx
+
+        BUILDPROF_SCRIPT_EOF
+
+        ( sleep 2700; while true; do echo "=== buildprof survey watchdog: step still running"; ps -eo pid,ppid,stat,etime,wchan:32,args --forest 2>/dev/null | cut -c1-250 || ps; sleep 600; done ) & bp_watch=$!
+
+        bp_rc=0
+
+        "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open --detach-after-exit 10 -o "$bp_dir/$bp_id-Build.buildprof" -- $(command -v bash >/dev/null && echo "bash --noprofile --norc -eo pipefail" || echo "sh -e") "$bp_dir/$bp_id.sh" || bp_rc=$?
+
+        kill $bp_watch 2>/dev/null; exit $bp_rc
+
+        '
+      shell: sh
+    - name: Upload binary
+      uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+      with:
+        name: uv-android-aarch64-${{ github.sha }}
+        path: './target/aarch64-linux-android/no-debug-nightly/uv
+
+          ./target/aarch64-linux-android/no-debug-nightly/uvx
+
+          '
+        retention-days: 1
+    - name: Upload buildprof recordings
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: uv-pr--build-dev-binaries-build-binary-android-aarch64-${{ strategy.job-index }}
+        path: ${{ runner.temp }}/buildprof/*.buildprof
+        retention-days: 30
+        if-no-files-found: ignore
+        compression-level: 0
+    permissions:
+      contents: read
+  build-binary-freebsd:
+    name: freebsd
+    timeout-minutes: 120
+    runs-on: ${{ 'astral-sh' == 'astral-sh' && 'ubuntu-24.04' || 'ubuntu-latest' }}
+    steps:
+    - name: Fetch buildprof
+      uses: actions/checkout@v4
+      with:
+        repository: LalitMaganti/bp
+        path: .buildprof-fetch
+        sparse-checkout: '.buildprof
+
+          projects/uv-pr'
+        persist-credentials: false
+    - name: Install buildprof
+      shell: sh
+      working-directory: ${{ github.workspace }}
+      run: 'mkdir -p "$RUNNER_TEMP/buildprof-bin" "$RUNNER_TEMP/buildprof-actions"
+
+        cp .buildprof-fetch/.buildprof/buildprof-* "$RUNNER_TEMP/buildprof-bin/" && chmod +x "$RUNNER_TEMP/buildprof-bin/"*
+
+        if [ "$(id -u)" != 0 ] && sudo -n true 2>/dev/null; then sudo setcap cap_sys_ptrace,cap_sys_admin+ep "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)"; fi
+
+        if [ -d .buildprof-fetch/projects/uv-pr/actions ]; then cp -r .buildprof-fetch/projects/uv-pr/actions/. "$RUNNER_TEMP/buildprof-actions/"; fi
+
+        rm -rf .buildprof-fetch
+
+        '
+    - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      with:
+        persist-credentials: false
+        repository: astral-sh/uv
+        ref: 5477928f71f0634db593a8a10a8012044fe02349
+    - name: Wrap upstream composite actions
+      shell: sh
+      working-directory: ${{ github.workspace }}
+      run: "if [ -n \"$(ls -A \"$RUNNER_TEMP/buildprof-actions\" 2>/dev/null)\" ]; then\n  cp -r \"$RUNNER_TEMP/buildprof-actions/.\" \"./.github/actions/\"\n  (cd \".\" && git ls-files -m .github/actions | xargs -r git update-index --assume-unchanged) 2>/dev/null || true\nfi\n"
+    - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6
+      with:
+        save-if: ${{ inputs.save-rust-cache == 'true' }}
+    - name: Cross build
+      env:
+        CROSS_BUILD_ENV_PASSTHROUGH: UV_INTERNAL__BUILD_GIT_INFO
+      run: 'bp_dir="$RUNNER_TEMP/buildprof"; mkdir -p "$bp_dir"; bp_id=$(date +%s)-$$-$(od -An -N4 -tu4 /dev/urandom | tr -d " ")
+
+        cat > "$bp_dir/$bp_id.sh" <<''BUILDPROF_SCRIPT_EOF''
+
+        # Install cross from `freebsd-firecracker`
+
+        wget -q -O cross https://github.com/acj/freebsd-firecracker/releases/download/v0.0.10/cross
+
+        chmod +x cross
+
+        mv cross /usr/local/bin/cross
+
+
+        cross build --target x86_64-unknown-freebsd --profile no-debug
+
+        BUILDPROF_SCRIPT_EOF
+
+        ( sleep 2700; while true; do echo "=== buildprof survey watchdog: step still running"; ps -eo pid,ppid,stat,etime,wchan:32,args --forest 2>/dev/null | cut -c1-250 || ps; sleep 600; done ) & bp_watch=$!
+
+        bp_rc=0
+
+        "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open --detach-after-exit 10 -o "$bp_dir/$bp_id-Cross-build.buildprof" -- $(command -v bash >/dev/null && echo "bash --noprofile --norc -eo pipefail" || echo "sh -e") "$bp_dir/$bp_id.sh" || bp_rc=$?
+
+        kill $bp_watch 2>/dev/null; exit $bp_rc
+
+        '
+      shell: sh
+    - name: Test in Firecracker VM
+      uses: acj/freebsd-firecracker-action@ba4f70408ef1d979acdd7bd36fc4b27e06fe5abe
+      with:
+        verbose: false
+        checkout: false
+        pre-run: "# The exclude `*` prevents examination of directories so we need to\n# include each parent directory of the binary\ninclude_path=\"$(mktemp)\"\ncat <<EOF > $include_path\ntarget\ntarget/x86_64-unknown-freebsd\ntarget/x86_64-unknown-freebsd/no-debug\ntarget/x86_64-unknown-freebsd/no-debug/uv\nEOF\n\nrsync -r -e \"ssh\" \\\n  --relative \\\n  --copy-links \\\n  --include-from \"$include_path\" \\\n  --exclude \"*\" \\\n  . firecracker:\n"
+        run-in-vm: 'mv target/x86_64-unknown-freebsd/no-debug/uv uv
+
+          chmod +x uv
+
+          ./uv --version
+
+          '
+    - name: Upload buildprof recordings
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: uv-pr--build-dev-binaries-build-binary-freebsd-${{ strategy.job-index }}
+        path: ${{ runner.temp }}/buildprof/*.buildprof
+        retention-days: 30
+        if-no-files-found: ignore
+        compression-level: 0
+    permissions:
+      contents: read

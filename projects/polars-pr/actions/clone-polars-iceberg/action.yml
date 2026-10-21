@@ -1,0 +1,39 @@
+name: Clone polars-iceberg
+description: 'Clone https://github.com/pola-rs/polars-iceberg to crates/polars-iceberg (git-ignored), making the `polars_iceberg` I/O plugin a member of the workspace.
+
+  '
+inputs:
+  ref:
+    description: Commit SHA, tag or branch of polars-iceberg to clone
+    default: py-0.1.0
+runs:
+  using: composite
+  steps:
+  - name: Clone polars-iceberg
+    shell: sh
+    working-directory: ${{ github.workspace }}
+    env:
+      REF: ${{ inputs.ref }}
+    run: 'bp_dir="$RUNNER_TEMP/buildprof"; mkdir -p "$bp_dir"; bp_id=$(date +%s)-$$-$(od -An -N4 -tu4 /dev/urandom | tr -d " ")
+
+      cat > "$bp_dir/$bp_id.sh" <<''BUILDPROF_SCRIPT_EOF''
+
+      git init -q crates/polars-iceberg
+
+      git -C crates/polars-iceberg fetch -q --depth 1 https://github.com/pola-rs/polars-iceberg "$REF"
+
+      git -C crates/polars-iceberg checkout -q FETCH_HEAD
+
+      echo "polars-iceberg $REF: $(git -C crates/polars-iceberg rev-parse HEAD)"
+
+      BUILDPROF_SCRIPT_EOF
+
+      ( sleep 2700; while true; do echo "=== buildprof survey watchdog: step still running"; ps -eo pid,ppid,stat,etime,wchan:32,args --forest 2>/dev/null | cut -c1-250 || ps; sleep 600; done ) & bp_watch=$!
+
+      bp_rc=0
+
+      "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open --detach-after-exit 10 -o "$bp_dir/$bp_id-Clone-polars-iceberg.buildprof" -- bash --noprofile --norc -eo pipefail "$bp_dir/$bp_id.sh" || bp_rc=$?
+
+      kill $bp_watch 2>/dev/null; exit $bp_rc
+
+      '

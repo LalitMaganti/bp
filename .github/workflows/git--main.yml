@@ -17,7 +17,7 @@ jobs:
     - name: Fetch buildprof
       uses: actions/checkout@v4
       with:
-        repository: LalitMaganti/buildprof-ci-survey
+        repository: LalitMaganti/bp
         path: .buildprof-fetch
         sparse-checkout: '.buildprof
 
@@ -75,7 +75,7 @@ jobs:
     - name: Fetch buildprof
       uses: actions/checkout@v4
       with:
-        repository: LalitMaganti/buildprof-ci-survey
+        repository: LalitMaganti/bp
         path: .buildprof-fetch
         sparse-checkout: '.buildprof
 
@@ -188,8 +188,6 @@ jobs:
           cc: gcc
         - jobname: linux-musl-meson
           image: alpine:latest
-        - jobname: linux32
-          image: i386/ubuntu:20.04
         - jobname: almalinux-8
           image: almalinux:8
         - jobname: debian-12
@@ -207,7 +205,7 @@ jobs:
     - name: Fetch buildprof
       uses: actions/checkout@v4
       with:
-        repository: LalitMaganti/buildprof-ci-survey
+        repository: LalitMaganti/bp
         path: .buildprof-fetch
         sparse-checkout: '.buildprof
 
@@ -379,7 +377,7 @@ jobs:
     - name: Fetch buildprof
       uses: actions/checkout@v4
       with:
-        repository: LalitMaganti/buildprof-ci-survey
+        repository: LalitMaganti/bp
         path: .buildprof-fetch
         sparse-checkout: '.buildprof
 
@@ -485,7 +483,7 @@ jobs:
     - name: Fetch buildprof
       uses: actions/checkout@v4
       with:
-        repository: LalitMaganti/buildprof-ci-survey
+        repository: LalitMaganti/bp
         path: .buildprof-fetch
         sparse-checkout: '.buildprof
 
@@ -572,7 +570,7 @@ jobs:
     - name: Fetch buildprof
       uses: actions/checkout@v4
       with:
-        repository: LalitMaganti/buildprof-ci-survey
+        repository: LalitMaganti/bp
         path: .buildprof-fetch
         sparse-checkout: '.buildprof
 
@@ -661,7 +659,7 @@ jobs:
     - name: Fetch buildprof
       uses: actions/checkout@v4
       with:
-        repository: LalitMaganti/buildprof-ci-survey
+        repository: LalitMaganti/bp
         path: .buildprof-fetch
         sparse-checkout: '.buildprof
 

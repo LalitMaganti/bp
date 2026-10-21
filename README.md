@@ -1,4 +1,4 @@
-# buildprof CI survey
+# bp: buildprof CI survey
 
 Recordings of other projects' GitHub Actions CI with [buildprof](https://github.com/LalitMaganti/buildprof).
 This repository is not affiliated with any of these projects.

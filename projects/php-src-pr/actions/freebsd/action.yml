@@ -1,0 +1,20 @@
+name: FreeBSD
+inputs:
+  configurationParameters:
+    default: ''
+    required: false
+  runExtraTests:
+    default: false
+    required: false
+runs:
+  using: composite
+  steps:
+  - name: FreeBSD
+    uses: vmactions/freebsd-vm@v1
+    with:
+      release: '14.4'
+      usesh: true
+      copyback: false
+      disable-cache: true
+      prepare: "cd $GITHUB_WORKSPACE\n\nOPCACHE_TLS_TESTS_DEPS=\"gcc\"\n\nkldload accf_http\npkg install -y \\\n  autoconf \\\n  bison \\\n  gmake \\\n  re2c \\\n  icu \\\n  libiconv \\\n  png \\\n  freetype2 \\\n  enchant2 \\\n  bzip2 \\\n  t1lib \\\n  gmp \\\n  libsodium \\\n  libzip \\\n  libxml2 \\\n  libxslt \\\n  openssl \\\n  oniguruma \\\n  pkgconf \\\n  webp \\\n  libavif \\\n  sqlite3 \\\n  curl \\\n  $OPCACHE_TLS_TESTS_DEPS\n\n./buildconf -f\nCC=clang CXX=clang++ \\\n./configure \\\n  --prefix=/usr/local \\\n  --enable-debug \\\n  --enable-option-checking=fatal \\\n  --enable-fpm \\\n  --with-pdo-sqlite \\\n  --without-pear \\\n  --with-bz2 \\\n  --with-avif \\\n  --with-jpeg \\\n  --with-webp \\\n  --with-freetype \\\n  --enable-gd \\\n  --enable-exif \\\n  --with-zip \\\n  --with-zlib \\\n  --enable-soap \\\n  --enable-xmlreader \\\n  --with-xsl \\\n  --with-libxml \\\n  --enable-shmop \\\n  --enable-pcntl \\\n  --enable-mbstring \\\n  --with-curl \\\n  --enable-sockets \\\n  --with-openssl \\\n  --with-iconv=/usr/local \\\n  --enable-bcmath \\\n  --enable-calendar \\\n  --enable-ftp \\\n  --with-ffi \\\n  --enable-zend-test \\\n  --enable-dl-test=shared \\\n  --enable-intl \\\n  --with-mhash \\\n  --with-sodium \\\n  --enable-werror \\\n  --with-config-file-path=/etc \\\n  --with-config-file-scan-dir=/etc/php.d \\\n  ${{ inputs.configurationParameters }}\n\ngmake -j2\nmkdir /etc/php.d\ngmake install > /dev/null\necho opcache.enable_cli=1 > /etc/php.d/opcache.ini\necho opcache.protect_memory=1 >> /etc/php.d/opcache.ini\necho opcache.preload_user=root >> /etc/php.d/opcache.ini\n"
+      run: "cd $GITHUB_WORKSPACE\n\nexport SKIP_IO_CAPTURE_TESTS=1\nexport CI_NO_IPV6=1\nexport STACK_LIMIT_DEFAULTS_CHECK=1\nexport RUN_RESOURCE_HEAVY_TESTS=1\nsapi/cli/php run-tests.php \\\n  -P -q -j2 \\\n  -g FAIL,BORK,LEAK,XLEAK \\\n  --no-progress \\\n  --offline \\\n  --show-diff \\\n  --show-slow 1000 \\\n  --set-timeout 120\n\nif test \"${{ inputs.runExtraTests }}\" = \"true\"; then\n  sapi/cli/php run-extra-tests.php\nfi\n"

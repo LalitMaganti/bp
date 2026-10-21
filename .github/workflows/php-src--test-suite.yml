@@ -22,7 +22,7 @@ jobs:
     - name: Fetch buildprof
       uses: actions/checkout@v4
       with:
-        repository: LalitMaganti/buildprof-ci-survey
+        repository: LalitMaganti/bp
         path: .buildprof-fetch
         sparse-checkout: '.buildprof
 
@@ -168,7 +168,7 @@ jobs:
     - name: Fetch buildprof
       uses: actions/checkout@v4
       with:
-        repository: LalitMaganti/buildprof-ci-survey
+        repository: LalitMaganti/bp
         path: .buildprof-fetch
         sparse-checkout: '.buildprof
 
@@ -345,7 +345,7 @@ jobs:
     - name: Fetch buildprof
       uses: actions/checkout@v4
       with:
-        repository: LalitMaganti/buildprof-ci-survey
+        repository: LalitMaganti/bp
         path: .buildprof-fetch
         sparse-checkout: '.buildprof
 
@@ -497,7 +497,7 @@ jobs:
     - name: Fetch buildprof
       uses: actions/checkout@v4
       with:
-        repository: LalitMaganti/buildprof-ci-survey
+        repository: LalitMaganti/bp
         path: .buildprof-fetch
         sparse-checkout: '.buildprof
 
@@ -636,7 +636,7 @@ jobs:
     - name: Fetch buildprof
       uses: actions/checkout@v4
       with:
-        repository: LalitMaganti/buildprof-ci-survey
+        repository: LalitMaganti/bp
         path: .buildprof-fetch
         sparse-checkout: '.buildprof
 
@@ -892,7 +892,7 @@ jobs:
     - name: Fetch buildprof
       uses: actions/checkout@v4
       with:
-        repository: LalitMaganti/buildprof-ci-survey
+        repository: LalitMaganti/bp
         path: .buildprof-fetch
         sparse-checkout: '.buildprof
 
@@ -1003,7 +1003,7 @@ jobs:
     - name: Fetch buildprof
       uses: actions/checkout@v4
       with:
-        repository: LalitMaganti/buildprof-ci-survey
+        repository: LalitMaganti/bp
         path: .buildprof-fetch
         sparse-checkout: '.buildprof
 
@@ -1149,7 +1149,7 @@ jobs:
     - name: Fetch buildprof
       uses: actions/checkout@v4
       with:
-        repository: LalitMaganti/buildprof-ci-survey
+        repository: LalitMaganti/bp
         path: .buildprof-fetch
         sparse-checkout: '.buildprof
 
@@ -1260,7 +1260,7 @@ jobs:
     - name: Fetch buildprof
       uses: actions/checkout@v4
       with:
-        repository: LalitMaganti/buildprof-ci-survey
+        repository: LalitMaganti/bp
         path: .buildprof-fetch
         sparse-checkout: '.buildprof
 
