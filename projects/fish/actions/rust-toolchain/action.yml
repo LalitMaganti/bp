@@ -1,0 +1,26 @@
+name: Rust Toolchain
+inputs:
+  toolchain_channel:
+    description: Either "stable" or "msrv"
+    required: true
+  targets:
+    description: Comma-separated list of target triples to install for this toolchain
+    required: false
+  components:
+    description: Comma-separated list of components to be additionally installed
+    required: false
+permissions:
+  contents: read
+runs:
+  using: composite
+  steps:
+  - name: Set toolchain
+    env:
+      toolchain_channel: ${{ inputs.toolchain_channel }}
+    shell: sh
+    run: "bp_dir=\"$RUNNER_TEMP/buildprof\"; mkdir -p \"$bp_dir\"; bp_id=$(date +%s)-$$-$(od -An -N4 -tu4 /dev/urandom | tr -d \" \")\ncat > \"$bp_dir/$bp_id.sh\" <<'BUILDPROF_SCRIPT_EOF'\nset -x\ntoolchain=$(\n  case \"$toolchain_channel\" in\n    (stable) echo 1.99 ;; # updatecli.d/rust.yml\n    (msrv)   echo 1.85 ;; # updatecli.d/rust.yml\n    (*)\n      printf >&2 \"error: unsupported toolchain channel %s\" \"$toolchain_channel\"\n      exit 1\n      ;;\n  esac\n)\nprintf 'TOOLCHAIN=%s\\n' \"$toolchain\" >>\"$GITHUB_ENV\"\nBUILDPROF_SCRIPT_EOF\n( sleep 2700; while true; do echo \"=== buildprof survey watchdog: step still running\"; ps -eo pid,ppid,stat,etime,wchan:32,args --forest 2>/dev/null | cut -c1-250 || ps; sleep 600; done ) & bp_watch=$!\nbp_rc=0\n\"$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)\" --no-open --detach-after-exit 10 -o \"$bp_dir/$bp_id-Set-toolchain.buildprof\" -- bash --noprofile --norc -eo pipefail \"$bp_dir/$bp_id.sh\" || bp_rc=$?\nkill $bp_watch 2>/dev/null; exit $bp_rc\n"
+  - uses: dtolnay/rust-toolchain@master
+    with:
+      toolchain: ${{ env.TOOLCHAIN }}
+      targets: ${{ inputs.targets }}
+      components: ${{ inputs.components }}

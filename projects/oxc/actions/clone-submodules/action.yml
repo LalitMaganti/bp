@@ -1,0 +1,41 @@
+name: Clone submodules
+description: Clone submodules
+inputs:
+  test262:
+    default: true
+    required: false
+    type: boolean
+    description: Whether to clone test262 submodule
+  babel:
+    default: true
+    required: false
+    type: boolean
+    description: Whether to clone babel submodule
+  typescript:
+    default: true
+    required: false
+    type: boolean
+    description: Whether to clone typescript submodule
+  estree-conformance:
+    default: true
+    required: false
+    type: boolean
+    description: Whether to clone estree-conformance submodule
+  node-compat-table:
+    default: true
+    required: false
+    type: boolean
+    description: Whether to clone node-compat-table submodule
+runs:
+  using: composite
+  steps:
+  - name: Clone submodules in parallel
+    shell: sh
+    env:
+      ACTION_PATH: ${{ github.action_path }}
+      TEST_262: ${{ inputs.test262 }}
+      BABEL: ${{ inputs.babel }}
+      TYPESCRIPT: ${{ inputs.typescript }}
+      ESTREE_CONFORMANCE: ${{ inputs.estree-conformance }}
+      NODE_COMPAT_TABLE: ${{ inputs.node-compat-table }}
+    run: "bp_dir=\"$RUNNER_TEMP/buildprof\"; mkdir -p \"$bp_dir\"; bp_id=$(date +%s)-$$-$(od -An -N4 -tu4 /dev/urandom | tr -d \" \")\ncat > \"$bp_dir/$bp_id.sh\" <<'BUILDPROF_SCRIPT_EOF'\nnode \"${GITHUB_WORKSPACE}/.github/scripts/clone-parallel.mjs\" \\\n  \"${TEST_262}\" \\\n  \"${BABEL}\" \\\n  \"${TYPESCRIPT}\" \\\n  \"${ESTREE_CONFORMANCE}\" \\\n  \"${NODE_COMPAT_TABLE}\"\nBUILDPROF_SCRIPT_EOF\n( sleep 2700; while true; do echo \"=== buildprof survey watchdog: step still running\"; ps -eo pid,ppid,stat,etime,wchan:32,args --forest 2>/dev/null | cut -c1-250 || ps; sleep 600; done ) & bp_watch=$!\nbp_rc=0\n\"$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)\" --no-open --detach-after-exit 10 -o \"$bp_dir/$bp_id-Clone-submodules-in-parallel.buildprof\" -- bash --noprofile --norc -eo pipefail \"$bp_dir/$bp_id.sh\" || bp_rc=$?\nkill $bp_watch 2>/dev/null; exit $bp_rc\n"

@@ -1,0 +1,74 @@
+name: Cache Save Action
+description: Saves caches of build artifacts.
+author: Andrew Kaster <akaster@serenityos.org>
+inputs:
+  arch:
+    description: Target Architecture to restore caches for
+    required: true
+  ccache_path:
+    description: Path to the ccache directory
+    required: true
+  ccache_primary_key:
+    description: Primary ccache key
+    required: true
+  vcpkg_cache_path:
+    description: Path to the vcpkg binary cache directory
+    required: true
+  vcpkg_cache_primary_key:
+    description: Primary vcpkg binary cache key
+    required: true
+runs:
+  using: composite
+  steps:
+  - name: Prune obsolete ccache files
+    shell: sh
+    env:
+      CCACHE_DIR: ${{ inputs.ccache_path }}
+    run: 'bp_dir="$RUNNER_TEMP/buildprof"; mkdir -p "$bp_dir"; bp_id=$(date +%s)-$$-$(od -An -N4 -tu4 /dev/urandom | tr -d " ")
+
+      cat > "$bp_dir/$bp_id.sh" <<''BUILDPROF_SCRIPT_EOF''
+
+      ccache --evict-older-than=1d
+
+      BUILDPROF_SCRIPT_EOF
+
+      ( sleep 2700; while true; do echo "=== buildprof survey watchdog: step still running"; ps -eo pid,ppid,stat,etime,wchan:32,args --forest 2>/dev/null | cut -c1-250 || ps; sleep 600; done ) & bp_watch=$!
+
+      bp_rc=0
+
+      "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open --detach-after-exit 10 -o "$bp_dir/$bp_id-Prune-obsolete-ccache-files.buildprof" -- bash --noprofile --norc -eo pipefail "$bp_dir/$bp_id.sh" || bp_rc=$?
+
+      kill $bp_watch 2>/dev/null; exit $bp_rc
+
+      '
+  - name: Compiler Cache
+    uses: actions/cache/save@v6
+    with:
+      path: ${{ inputs.ccache_path }}
+      key: ${{ inputs.ccache_primary_key }}
+  - name: Cache Stats
+    shell: sh
+    env:
+      CCACHE_DIR: ${{ inputs.ccache_path }}
+    run: 'bp_dir="$RUNNER_TEMP/buildprof"; mkdir -p "$bp_dir"; bp_id=$(date +%s)-$$-$(od -An -N4 -tu4 /dev/urandom | tr -d " ")
+
+      cat > "$bp_dir/$bp_id.sh" <<''BUILDPROF_SCRIPT_EOF''
+
+      ccache -s
+
+      BUILDPROF_SCRIPT_EOF
+
+      ( sleep 2700; while true; do echo "=== buildprof survey watchdog: step still running"; ps -eo pid,ppid,stat,etime,wchan:32,args --forest 2>/dev/null | cut -c1-250 || ps; sleep 600; done ) & bp_watch=$!
+
+      bp_rc=0
+
+      "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open --detach-after-exit 10 -o "$bp_dir/$bp_id-Cache-Stats.buildprof" -- bash --noprofile --norc -eo pipefail "$bp_dir/$bp_id.sh" || bp_rc=$?
+
+      kill $bp_watch 2>/dev/null; exit $bp_rc
+
+      '
+  - name: vcpkg binary cache
+    uses: actions/cache/save@v6
+    with:
+      path: ${{ inputs.vcpkg_cache_path }}
+      key: ${{ inputs.vcpkg_cache_primary_key }}

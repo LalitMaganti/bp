@@ -1,0 +1,84 @@
+name: 'ladybird: CI'
+'on':
+  workflow_dispatch: null
+permissions:
+  contents: read
+jobs:
+  Lagom:
+    if: '''LadybirdBrowser/ladybird'' == ''LadybirdBrowser/ladybird'''
+    name: ${{ matrix.os_name }}, ${{ matrix.arch }}, ${{ matrix.build_preset }}, ${{ matrix.toolchain }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os_name:
+        - Linux
+        arch:
+        - x86_64
+        build_preset:
+        - Release
+        toolchain:
+        - GNU
+        clang_plugins:
+        - false
+        runner_labels:
+        - '["blacksmith-16vcpu-ubuntu-2404"]'
+        container:
+        - '{"image":"ghcr.io/ladybirdbrowser/ladybird-ci:2026.10.16"}'
+        include:
+        - os_name: Linux
+          arch: x86_64
+          build_preset: Sanitizer
+          toolchain: Clang
+          clang_plugins: true
+          runner_labels: '["blacksmith-16vcpu-ubuntu-2404"]'
+          container: '{"image":"ghcr.io/ladybirdbrowser/ladybird-ci:2026.10.16"}'
+        - os_name: Linux
+          arch: arm64
+          build_preset: Sanitizer
+          toolchain: Clang
+          clang_plugins: false
+          runner_labels: '["blacksmith-16vcpu-ubuntu-2404-arm"]'
+          container: '{"image":"ghcr.io/ladybirdbrowser/ladybird-ci:2026.10.16"}'
+        - os_name: Linux
+          arch: x86_64
+          build_preset: Fuzzers
+          toolchain: Clang
+          clang_plugins: false
+          runner_labels: '["blacksmith-16vcpu-ubuntu-2404"]'
+          container: '{"image":"ghcr.io/ladybirdbrowser/ladybird-ci:2026.10.16"}'
+        - os_name: Linux
+          arch: x86_64
+          build_preset: All_Debug
+          toolchain: Clang
+          clang_plugins: false
+          runner_labels: '["blacksmith-16vcpu-ubuntu-2404"]'
+          container: '{"image":"ghcr.io/ladybirdbrowser/ladybird-ci:2026.10.16"}'
+        - os_name: Linux
+          arch: x86_64
+          build_preset: Release
+          toolchain: Clang
+          clang_plugins: false
+          runner_labels: '["blacksmith-16vcpu-ubuntu-2404"]'
+          container: '{"image":"ghcr.io/ladybirdbrowser/ladybird-ci:2026.10.16"}'
+    secrets: inherit
+    uses: ./.github/workflows/ladybird--lagom-template.yml
+    with:
+      toolchain: ${{ matrix.toolchain }}
+      os_name: ${{ matrix.os_name }}
+      runner_labels: ${{ matrix.runner_labels }}
+      arch: ${{ matrix.arch }}
+      build_preset: ${{ matrix.build_preset }}
+      clang_plugins: ${{ matrix.clang_plugins }}
+      container: ${{ matrix.container }}
+  macOS-Sanitizer:
+    if: '''LadybirdBrowser/ladybird'' == ''LadybirdBrowser/ladybird'''
+    name: macOS, arm64, Sanitizer, Clang
+    secrets: inherit
+    uses: ./.github/workflows/ladybird--lagom-template.yml
+    with:
+      toolchain: Clang
+      os_name: macOS
+      runner_labels: '["blacksmith-12vcpu-macos-26"]'
+      arch: arm64
+      build_preset: Sanitizer
+      clang_plugins: false

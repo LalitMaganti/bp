@@ -1,0 +1,108 @@
+name: Cache Restore Action
+description: Restores caches of downloaded files and build artifacts.
+author: Andrew Kaster <akaster@serenityos.org>
+inputs:
+  os:
+    description: Operating System to restore caches for
+    required: true
+  arch:
+    description: Target Architecture to restore caches for
+    required: true
+  toolchain:
+    description: Toolchain to restore caches for (GNU or Clang)
+    required: true
+  cache_key_extra:
+    description: Code coverage setting, ON or OFF, or debug setting, ALL or NORMAL
+    required: true
+  ccache_path:
+    description: Path to the ccache directory
+    required: true
+  vcpkg_cache_path:
+    description: Path to vcpkg binary cache
+    required: true
+outputs:
+  ccache_primary_key:
+    description: Primary ccache key
+    value: ${{ steps.ccache.outputs.cache-primary-key }}
+  vcpkg_cache_primary_key:
+    description: Primary vcpkg binary cache key
+    value: ${{ steps.vcpkg.outputs.cache-primary-key }}
+runs:
+  using: composite
+  steps:
+  - name: Date Stamp
+    shell: sh
+    id: date-stamp
+    run: 'bp_dir="$RUNNER_TEMP/buildprof"; mkdir -p "$bp_dir"; bp_id=$(date +%s)-$$-$(od -An -N4 -tu4 /dev/urandom | tr -d " ")
+
+      cat > "$bp_dir/$bp_id.sh" <<''BUILDPROF_SCRIPT_EOF''
+
+      echo "timestamp=$(date -u "+%Y%m%d%H%M_%S")" >> "$GITHUB_OUTPUT"
+
+      BUILDPROF_SCRIPT_EOF
+
+      ( sleep 2700; while true; do echo "=== buildprof survey watchdog: step still running"; ps -eo pid,ppid,stat,etime,wchan:32,args --forest 2>/dev/null | cut -c1-250 || ps; sleep 600; done ) & bp_watch=$!
+
+      bp_rc=0
+
+      "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open --detach-after-exit 10 -o "$bp_dir/$bp_id-Date-Stamp.buildprof" -- bash --noprofile --norc -eo pipefail "$bp_dir/$bp_id.sh" || bp_rc=$?
+
+      kill $bp_watch 2>/dev/null; exit $bp_rc
+
+      '
+  - name: Compiler Cache
+    uses: actions/cache/restore@v6
+    id: ccache
+    with:
+      path: ${{ inputs.ccache_path }}
+      key: ccache | ${{ inputs.os }} | ${{ inputs.arch }} | ${{ inputs.toolchain }} | ${{ inputs.cache_key_extra }} | ${{ steps.date-stamp.outputs.timestamp }}
+      restore-keys: 'ccache | ${{ inputs.os }} | ${{ inputs.arch }} | ${{ inputs.toolchain }} | ${{ inputs.cache_key_extra }}
+
+        '
+  - name: Configure Compiler Cache
+    if: ${{ inputs.os != 'Windows' }}
+    shell: sh
+    env:
+      CCACHE_DIR: ${{ inputs.ccache_path }}
+    run: 'bp_dir="$RUNNER_TEMP/buildprof"; mkdir -p "$bp_dir"; bp_id=$(date +%s)-$$-$(od -An -N4 -tu4 /dev/urandom | tr -d " ")
+
+      cat > "$bp_dir/$bp_id.sh" <<''BUILDPROF_SCRIPT_EOF''
+
+      ccache -M 0
+
+
+      # Reset all ccache modification dates to a known epoch. This provides a baseline that we can prune against.
+
+      find "${{ inputs.ccache_path }}" | tac | xargs touch -a -m -d "2018-10-10T09:53:07Z"
+
+
+      ccache -s
+
+      ccache -z
+
+      BUILDPROF_SCRIPT_EOF
+
+      ( sleep 2700; while true; do echo "=== buildprof survey watchdog: step still running"; ps -eo pid,ppid,stat,etime,wchan:32,args --forest 2>/dev/null | cut -c1-250 || ps; sleep 600; done ) & bp_watch=$!
+
+      bp_rc=0
+
+      "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open --detach-after-exit 10 -o "$bp_dir/$bp_id-Configure-Compiler-Cache.buildprof" -- bash --noprofile --norc -eo pipefail "$bp_dir/$bp_id.sh" || bp_rc=$?
+
+      kill $bp_watch 2>/dev/null; exit $bp_rc
+
+      '
+  - name: Configure Compiler Cache (Windows)
+    if: ${{ inputs.os == 'Windows' }}
+    shell: pwsh
+    env:
+      CCACHE_DIR: ${{ inputs.ccache_path }}
+    run: "ccache -M 0\n\n# Reset all ccache modification dates to a known epoch. This provides a baseline that we can prune against.\nGet-ChildItem -Path \"${{ inputs.ccache_path }}\" -Recurse | Sort-Object FullName -Descending | ForEach-Object {\n    $_.LastWriteTime = [DateTime]::Parse(\"2018-10-10T09:53:07Z\")\n    $_.LastAccessTime = [DateTime]::Parse(\"2018-10-10T09:53:07Z\")\n}\n\nccache -s\nccache -z\n"
+  - name: Restore vcpkg cache
+    uses: actions/cache/restore@v6
+    id: vcpkg
+    with:
+      path: ${{ inputs.vcpkg_cache_path }}
+      key: vcpkg | ${{ inputs.os }} | ${{ inputs.arch }} | ${{ inputs.toolchain }} | ${{ inputs.cache_key_extra }} | ${{ hashFiles('vcpkg.json') }}
+      restore-keys: 'vcpkg | ${{ inputs.os }} | ${{ inputs.arch }} | ${{ inputs.toolchain }} | ${{ inputs.cache_key_extra }}
+
+        '

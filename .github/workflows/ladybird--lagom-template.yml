@@ -1,0 +1,355 @@
+name: 'ladybird: Lagom Template'
+'on':
+  workflow_call:
+    inputs:
+      toolchain:
+        required: true
+        type: string
+      os_name:
+        required: true
+        type: string
+      runner_labels:
+        required: true
+        type: string
+      arch:
+        required: true
+        type: string
+      build_preset:
+        required: true
+        type: string
+      clang_plugins:
+        required: false
+        type: boolean
+        default: false
+      container:
+        required: false
+        type: string
+        default: 'null'
+permissions:
+  contents: read
+env:
+  LADYBIRD_SOURCE_DIR: ${{ github.workspace }}
+  CCACHE_DIR: ${{ github.workspace }}/.ccache
+  CCACHE_COMPILERCHECK: '%compiler% -v'
+jobs:
+  CI:
+    runs-on: ${{ fromJSON(inputs.runner_labels) }}
+    container: ${{ fromJSON(inputs.container) }}
+    steps:
+    - name: Fetch buildprof
+      uses: actions/checkout@v4
+      with:
+        repository: LalitMaganti/bp
+        path: .buildprof-fetch
+        sparse-checkout: '.buildprof
+
+          projects/ladybird'
+        persist-credentials: false
+    - name: Install buildprof
+      shell: sh
+      working-directory: ${{ github.workspace }}
+      run: 'mkdir -p "$RUNNER_TEMP/buildprof-bin" "$RUNNER_TEMP/buildprof-actions"
+
+        cp .buildprof-fetch/.buildprof/buildprof-* "$RUNNER_TEMP/buildprof-bin/" && chmod +x "$RUNNER_TEMP/buildprof-bin/"*
+
+        if [ "$(id -u)" != 0 ] && sudo -n true 2>/dev/null; then sudo setcap cap_sys_ptrace,cap_sys_admin+ep "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)"; fi
+
+        if [ -d .buildprof-fetch/projects/ladybird/actions ]; then cp -r .buildprof-fetch/projects/ladybird/actions/. "$RUNNER_TEMP/buildprof-actions/"; fi
+
+        rm -rf .buildprof-fetch
+
+        '
+    - uses: actions/checkout@v7.0.1
+      if: ${{ 'push' != 'pull_request' }}
+      with:
+        repository: LadybirdBrowser/ladybird
+        ref: e908d075cae6640ed846e35d7ea13c579b68eae4
+    - name: Wrap upstream composite actions
+      shell: sh
+      working-directory: ${{ github.workspace }}
+      run: "if [ -n \"$(ls -A \"$RUNNER_TEMP/buildprof-actions\" 2>/dev/null)\" ]; then\n  cp -r \"$RUNNER_TEMP/buildprof-actions/.\" \"./.github/actions/\"\n  (cd \".\" && git ls-files -m .github/actions | xargs -r git update-index --assume-unchanged) 2>/dev/null || true\nfi\n"
+    - uses: actions/checkout@v7.0.1
+      if: ${{ 'push' == 'pull_request' }}
+      with:
+        ref: e908d075cae6640ed846e35d7ea13c579b68eae4
+        repository: LadybirdBrowser/ladybird
+    - name: Wrap upstream composite actions
+      shell: sh
+      working-directory: ${{ github.workspace }}
+      run: "if [ -n \"$(ls -A \"$RUNNER_TEMP/buildprof-actions\" 2>/dev/null)\" ]; then\n  cp -r \"$RUNNER_TEMP/buildprof-actions/.\" \"./.github/actions/\"\n  (cd \".\" && git ls-files -m .github/actions | xargs -r git update-index --assume-unchanged) 2>/dev/null || true\nfi\n"
+    - name: Check for Landlock
+      if: ${{ inputs.os_name == 'Linux' }}
+      run: "bp_dir=\"$RUNNER_TEMP/buildprof\"; mkdir -p \"$bp_dir\"; bp_id=$(date +%s)-$$-$(od -An -N4 -tu4 /dev/urandom | tr -d \" \")\ncat > \"$bp_dir/$bp_id.sh\" <<'BUILDPROF_SCRIPT_EOF'\nif ! python3 -c 'import ctypes, sys; sys.exit(0 if ctypes.CDLL(None, use_errno=True).syscall(444, None, 0, 1) > 0 else 1)'; then\n  echo \"::warning::This kernel has no Landlock, so the helpers run without file system confinement. The rest of the sandbox still applies.\"\n  echo \"LADYBIRD_UNSAFE_ALLOW_MISSING_LANDLOCK=1\" >> \"$GITHUB_ENV\"\nfi\nBUILDPROF_SCRIPT_EOF\n( sleep 2700; while true; do echo \"=== buildprof survey watchdog: step still running\"; ps -eo pid,ppid,stat,etime,wchan:32,args --forest 2>/dev/null | cut -c1-250 || ps; sleep 600; done ) & bp_watch=$!\nbp_rc=0\n\"$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)\" --no-open --detach-after-exit 10 -o \"$bp_dir/$bp_id-Check-for-Landlock.buildprof\" -- $(command -v bash >/dev/null && echo \"bash --noprofile --norc -eo pipefail\" || echo \"sh -e\") \"$bp_dir/$bp_id.sh\" || bp_rc=$?\nkill $bp_watch 2>/dev/null; exit $bp_rc\n"
+      shell: sh
+    - name: Set Up Environment
+      uses: ./.github/actions/setup
+      id: setup
+      with:
+        os: ${{ inputs.os_name }}
+        arch: ${{ inputs.arch }}
+        toolchain: ${{ inputs.toolchain }}
+        build_preset: ${{ inputs.build_preset }}
+    - name: Assign Build Parameters
+      if: ${{ inputs.os_name != 'Windows' }}
+      id: build-parameters
+      run: "bp_dir=\"$RUNNER_TEMP/buildprof\"; mkdir -p \"$bp_dir\"; bp_id=$(date +%s)-$$-$(od -An -N4 -tu4 /dev/urandom | tr -d \" \")\ncat > \"$bp_dir/$bp_id.sh\" <<'BUILDPROF_SCRIPT_EOF'\nCMAKE_OPTIONS=\"-DENABLE_CI_BASELINE_CPU=ON\"\nif ${{ inputs.os_name == 'Linux' }} ; then\n  # FIXME: https://github.com/WebAssembly/wabt/issues/2533\n  #        wabt doesn't have binary releases for arm64 Linux\n  if ${{ inputs.arch == 'arm64' }} ; then\n    PKGCONFIG=$(which pkg-config)\n    CMAKE_OPTIONS=\"$CMAKE_OPTIONS -DPKG_CONFIG_EXECUTABLE=$PKGCONFIG\"\n  fi\n\n  if ${{ inputs.toolchain == 'Clang' }} ; then\n    echo \"host_cc=clang\" >> \"$GITHUB_OUTPUT\"\n    echo \"host_cxx=clang++\" >> \"$GITHUB_OUTPUT\"\n  elif ${{ inputs.toolchain == 'GNU' }} ; then\n    echo \"host_cc=gcc\" >> \"$GITHUB_OUTPUT\"\n    echo \"host_cxx=g++\" >> \"$GITHUB_OUTPUT\"\n  fi\nelif ${{ inputs.os_name == 'macOS' }} ; then\n  echo \"host_cc=$(xcrun --find clang)\" >> \"$GITHUB_OUTPUT\"\n  echo \"host_cxx=$(xcrun --find clang++)\" >> \"$GITHUB_OUTPUT\"\nfi\n\nif ${{ inputs.clang_plugins }} ; then\n  echo \"ccache_key=${{ inputs.build_preset }}-CLANG_PLUGINS\" >> \"$GITHUB_OUTPUT\"\n  CMAKE_OPTIONS=\"$CMAKE_OPTIONS -DENABLE_CLANG_PLUGINS=ON\"\nelse\n  echo \"ccache_key=${{ inputs.build_preset }}\" >> \"$GITHUB_OUTPUT\"\n  CMAKE_OPTIONS=\"$CMAKE_OPTIONS -DINCLUDE_WASM_SPEC_TESTS=ON -DWASM_SPEC_TEST_SKIP_FORMATTING=ON\"\nfi\n\necho \"cmake_options=$CMAKE_OPTIONS\" >> \"$GITHUB_OUTPUT\"\nBUILDPROF_SCRIPT_EOF\n( sleep 2700; while true; do echo \"=== buildprof survey watchdog: step still running\"; ps -eo pid,ppid,stat,etime,wchan:32,args --forest 2>/dev/null | cut -c1-250 || ps; sleep 600; done ) & bp_watch=$!\nbp_rc=0\n\"$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)\" --no-open --detach-after-exit 10 -o \"$bp_dir/$bp_id-Assign-Build-Parameters.buildprof\" -- $(command -v bash >/dev/null && echo \"bash --noprofile --norc -eo pipefail\" || echo \"sh -e\") \"$bp_dir/$bp_id.sh\" || bp_rc=$?\nkill $bp_watch 2>/dev/null; exit $bp_rc\n"
+      shell: sh
+    - name: Restore Caches
+      uses: ./.github/actions/cache-restore
+      id: cache-restore
+      with:
+        os: ${{ inputs.os_name }}
+        arch: ${{ inputs.arch }}
+        toolchain: ${{ inputs.toolchain }}
+        cache_key_extra: ${{ inputs.os_name == 'Windows' && inputs.build_preset || steps.build-parameters.outputs.ccache_key }}
+        ccache_path: ${{ steps.setup.outputs.ccache_path }}
+        vcpkg_cache_path: ${{ steps.setup.outputs.vcpkg_cache_path }}
+    - name: Cache the WebAssembly spec test suite
+      if: ${{ inputs.os_name != 'Windows' }}
+      uses: actions/cache@v6
+      with:
+        path: ${{ github.workspace }}/caches/WasmSpecTests
+        key: wasm-spec-test-suite | ${{ hashFiles('Meta/CMake/wasm_spec_tests.cmake') }}
+    - name: Set dynamic environment variables
+      if: ${{ inputs.os_name != 'Windows' }}
+      run: 'bp_dir="$RUNNER_TEMP/buildprof"; mkdir -p "$bp_dir"; bp_id=$(date +%s)-$$-$(od -An -N4 -tu4 /dev/urandom | tr -d " ")
+
+        cat > "$bp_dir/$bp_id.sh" <<''BUILDPROF_SCRIPT_EOF''
+
+        # Note: Required for vcpkg to use this compiler for its own builds.
+
+        echo "CC=${{ steps.build-parameters.outputs.host_cc }}" >> "$GITHUB_ENV"
+
+        echo "CXX=${{ steps.build-parameters.outputs.host_cxx }}" >> "$GITHUB_ENV"
+
+        BUILDPROF_SCRIPT_EOF
+
+        ( sleep 2700; while true; do echo "=== buildprof survey watchdog: step still running"; ps -eo pid,ppid,stat,etime,wchan:32,args --forest 2>/dev/null | cut -c1-250 || ps; sleep 600; done ) & bp_watch=$!
+
+        bp_rc=0
+
+        "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open --detach-after-exit 10 -o "$bp_dir/$bp_id-Set-dynamic-environment-variables.buildprof" -- $(command -v bash >/dev/null && echo "bash --noprofile --norc -eo pipefail" || echo "sh -e") "$bp_dir/$bp_id.sh" || bp_rc=$?
+
+        kill $bp_watch 2>/dev/null; exit $bp_rc
+
+        '
+      shell: sh
+    - name: Create Build Environment
+      if: ${{ inputs.os_name != 'Windows' && inputs.build_preset != 'Fuzzers' }}
+      working-directory: ${{ github.workspace }}
+      env:
+        VCPKG_CACHE_SAS: ${{ 'refs/heads/master' == 'refs/heads/master' && secrets.VCPKG_CACHE_SAS || '' }}
+        VCPKG_CACHE_MODE: ${{ 'refs/heads/master' == 'refs/heads/master' && 'write' || '' }}
+      run: "bp_dir=\"$RUNNER_TEMP/buildprof\"; mkdir -p \"$bp_dir\"; bp_id=$(date +%s)-$$-$(od -An -N4 -tu4 /dev/urandom | tr -d \" \")\ncat > \"$bp_dir/$bp_id.sh\" <<'BUILDPROF_SCRIPT_EOF'\ncmake --preset ${{ inputs.build_preset }} -B Build \\\n  ${{ steps.build-parameters.outputs.cmake_options }} \\\n  -DPython3_EXECUTABLE=${{ env.pythonLocation }}/bin/python \\\n  -DCMAKE_C_COMPILER=${{ steps.build-parameters.outputs.host_cc }} \\\n  -DCMAKE_CXX_COMPILER=${{ steps.build-parameters.outputs.host_cxx }}\nBUILDPROF_SCRIPT_EOF\n( sleep 2700; while true; do echo \"=== buildprof survey watchdog: step still running\"; ps -eo pid,ppid,stat,etime,wchan:32,args --forest 2>/dev/null | cut -c1-250 || ps; sleep 600; done ) & bp_watch=$!\nbp_rc=0\n\"$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)\" --no-open --detach-after-exit 10 -o \"$bp_dir/$bp_id-Create-Build-Environment.buildprof\" -- $(command -v bash >/dev/null && echo \"bash --noprofile --norc -eo pipefail\" || echo \"sh -e\") \"$bp_dir/$bp_id.sh\" || bp_rc=$?\nkill $bp_watch 2>/dev/null; exit $bp_rc\n"
+      shell: sh
+    - name: Create Build Environment (Windows)
+      if: ${{ inputs.os_name == 'Windows' }}
+      working-directory: ${{ github.workspace }}
+      env:
+        VCPKG_CACHE_SAS: ${{ 'refs/heads/master' == 'refs/heads/master' && secrets.VCPKG_CACHE_SAS || '' }}
+        VCPKG_CACHE_MODE: ${{ 'refs/heads/master' == 'refs/heads/master' && 'write' || '' }}
+      run: "bp_dir=\"$RUNNER_TEMP/buildprof\"; mkdir -p \"$bp_dir\"; bp_id=$(date +%s)-$$-$(od -An -N4 -tu4 /dev/urandom | tr -d \" \")\ncat > \"$bp_dir/$bp_id.sh\" <<'BUILDPROF_SCRIPT_EOF'\ncmake --preset ${{ inputs.build_preset }} -B Build `\n  -DENABLE_CI_BASELINE_CPU=ON\nBUILDPROF_SCRIPT_EOF\n( sleep 2700; while true; do echo \"=== buildprof survey watchdog: step still running\"; ps -eo pid,ppid,stat,etime,wchan:32,args --forest 2>/dev/null | cut -c1-250 || ps; sleep 600; done ) & bp_watch=$!\nbp_rc=0\n\"$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)\" --no-open --detach-after-exit 10 -o \"$bp_dir/$bp_id-Create-Build-Environment-Windows.buildprof\" -- $(command -v bash >/dev/null && echo \"bash --noprofile --norc -eo pipefail\" || echo \"sh -e\") \"$bp_dir/$bp_id.sh\" || bp_rc=$?\nkill $bp_watch 2>/dev/null; exit $bp_rc\n"
+      shell: sh
+    - name: Create Build Environment (Fuzzers)
+      if: ${{ inputs.build_preset == 'Fuzzers' }}
+      working-directory: ${{ github.workspace }}
+      env:
+        VCPKG_CACHE_SAS: ${{ 'refs/heads/master' == 'refs/heads/master' && secrets.VCPKG_CACHE_SAS || '' }}
+        VCPKG_CACHE_MODE: ${{ 'refs/heads/master' == 'refs/heads/master' && 'write' || '' }}
+      run: "bp_dir=\"$RUNNER_TEMP/buildprof\"; mkdir -p \"$bp_dir\"; bp_id=$(date +%s)-$$-$(od -An -N4 -tu4 /dev/urandom | tr -d \" \")\ncat > \"$bp_dir/$bp_id.sh\" <<'BUILDPROF_SCRIPT_EOF'\ncmake --preset ${{ inputs.build_preset }} -B Build \\\n  ${{ steps.build-parameters.outputs.cmake_options }} \\\n  -DPython3_EXECUTABLE=${{ env.pythonLocation }}/bin/python \\\n  -DCMAKE_C_COMPILER=${{ steps.build-parameters.outputs.host_cc }} \\\n  -DCMAKE_CXX_COMPILER=${{ steps.build-parameters.outputs.host_cxx }}\nBUILDPROF_SCRIPT_EOF\n( sleep 2700; while true; do echo \"=== buildprof survey watchdog: step still running\"; ps -eo pid,ppid,stat,etime,wchan:32,args --forest 2>/dev/null | cut -c1-250 || ps; sleep 600; done ) & bp_watch=$!\nbp_rc=0\n\"$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)\" --no-open --detach-after-exit 10 -o \"$bp_dir/$bp_id-Create-Build-Environment-Fuzzers.buildprof\" -- $(command -v bash >/dev/null && echo \"bash --noprofile --norc -eo pipefail\" || echo \"sh -e\") \"$bp_dir/$bp_id.sh\" || bp_rc=$?\nkill $bp_watch 2>/dev/null; exit $bp_rc\n"
+      shell: sh
+    - name: Build
+      working-directory: ${{ github.workspace }}/Build
+      run: 'bp_dir="$RUNNER_TEMP/buildprof"; mkdir -p "$bp_dir"; bp_id=$(date +%s)-$$-$(od -An -N4 -tu4 /dev/urandom | tr -d " ")
+
+        cat > "$bp_dir/$bp_id.sh" <<''BUILDPROF_SCRIPT_EOF''
+
+        cmake --build .
+
+        cmake --install . --strip --prefix "${GITHUB_WORKSPACE}/Install"
+
+        BUILDPROF_SCRIPT_EOF
+
+        ( sleep 2700; while true; do echo "=== buildprof survey watchdog: step still running"; ps -eo pid,ppid,stat,etime,wchan:32,args --forest 2>/dev/null | cut -c1-250 || ps; sleep 600; done ) & bp_watch=$!
+
+        bp_rc=0
+
+        "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open --detach-after-exit 10 -o "$bp_dir/$bp_id-Build.buildprof" -- $(command -v bash >/dev/null && echo "bash --noprofile --norc -eo pipefail" || echo "sh -e") "$bp_dir/$bp_id.sh" || bp_rc=$?
+
+        kill $bp_watch 2>/dev/null; exit $bp_rc
+
+        '
+      shell: sh
+    - name: Package the macOS app bundle for the accessibility tests
+      if: ${{ inputs.os_name == 'macOS' }}
+      working-directory: ${{ github.workspace }}
+      run: "bp_dir=\"$RUNNER_TEMP/buildprof\"; mkdir -p \"$bp_dir\"; bp_id=$(date +%s)-$$-$(od -An -N4 -tu4 /dev/urandom | tr -d \" \")\ncat > \"$bp_dir/$bp_id.sh\" <<'BUILDPROF_SCRIPT_EOF'\n\"${{ env.pythonLocation }}/bin/python\" Meta/package-macos-app-bundle.py \\\n  --build-dir Build --install-dir Install --output ladybird-app-bundle.tar.gz\nBUILDPROF_SCRIPT_EOF\n( sleep 2700; while true; do echo \"=== buildprof survey watchdog: step still running\"; ps -eo pid,ppid,stat,etime,wchan:32,args --forest 2>/dev/null | cut -c1-250 || ps; sleep 600; done ) & bp_watch=$!\nbp_rc=0\n\"$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)\" --no-open --detach-after-exit 10 -o \"$bp_dir/$bp_id-Package-the-macOS-app-bundle-for-the-acc.buildprof\" -- $(command -v bash >/dev/null && echo \"bash --noprofile --norc -eo pipefail\" || echo \"sh -e\") \"$bp_dir/$bp_id.sh\" || bp_rc=$?\nkill $bp_watch 2>/dev/null; exit $bp_rc\n"
+      shell: sh
+    - name: Upload the macOS app bundle
+      if: ${{ inputs.os_name == 'macOS' }}
+      uses: actions/upload-artifact@v7
+      with:
+        name: ladybird-app-bundle-${{ inputs.os_name }}-${{ inputs.arch }}-${{ inputs.build_preset }}
+        path: ladybird-app-bundle.tar.gz
+        compression-level: 0
+        retention-days: 3
+        if-no-files-found: error
+    - name: Save Caches
+      uses: ./.github/actions/cache-save
+      with:
+        arch: ${{ inputs.arch }}
+        ccache_path: ${{ steps.setup.outputs.ccache_path }}
+        ccache_primary_key: ${{ steps.cache-restore.outputs.ccache_primary_key }}
+        vcpkg_cache_path: ${{ steps.setup.outputs.vcpkg_cache_path }}
+        vcpkg_cache_primary_key: ${{ steps.cache-restore.outputs.vcpkg_cache_primary_key }}
+    - name: Start PulseAudio
+      if: ${{ inputs.os_name == 'Linux' }}
+      run: "bp_dir=\"$RUNNER_TEMP/buildprof\"; mkdir -p \"$bp_dir\"; bp_id=$(date +%s)-$$-$(od -An -N4 -tu4 /dev/urandom | tr -d \" \")\ncat > \"$bp_dir/$bp_id.sh\" <<'BUILDPROF_SCRIPT_EOF'\necho \"PULSE_SERVER=unix:/tmp/pulse-native\" >> \"$GITHUB_ENV\"\npulseaudio --system -D --exit-idle-time=1800 \\\n  --load=\"module-native-protocol-unix auth-anonymous=1 socket=/tmp/pulse-native\" \\\n  --load=\"module-null-sink sink_name=virtual_sink\"\nBUILDPROF_SCRIPT_EOF\n( sleep 2700; while true; do echo \"=== buildprof survey watchdog: step still running\"; ps -eo pid,ppid,stat,etime,wchan:32,args --forest 2>/dev/null | cut -c1-250 || ps; sleep 600; done ) & bp_watch=$!\nbp_rc=0\n\"$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)\" --no-open --detach-after-exit 10 -o \"$bp_dir/$bp_id-Start-PulseAudio.buildprof\" -- $(command -v bash >/dev/null && echo \"bash --noprofile --norc -eo pipefail\" || echo \"sh -e\") \"$bp_dir/$bp_id.sh\" || bp_rc=$?\nkill $bp_watch 2>/dev/null; exit $bp_rc\n"
+      shell: sh
+    - name: Verify StyleEngine invariants
+      if: ${{ inputs.os_name == 'Linux' && (inputs.build_preset == 'Release' || inputs.build_preset == 'Sanitizer') }}
+      timeout-minutes: 5
+      working-directory: ${{ github.workspace }}/Build/Tests/LibWeb/test-web
+      run: "bp_dir=\"$RUNNER_TEMP/buildprof\"; mkdir -p \"$bp_dir\"; bp_id=$(date +%s)-$$-$(od -An -N4 -tu4 /dev/urandom | tr -d \" \")\ncat > \"$bp_dir/$bp_id.sh\" <<'BUILDPROF_SCRIPT_EOF'\n../../../bin/test-web --verify-style -j10 \\\n  -f Text/input/css/style-engine/ \\\n  -f Text/input/css/style-invalidation/\nBUILDPROF_SCRIPT_EOF\n( sleep 2700; while true; do echo \"=== buildprof survey watchdog: step still running\"; ps -eo pid,ppid,stat,etime,wchan:32,args --forest 2>/dev/null | cut -c1-250 || ps; sleep 600; done ) & bp_watch=$!\nbp_rc=0\n\"$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)\" --no-open --detach-after-exit 10 -o \"$bp_dir/$bp_id-Verify-StyleEngine-invariants.buildprof\" -- $(command -v bash >/dev/null && echo \"bash --noprofile --norc -eo pipefail\" || echo \"sh -e\") \"$bp_dir/$bp_id.sh\" || bp_rc=$?\nkill $bp_watch 2>/dev/null; exit $bp_rc\n"
+      shell: sh
+    - name: Check new tests for flakiness
+      if: ${{ 'push' == 'pull_request' && inputs.build_preset == 'Sanitizer' && (inputs.os_name == 'Linux' || inputs.os_name == 'macOS') }}
+      timeout-minutes: 30
+      working-directory: ${{ github.workspace }}
+      shell: sh
+      run: "bp_dir=\"$RUNNER_TEMP/buildprof\"; mkdir -p \"$bp_dir\"; bp_id=$(date +%s)-$$-$(od -An -N4 -tu4 /dev/urandom | tr -d \" \")\ncat > \"$bp_dir/$bp_id.sh\" <<'BUILDPROF_SCRIPT_EOF'\ngit fetch --no-tags --depth=2 origin \"$(git rev-parse HEAD)\"\n\"${{ env.pythonLocation }}/bin/python\" Meta/check-test-flakiness.py \\\n  --test-web-binary Build/bin/test-web \\\n  --base-ref HEAD^1 \\\n  --deadline-seconds 1200 \\\n  --python-executable \"${{ env.pythonLocation }}/bin/python\" \\\n  | tee -a \"$GITHUB_STEP_SUMMARY\"\nBUILDPROF_SCRIPT_EOF\n( sleep 2700; while true; do echo \"=== buildprof survey watchdog: step still running\"; ps -eo pid,ppid,stat,etime,wchan:32,args --forest 2>/dev/null | cut -c1-250 || ps; sleep 600; done ) & bp_watch=$!\nbp_rc=0\n\"$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)\" --no-open --detach-after-exit 10 -o \"$bp_dir/$bp_id-Check-new-tests-for-flakiness.buildprof\" -- bash --noprofile --norc -eo pipefail \"$bp_dir/$bp_id.sh\" || bp_rc=$?\nkill $bp_watch 2>/dev/null; exit $bp_rc\n"
+    - name: Run WPT Smoke Tests
+      if: ${{ inputs.os_name == 'Linux' && (inputs.build_preset == 'Release' || inputs.build_preset == 'Sanitizer') }}
+      timeout-minutes: 5
+      working-directory: ${{ github.workspace }}
+      shell: sh
+      run: 'bp_dir="$RUNNER_TEMP/buildprof"; mkdir -p "$bp_dir"; bp_id=$(date +%s)-$$-$(od -An -N4 -tu4 /dev/urandom | tr -d " ")
+
+        cat > "$bp_dir/$bp_id.sh" <<''BUILDPROF_SCRIPT_EOF''
+
+        export ASAN_OPTIONS="log_path=\"${GITHUB_WORKSPACE}/Build/asan.log\""
+
+        export UBSAN_OPTIONS="log_path=\"${GITHUB_WORKSPACE}/Build/ubsan.log\""
+
+        Meta/WPT.sh run --test-list Tests/LibWeb/WPT/ci-smoke-tests.txt
+
+        BUILDPROF_SCRIPT_EOF
+
+        ( sleep 2700; while true; do echo "=== buildprof survey watchdog: step still running"; ps -eo pid,ppid,stat,etime,wchan:32,args --forest 2>/dev/null | cut -c1-250 || ps; sleep 600; done ) & bp_watch=$!
+
+        bp_rc=0
+
+        "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open --detach-after-exit 10 -o "$bp_dir/$bp_id-Run-WPT-Smoke-Tests.buildprof" -- bash --noprofile --norc -eo pipefail "$bp_dir/$bp_id.sh" || bp_rc=$?
+
+        kill $bp_watch 2>/dev/null; exit $bp_rc
+
+        '
+      env:
+        BUILD_LADYBIRD: 'false'
+        LADYBIRD_BINARY: ${{ github.workspace }}/Build/bin/Ladybird
+        WEBDRIVER_BINARY: ${{ github.workspace }}/Build/bin/WebDriver
+        WPT_PROCESSES: '4'
+    - name: Test
+      if: ${{ inputs.build_preset == 'Sanitizer' }}
+      working-directory: ${{ github.workspace }}
+      shell: sh
+      run: 'bp_dir="$RUNNER_TEMP/buildprof"; mkdir -p "$bp_dir"; bp_id=$(date +%s)-$$-$(od -An -N4 -tu4 /dev/urandom | tr -d " ")
+
+        cat > "$bp_dir/$bp_id.sh" <<''BUILDPROF_SCRIPT_EOF''
+
+        export ASAN_OPTIONS="log_path=\"${GITHUB_WORKSPACE}/Build/asan.log\""
+
+        export UBSAN_OPTIONS="log_path=\"${GITHUB_WORKSPACE}/Build/ubsan.log\""
+
+        ctest --preset ${{ inputs.build_preset }} --output-on-failure -E ''LibWebAccessibilityBridge|AccessibilityBridgeMac'' --test-dir Build --timeout 1800
+
+        BUILDPROF_SCRIPT_EOF
+
+        ( sleep 2700; while true; do echo "=== buildprof survey watchdog: step still running"; ps -eo pid,ppid,stat,etime,wchan:32,args --forest 2>/dev/null | cut -c1-250 || ps; sleep 600; done ) & bp_watch=$!
+
+        bp_rc=0
+
+        "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open --detach-after-exit 10 -o "$bp_dir/$bp_id-Test.buildprof" -- bash --noprofile --norc -eo pipefail "$bp_dir/$bp_id.sh" || bp_rc=$?
+
+        kill $bp_watch 2>/dev/null; exit $bp_rc
+
+        '
+      env:
+        TESTS_ONLY: 1
+    - name: Test
+      if: ${{ inputs.build_preset != 'Fuzzers' && inputs.build_preset != 'All_Debug' && inputs.build_preset != 'Sanitizer' }}
+      working-directory: ${{ github.workspace }}
+      run: 'bp_dir="$RUNNER_TEMP/buildprof"; mkdir -p "$bp_dir"; bp_id=$(date +%s)-$$-$(od -An -N4 -tu4 /dev/urandom | tr -d " ")
+
+        cat > "$bp_dir/$bp_id.sh" <<''BUILDPROF_SCRIPT_EOF''
+
+        ctest --output-on-failure -E ''LibWebAccessibilityBridge|AccessibilityBridgeMac'' --test-dir Build --timeout 1800
+
+        BUILDPROF_SCRIPT_EOF
+
+        ( sleep 2700; while true; do echo "=== buildprof survey watchdog: step still running"; ps -eo pid,ppid,stat,etime,wchan:32,args --forest 2>/dev/null | cut -c1-250 || ps; sleep 600; done ) & bp_watch=$!
+
+        bp_rc=0
+
+        "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open --detach-after-exit 10 -o "$bp_dir/$bp_id-Test.buildprof" -- $(command -v bash >/dev/null && echo "bash --noprofile --norc -eo pipefail" || echo "sh -e") "$bp_dir/$bp_id.sh" || bp_rc=$?
+
+        kill $bp_watch 2>/dev/null; exit $bp_rc
+
+        '
+      env:
+        TESTS_ONLY: 1
+      shell: sh
+    - name: Test - LibWeb AT-SPI2 bridge (Release)
+      if: ${{ inputs.os_name == 'Linux' && inputs.build_preset == 'Release' }}
+      working-directory: ${{ github.workspace }}
+      run: 'bp_dir="$RUNNER_TEMP/buildprof"; mkdir -p "$bp_dir"; bp_id=$(date +%s)-$$-$(od -An -N4 -tu4 /dev/urandom | tr -d " ")
+
+        cat > "$bp_dir/$bp_id.sh" <<''BUILDPROF_SCRIPT_EOF''
+
+        ctest --output-on-failure --no-tests=error --test-dir Build -R LibWebAccessibilityBridge --timeout 1800
+
+        BUILDPROF_SCRIPT_EOF
+
+        ( sleep 2700; while true; do echo "=== buildprof survey watchdog: step still running"; ps -eo pid,ppid,stat,etime,wchan:32,args --forest 2>/dev/null | cut -c1-250 || ps; sleep 600; done ) & bp_watch=$!
+
+        bp_rc=0
+
+        "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open --detach-after-exit 10 -o "$bp_dir/$bp_id-Test-LibWeb-AT-SPI2-bridge-Release.buildprof" -- $(command -v bash >/dev/null && echo "bash --noprofile --norc -eo pipefail" || echo "sh -e") "$bp_dir/$bp_id.sh" || bp_rc=$?
+
+        kill $bp_watch 2>/dev/null; exit $bp_rc
+
+        '
+      env:
+        TESTS_ONLY: 1
+      shell: sh
+    - name: Upload LibWeb Test Artifacts
+      if: ${{ always() && inputs.build_preset != 'Fuzzers' && inputs.build_preset != 'All_Debug' }}
+      uses: actions/upload-artifact@v7
+      with:
+        name: libweb-test-artifacts-${{ inputs.os_name }}-${{ inputs.arch }}-${{ inputs.build_preset }}-${{ inputs.toolchain }}-${{ inputs.clang_plugins }}
+        path: 'Build/Tests/LibWeb/test-web/test-dumps/
+
+          Build/**/asan.log.*
+
+          Build/**/ubsan.log.*
+
+          '
+        retention-days: 0
+        if-no-files-found: ignore
+    - name: Sanitizer Output
+      if: ${{ !cancelled() && inputs.os_name != 'Windows' && inputs.build_preset == 'Sanitizer' }}
+      working-directory: ${{ github.workspace }}
+      run: "bp_dir=\"$RUNNER_TEMP/buildprof\"; mkdir -p \"$bp_dir\"; bp_id=$(date +%s)-$$-$(od -An -N4 -tu4 /dev/urandom | tr -d \" \")\ncat > \"$bp_dir/$bp_id.sh\" <<'BUILDPROF_SCRIPT_EOF'\nlog_output=$(find Build \\( -name 'asan.log.*' -o -name 'ubsan.log.*' \\) -exec cat {} \\; )\nif [ -z \"$log_output\" ]; then\n  echo \"No sanitizer issues found.\"\nelse\n  echo \"$log_output\"\n  echo \"Sanitizer errors happened while running tests; see the Test step above.\"\nfi\nBUILDPROF_SCRIPT_EOF\n( sleep 2700; while true; do echo \"=== buildprof survey watchdog: step still running\"; ps -eo pid,ppid,stat,etime,wchan:32,args --forest 2>/dev/null | cut -c1-250 || ps; sleep 600; done ) & bp_watch=$!\nbp_rc=0\n\"$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)\" --no-open --detach-after-exit 10 -o \"$bp_dir/$bp_id-Sanitizer-Output.buildprof\" -- $(command -v bash >/dev/null && echo \"bash --noprofile --norc -eo pipefail\" || echo \"sh -e\") \"$bp_dir/$bp_id.sh\" || bp_rc=$?\nkill $bp_watch 2>/dev/null; exit $bp_rc\n"
+      shell: sh
+    - name: Upload buildprof recordings
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: ladybird--lagom-template-CI-${{ strategy.job-index }}
+        path: ${{ runner.temp }}/buildprof/*.buildprof
+        retention-days: 30
+        if-no-files-found: ignore
+        compression-level: 0
+    permissions:
+      contents: read
+    timeout-minutes: 120

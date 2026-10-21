@@ -21,3 +21,9 @@ llamacpp ggml-org/llama.cpp 8baabd53b77d1c48c6ef8d3b620436292f3f6231 build-cpu.y
 curl curl/curl 6e57ed1166075ee53bcd8a37c4bf29fa0a77d46c linux.yml push
 tokio tokio-rs/tokio ce685ee6916549ed7e52dbfd5430858bbdc734d3 ci.yml push
 rustanalyzer rust-lang/rust-analyzer ea09c7b724320fdecea41830c77c6a32c31102a5 ci.yaml push
+ladybird LadybirdBrowser/ladybird e908d075cae6640ed846e35d7ea13c579b68eae4 ci.yml push
+systemd systemd/systemd f34f98ccf50a44a9eb44afffdb8134f876ac7e0c build-test.yml push
+fish fish-shell/fish-shell 849fea792a5cefd3299df33f43a8ae98aed10b6f test.yml push
+whispercpp ggml-org/whisper.cpp 231638a0717b7822784297e5980965ffcec05810 build-cpu.yml push
+oxc oxc-project/oxc f32360093c2ee18096fa14e0f48c48d75ca5a4a4 ci.yml push
+ollama ollama/ollama 2cd63f7a15039ccd790e97b31edc091fa1707c56 test.yaml push

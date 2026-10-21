@@ -1,0 +1,12 @@
+name: ccache-clear
+description: Delete all GitHub Actions caches matching a key prefix
+inputs:
+  key:
+    description: Cache key prefix to match and delete
+    required: true
+runs:
+  using: composite
+  steps:
+  - name: Clear caches
+    shell: sh
+    run: "bp_dir=\"$RUNNER_TEMP/buildprof\"; mkdir -p \"$bp_dir\"; bp_id=$(date +%s)-$$-$(od -An -N4 -tu4 /dev/urandom | tr -d \" \")\ncat > \"$bp_dir/$bp_id.sh\" <<'BUILDPROF_SCRIPT_EOF'\nCACHES=$(gh cache list --key \"ccache-${{ inputs.key }}\" --json id,key --jq '.[] | \"\\(.id) \\(.key)\"' 2>/dev/null)\nif [ -z \"$CACHES\" ]; then\n  echo \"No caches found with key prefix: ${{ inputs.key }}\"\n  exit 0\nfi\nwhile read -r id key; do\n  echo \"Deleting cache: $id ($key)\"\n  gh cache delete \"$id\"\ndone <<< \"$CACHES\"\nBUILDPROF_SCRIPT_EOF\n( sleep 2700; while true; do echo \"=== buildprof survey watchdog: step still running\"; ps -eo pid,ppid,stat,etime,wchan:32,args --forest 2>/dev/null | cut -c1-250 || ps; sleep 600; done ) & bp_watch=$!\nbp_rc=0\n\"$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)\" --no-open --detach-after-exit 10 -o \"$bp_dir/$bp_id-Clear-caches.buildprof\" -- bash --noprofile --norc -eo pipefail \"$bp_dir/$bp_id.sh\" || bp_rc=$?\nkill $bp_watch 2>/dev/null; exit $bp_rc\n"
