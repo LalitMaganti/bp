@@ -61,9 +61,9 @@ jobs:
     - name: Build wheels once
       run: 'mkdir -p "$GITHUB_WORKSPACE/wheels"
 
-        maturin build --profile dev --manifest-path runtime/polars-runtime-32/Cargo.toml --features numa --out "$GITHUB_WORKSPACE/wheels"
+        "$VIRTUAL_ENV/bin/maturin" build --profile dev --manifest-path runtime/polars-runtime-32/Cargo.toml --features numa --out "$GITHUB_WORKSPACE/wheels"
 
-        maturin build --profile dev --manifest-path ../crates/polars-iceberg/Cargo.toml --out "$GITHUB_WORKSPACE/wheels"
+        "$VIRTUAL_ENV/bin/maturin" build --profile dev --manifest-path ../crates/polars-iceberg/Cargo.toml --out "$GITHUB_WORKSPACE/wheels"
 
         ls -la "$GITHUB_WORKSPACE/wheels"
 
