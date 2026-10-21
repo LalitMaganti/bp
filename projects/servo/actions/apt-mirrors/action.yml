@@ -1,0 +1,29 @@
+name: Change Mirror Priorities
+runs:
+  using: composite
+  steps:
+  - name: Change Mirror Priorities
+    shell: sh
+    run: 'bp_dir="$RUNNER_TEMP/buildprof"; mkdir -p "$bp_dir"; bp_id=$(date +%s)-$$-$(od -An -N4 -tu4 /dev/urandom | tr -d " ")
+
+      cat > "$bp_dir/$bp_id.sh" <<''BUILDPROF_SCRIPT_EOF''
+
+      sudo sed -i ''/archive.ubuntu.com\/ubuntu\/\tpriority/ s/priority:2/priority:0/'' /etc/apt/apt-mirrors.txt
+
+      sudo sed -i ''/azure.archive.ubuntu.com\/ubuntu\/\tpriority/ s/priority:0/priority:1/'' /etc/apt/apt-mirrors.txt
+
+      sudo sed -i ''/security.ubuntu.com\/ubuntu\/\tpriority/ s/priority:3/priority:2/'' /etc/apt/apt-mirrors.txt
+
+      sudo cat /etc/apt/apt-mirrors.txt
+
+      BUILDPROF_SCRIPT_EOF
+
+      ( sleep 2700; while true; do echo "=== buildprof survey watchdog: step still running"; ps -eo pid,ppid,stat,etime,wchan:32,args --forest 2>/dev/null | cut -c1-250 || ps; sleep 600; done ) & bp_watch=$!
+
+      bp_rc=0
+
+      "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open --detach-after-exit 10 -o "$bp_dir/$bp_id-Change-Mirror-Priorities.buildprof" -- bash --noprofile --norc -eo pipefail "$bp_dir/$bp_id.sh" || bp_rc=$?
+
+      kill $bp_watch 2>/dev/null; exit $bp_rc
+
+      '

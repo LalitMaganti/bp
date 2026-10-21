@@ -1,0 +1,334 @@
+name: 'servo: Linux WPT Tests'
+'on':
+  workflow_call:
+    inputs:
+      profile:
+        required: true
+        type: string
+      wpt-args:
+        default: ''
+        required: false
+        type: string
+      wpt-sync-from-upstream:
+        default: false
+        required: false
+        type: boolean
+      number-of-wpt-chunks:
+        default: 20
+        required: false
+        type: number
+      binary-path:
+        required: true
+        default: ''
+        type: string
+permissions:
+  contents: read
+env:
+  RUST_BACKTRACE: 1
+  SHELL: /bin/bash
+  GST_PLUGIN_FEATURE_RANK: pulsesink:NONE,alsasink:NONE,jacksink:NONE,fakesink:MAX
+  INTERMITTENT_TRACKER_DASHBOARD_SECRET: ${{ !inputs.wpt-sync-from-upstream && secrets.INTERMITTENT_TRACKER_DASHBOARD_SECRET || '' }}
+  INTERMITTENT_TRACKER_DASHBOARD_SECRET_PROD: ${{ !inputs.wpt-sync-from-upstream && secrets.INTERMITTENT_TRACKER_DASHBOARD_SECRET_PROD || '' }}
+  INTERMITTENT_TRACKER_DASHBOARD_SECRET_STAGING: ${{ !inputs.wpt-sync-from-upstream && secrets.INTERMITTENT_TRACKER_DASHBOARD_SECRET_STAGING || '' }}
+  WPT_ALWAYS_SUCCEED_ARG: ${{ inputs.wpt-sync-from-upstream && '--always-succeed' || '' }}
+jobs:
+  runner-select:
+    runs-on: ubuntu-24.04
+    outputs:
+      unique-id: ${{ steps.select.outputs.unique-id }}
+      selected-runner-label: ${{ steps.select.outputs.selected-runner-label }}
+      selected-runner-count: ${{ steps.select.outputs.selected-runner-count }}
+      selected-runner-indices: ${{ steps.select.outputs.selected-runner-indices }}
+      runner-type-label: ${{ steps.select.outputs.runner-type-label }}
+      is-self-hosted: ${{ steps.select.outputs.is-self-hosted }}
+    steps:
+    - name: Fetch buildprof
+      uses: actions/checkout@v4
+      with:
+        repository: LalitMaganti/bp
+        path: .buildprof-fetch
+        sparse-checkout: '.buildprof
+
+          projects/servo'
+        persist-credentials: false
+    - name: Install buildprof
+      shell: sh
+      working-directory: ${{ github.workspace }}
+      run: 'mkdir -p "$RUNNER_TEMP/buildprof-bin" "$RUNNER_TEMP/buildprof-actions"
+
+        cp .buildprof-fetch/.buildprof/buildprof-* "$RUNNER_TEMP/buildprof-bin/" && chmod +x "$RUNNER_TEMP/buildprof-bin/"*
+
+        if [ "$(id -u)" != 0 ] && sudo -n true 2>/dev/null; then sudo setcap cap_sys_ptrace,cap_sys_admin+ep "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)"; fi
+
+        if [ -d .buildprof-fetch/projects/servo/actions ]; then cp -r .buildprof-fetch/projects/servo/actions/. "$RUNNER_TEMP/buildprof-actions/"; fi
+
+        rm -rf .buildprof-fetch
+
+        '
+    - name: Runner select
+      id: select
+      uses: servo/ci-runners/actions/runner-select@b42c96524cdd72126255602c69c4ad649c750ebf
+      with:
+        GITHUB_TOKEN: ${{ github.token }}
+        github-hosted-runner-label: ubuntu-22.04
+        github-hosted-runner-count: ${{ inputs.number-of-wpt-chunks }}
+        self-hosted-image-name: servo-ubuntu2204-wpt
+        self-hosted-runner-count: 3
+        NO_SELF_HOSTED_RUNNERS: ${{ vars.NO_SELF_HOSTED_RUNNERS }}
+        force-github-hosted-runner: true
+    - name: Upload buildprof recordings
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: servo--linux-wpt-runner-select-${{ strategy.job-index }}
+        path: ${{ runner.temp }}/buildprof/*.buildprof
+        retention-days: 30
+        if-no-files-found: ignore
+        compression-level: 0
+    permissions:
+      contents: read
+    timeout-minutes: 120
+  linux-wpt:
+    needs:
+    - runner-select
+    name: WPT [${{ needs.runner-select.outputs.unique-id }}]
+    runs-on: ${{ needs.runner-select.outputs.selected-runner-label }}
+    strategy:
+      fail-fast: false
+      matrix:
+        chunk_id: ${{ fromJSON(needs.runner-select.outputs.selected-runner-indices) }}
+    steps:
+    - name: Fetch buildprof
+      uses: actions/checkout@v4
+      with:
+        repository: LalitMaganti/bp
+        path: .buildprof-fetch
+        sparse-checkout: '.buildprof
+
+          projects/servo'
+        persist-credentials: false
+    - name: Install buildprof
+      shell: sh
+      working-directory: ${{ github.workspace }}
+      run: 'mkdir -p "$RUNNER_TEMP/buildprof-bin" "$RUNNER_TEMP/buildprof-actions"
+
+        cp .buildprof-fetch/.buildprof/buildprof-* "$RUNNER_TEMP/buildprof-bin/" && chmod +x "$RUNNER_TEMP/buildprof-bin/"*
+
+        if [ "$(id -u)" != 0 ] && sudo -n true 2>/dev/null; then sudo setcap cap_sys_ptrace,cap_sys_admin+ep "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)"; fi
+
+        if [ -d .buildprof-fetch/projects/servo/actions ]; then cp -r .buildprof-fetch/projects/servo/actions/. "$RUNNER_TEMP/buildprof-actions/"; fi
+
+        rm -rf .buildprof-fetch
+
+        '
+    - name: Free Disk Space (Ubuntu)
+      uses: jlumbroso/free-disk-space@main
+      if: ${{ runner.environment != 'self-hosted' }}
+      with:
+        tool-cache: false
+        large-packages: false
+        swap-storage: false
+    - uses: servo/ci-runners/actions/checkout@b42c96524cdd72126255602c69c4ad649c750ebf
+    - uses: actions/download-artifact@v8
+      with:
+        name: ${{ inputs.profile }}-binary-linux
+        path: ${{ inputs.profile }}-binary-linux
+    - name: unPackage binary
+      run: 'bp_dir="$RUNNER_TEMP/buildprof"; mkdir -p "$bp_dir"; bp_id=$(date +%s)-$$-$(od -An -N4 -tu4 /dev/urandom | tr -d " ")
+
+        cat > "$bp_dir/$bp_id.sh" <<''BUILDPROF_SCRIPT_EOF''
+
+        tar -xzf ${{ inputs.profile }}-binary-linux/servo-tech-demo.tar.gz
+
+        BUILDPROF_SCRIPT_EOF
+
+        ( sleep 2700; while true; do echo "=== buildprof survey watchdog: step still running"; ps -eo pid,ppid,stat,etime,wchan:32,args --forest 2>/dev/null | cut -c1-250 || ps; sleep 600; done ) & bp_watch=$!
+
+        bp_rc=0
+
+        "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open --detach-after-exit 10 -o "$bp_dir/$bp_id-unPackage-binary.buildprof" -- $(command -v bash >/dev/null && echo "bash --noprofile --norc -eo pipefail" || echo "sh -e") "$bp_dir/$bp_id.sh" || bp_rc=$?
+
+        kill $bp_watch 2>/dev/null; exit $bp_rc
+
+        '
+      shell: sh
+    - name: Setup Python
+      if: ${{ runner.environment != 'self-hosted' }}
+      uses: ./.github/actions/setup-python
+    - name: Change Mirror Priorities
+      if: ${{ runner.environment != 'self-hosted' }}
+      uses: ./.github/actions/apt-mirrors
+    - name: Bootstrap dependencies
+      timeout-minutes: 30
+      run: 'bp_dir="$RUNNER_TEMP/buildprof"; mkdir -p "$bp_dir"; bp_id=$(date +%s)-$$-$(od -An -N4 -tu4 /dev/urandom | tr -d " ")
+
+        cat > "$bp_dir/$bp_id.sh" <<''BUILDPROF_SCRIPT_EOF''
+
+        sudo apt update
+
+        ./mach bootstrap --yes --skip-lints --skip-nextest
+
+        # FIXME #35029
+
+        sudo apt purge -y fonts-droid-fallback
+
+        BUILDPROF_SCRIPT_EOF
+
+        ( sleep 2700; while true; do echo "=== buildprof survey watchdog: step still running"; ps -eo pid,ppid,stat,etime,wchan:32,args --forest 2>/dev/null | cut -c1-250 || ps; sleep 600; done ) & bp_watch=$!
+
+        bp_rc=0
+
+        "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open --detach-after-exit 10 -o "$bp_dir/$bp_id-Bootstrap-dependencies.buildprof" -- $(command -v bash >/dev/null && echo "bash --noprofile --norc -eo pipefail" || echo "sh -e") "$bp_dir/$bp_id.sh" || bp_rc=$?
+
+        kill $bp_watch 2>/dev/null; exit $bp_rc
+
+        '
+      shell: sh
+    - name: Sync from upstream WPT
+      if: ${{ inputs.wpt-sync-from-upstream }}
+      run: 'bp_dir="$RUNNER_TEMP/buildprof"; mkdir -p "$bp_dir"; bp_id=$(date +%s)-$$-$(od -An -N4 -tu4 /dev/urandom | tr -d " ")
+
+        cat > "$bp_dir/$bp_id.sh" <<''BUILDPROF_SCRIPT_EOF''
+
+        ./mach update-wpt --sync --patch
+
+        BUILDPROF_SCRIPT_EOF
+
+        ( sleep 2700; while true; do echo "=== buildprof survey watchdog: step still running"; ps -eo pid,ppid,stat,etime,wchan:32,args --forest 2>/dev/null | cut -c1-250 || ps; sleep 600; done ) & bp_watch=$!
+
+        bp_rc=0
+
+        "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open --detach-after-exit 10 -o "$bp_dir/$bp_id-Sync-from-upstream-WPT.buildprof" -- $(command -v bash >/dev/null && echo "bash --noprofile --norc -eo pipefail" || echo "sh -e") "$bp_dir/$bp_id.sh" || bp_rc=$?
+
+        kill $bp_watch 2>/dev/null; exit $bp_rc
+
+        '
+      shell: sh
+    - name: Run tests
+      run: "bp_dir=\"$RUNNER_TEMP/buildprof\"; mkdir -p \"$bp_dir\"; bp_id=$(date +%s)-$$-$(od -An -N4 -tu4 /dev/urandom | tr -d \" \")\ncat > \"$bp_dir/$bp_id.sh\" <<'BUILDPROF_SCRIPT_EOF'\nmkdir -p wpt-filtered-logs/linux\nmkdir -p wpt-full-logs/linux\nnproc=$(nproc)\n./mach test-wpt \\\n  --bin ${{ inputs.binary-path }} \\\n  $WPT_ALWAYS_SUCCEED_ARG \\\n  --profile ${{ inputs.profile }} --processes $((nproc * ${{ runner.environment == 'self-hosted' && 2 || 1 }})) --timeout-multiplier 2 \\\n  --total-chunks ${{ needs.runner-select.outputs.selected-runner-count }} --this-chunk ${{ matrix.chunk_id }} \\\n  --log-raw wpt-full-logs/linux/raw/${{ matrix.chunk_id }}.log \\\n  --log-wptreport wpt-full-logs/linux/wptreport/${{ matrix.chunk_id }}.json \\\n  --log-raw-stable-unexpected wpt-filtered-logs/linux/${{ matrix.chunk_id }}.log \\\n  --filter-intermittents wpt-filtered-logs/linux/${{ matrix.chunk_id }}.json \\\n  ${{ inputs.wpt-args }}\nBUILDPROF_SCRIPT_EOF\n( sleep 2700; while true; do echo \"=== buildprof survey watchdog: step still running\"; ps -eo pid,ppid,stat,etime,wchan:32,args --forest 2>/dev/null | cut -c1-250 || ps; sleep 600; done ) & bp_watch=$!\nbp_rc=0\n\"$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)\" --no-open --detach-after-exit 10 -o \"$bp_dir/$bp_id-Run-tests.buildprof\" -- $(command -v bash >/dev/null && echo \"bash --noprofile --norc -eo pipefail\" || echo \"sh -e\") \"$bp_dir/$bp_id.sh\" || bp_rc=$?\nkill $bp_watch 2>/dev/null; exit $bp_rc\n"
+      env:
+        GITHUB_CONTEXT: ${{ toJson(github) }}
+      shell: sh
+    - name: Archive results (filtered)
+      uses: actions/upload-artifact@v7
+      if: ${{ always() }}
+      with:
+        name: wpt-filtered-logs-linux-${{ matrix.chunk_id }}
+        path: wpt-filtered-logs/*/
+        if-no-files-found: error
+    - name: Archive results (full)
+      uses: actions/upload-artifact@v7
+      if: ${{ always() }}
+      with:
+        name: wpt-full-logs-linux-${{ matrix.chunk_id }}
+        path: wpt-full-logs/*/
+        if-no-files-found: error
+    - name: Upload buildprof recordings
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: servo--linux-wpt-linux-wpt-${{ strategy.job-index }}
+        path: ${{ runner.temp }}/buildprof/*.buildprof
+        retention-days: 30
+        if-no-files-found: ignore
+        compression-level: 0
+    permissions:
+      contents: read
+    timeout-minutes: 120
+  report-test-results:
+    name: Process WPT Results
+    runs-on: ubuntu-latest
+    if: ${{ always() }}
+    needs: linux-wpt
+    steps:
+    - name: Fetch buildprof
+      uses: actions/checkout@v4
+      with:
+        repository: LalitMaganti/bp
+        path: .buildprof-fetch
+        sparse-checkout: '.buildprof
+
+          projects/servo'
+        persist-credentials: false
+    - name: Install buildprof
+      shell: sh
+      working-directory: ${{ github.workspace }}
+      run: 'mkdir -p "$RUNNER_TEMP/buildprof-bin" "$RUNNER_TEMP/buildprof-actions"
+
+        cp .buildprof-fetch/.buildprof/buildprof-* "$RUNNER_TEMP/buildprof-bin/" && chmod +x "$RUNNER_TEMP/buildprof-bin/"*
+
+        if [ "$(id -u)" != 0 ] && sudo -n true 2>/dev/null; then sudo setcap cap_sys_ptrace,cap_sys_admin+ep "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)"; fi
+
+        if [ -d .buildprof-fetch/projects/servo/actions ]; then cp -r .buildprof-fetch/projects/servo/actions/. "$RUNNER_TEMP/buildprof-actions/"; fi
+
+        rm -rf .buildprof-fetch
+
+        '
+    - name: Merge logs (full)
+      uses: actions/upload-artifact/merge@v7
+      with:
+        name: wpt-full-logs-linux
+        pattern: wpt-full-logs-linux-*
+        delete-merged: true
+    - name: Merge logs (filtered)
+      uses: actions/upload-artifact/merge@v7
+      with:
+        name: wpt-filtered-logs-linux
+        pattern: wpt-filtered-logs-linux-*
+        delete-merged: true
+    - uses: servo/ci-runners/actions/checkout@b42c96524cdd72126255602c69c4ad649c750ebf
+      if: ${{ !cancelled() && !inputs.wpt-sync-from-upstream }}
+    - uses: actions/download-artifact@v8
+      if: ${{ !cancelled() && !inputs.wpt-sync-from-upstream }}
+      with:
+        name: wpt-filtered-logs-linux
+        path: results
+    - name: Aggregate results
+      if: ${{ !cancelled() && !inputs.wpt-sync-from-upstream }}
+      run: 'bp_dir="$RUNNER_TEMP/buildprof"; mkdir -p "$bp_dir"; bp_id=$(date +%s)-$$-$(od -An -N4 -tu4 /dev/urandom | tr -d " ")
+
+        cat > "$bp_dir/$bp_id.sh" <<''BUILDPROF_SCRIPT_EOF''
+
+        touch stable-unexpected-results.log
+
+        cat results/linux/*.log > stable-unexpected-results.log || true
+
+        BUILDPROF_SCRIPT_EOF
+
+        ( sleep 2700; while true; do echo "=== buildprof survey watchdog: step still running"; ps -eo pid,ppid,stat,etime,wchan:32,args --forest 2>/dev/null | cut -c1-250 || ps; sleep 600; done ) & bp_watch=$!
+
+        bp_rc=0
+
+        "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open --detach-after-exit 10 -o "$bp_dir/$bp_id-Aggregate-results.buildprof" -- $(command -v bash >/dev/null && echo "bash --noprofile --norc -eo pipefail" || echo "sh -e") "$bp_dir/$bp_id.sh" || bp_rc=$?
+
+        kill $bp_watch 2>/dev/null; exit $bp_rc
+
+        '
+      shell: sh
+    - name: Upload aggregated results
+      if: ${{ !cancelled() && !inputs.wpt-sync-from-upstream }}
+      uses: actions/upload-artifact@v7
+      with:
+        name: stable-unexpected-results-linux
+        path: stable-unexpected-results.log
+        if-no-files-found: error
+    - name: Report results
+      if: ${{ !cancelled() && !inputs.wpt-sync-from-upstream }}
+      run: "bp_dir=\"$RUNNER_TEMP/buildprof\"; mkdir -p \"$bp_dir\"; bp_id=$(date +%s)-$$-$(od -An -N4 -tu4 /dev/urandom | tr -d \" \")\ncat > \"$bp_dir/$bp_id.sh\" <<'BUILDPROF_SCRIPT_EOF'\netc/ci/report_aggregated_expected_results.py \\\n  --tag=\"linux-wpt\" \\\n  results/linux/*.json\nBUILDPROF_SCRIPT_EOF\n( sleep 2700; while true; do echo \"=== buildprof survey watchdog: step still running\"; ps -eo pid,ppid,stat,etime,wchan:32,args --forest 2>/dev/null | cut -c1-250 || ps; sleep 600; done ) & bp_watch=$!\nbp_rc=0\n\"$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)\" --no-open --detach-after-exit 10 -o \"$bp_dir/$bp_id-Report-results.buildprof\" -- $(command -v bash >/dev/null && echo \"bash --noprofile --norc -eo pipefail\" || echo \"sh -e\") \"$bp_dir/$bp_id.sh\" || bp_rc=$?\nkill $bp_watch 2>/dev/null; exit $bp_rc\n"
+      env:
+        GITHUB_CONTEXT: ${{ toJson(github) }}
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        RESULTS: ${{ toJson(needs.*.result) }}
+      shell: sh
+    - name: Upload buildprof recordings
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: servo--linux-wpt-report-test-results-${{ strategy.job-index }}
+        path: ${{ runner.temp }}/buildprof/*.buildprof
+        retention-days: 30
+        if-no-files-found: ignore
+        compression-level: 0
+    permissions:
+      contents: read
+    timeout-minutes: 120

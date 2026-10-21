@@ -1,0 +1,29 @@
+name: test_artifacts
+description: Upload failed test artifacts
+runs:
+  using: composite
+  steps:
+  - name: Collect matrix properties for naming
+    uses: actions/github-script@v9
+    id: matrix-props
+    env:
+      MATRIX_PROPS: ${{ toJSON(matrix) }}
+    with:
+      script: "const f = function (x) { return x.toString().length > 0; }\nconst g = function (x) {\n  return (Array.isArray(x))\n    ? x.filter(f)\n      .map((function (h) { return function (y) { return h(y); }; })(g))\n      .join('-')\n    : x;\n}\nreturn Object.values(JSON.parse(process.env.MATRIX_PROPS))\n  .filter(f)\n  .map(g)\n  .join('-');\n"
+      result-encoding: string
+  - name: Upload failed tests
+    uses: actions/upload-artifact@v7
+    with:
+      name: ${{ format('GH-{0}-{1}-{2}-{3}-{4}-failed-tests', github.run_id, github.run_attempt, github.job, strategy.job-index, steps.matrix-props.outputs.result) }}
+      path: '${{ github.workspace }}/logs/**/*.symbolized
+
+        ${{ github.workspace }}/runtime/indent/testdir/*.fail
+
+        ${{ github.workspace }}/runtime/syntax/testdir/failed/*
+
+        ${{ github.workspace }}/src/testdir/failed/*
+
+        '
+      if-no-files-found: ignore
+      retention-days: 0
+      overwrite: true

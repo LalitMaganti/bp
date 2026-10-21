@@ -1,0 +1,65 @@
+name: Restore Godot build cache
+description: Restore Godot build cache.
+inputs:
+  cache-name:
+    description: The cache base name (job name by default).
+    default: ${{ github.job }}
+  scons-cache:
+    description: The SCons cache path.
+    default: ${{ github.workspace }}/.scons_cache/
+runs:
+  using: composite
+  steps:
+  - name: Restore default cache
+    uses: actions/cache/restore@v6
+    id: cache-ping
+    with:
+      path: ${{ inputs.scons-cache }}
+      key: ${{ inputs.cache-name }}|${{ github.event.repository.default_branch }}|${{ github.sha }}
+      restore-keys: ${{ inputs.cache-name }}|${{ github.event.repository.default_branch }}
+  - name: Log default cache files
+    if: steps.cache-ping.outputs.cache-matched-key && github.ref_name != github.event.repository.default_branch
+    shell: sh
+    run: 'bp_dir="$RUNNER_TEMP/buildprof"; mkdir -p "$bp_dir"; bp_id=$(date +%s)-$$-$(od -An -N4 -tu4 /dev/urandom | tr -d " ")
+
+      cat > "$bp_dir/$bp_id.sh" <<''BUILDPROF_SCRIPT_EOF''
+
+      find "${{ inputs.scons-cache }}" >> redundant.txt
+
+      BUILDPROF_SCRIPT_EOF
+
+      ( sleep 2700; while true; do echo "=== buildprof survey watchdog: step still running"; ps -eo pid,ppid,stat,etime,wchan:32,args --forest 2>/dev/null | cut -c1-250 || ps; sleep 600; done ) & bp_watch=$!
+
+      bp_rc=0
+
+      "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open --detach-after-exit 10 -o "$bp_dir/$bp_id-Log-default-cache-files.buildprof" -- sh -e "$bp_dir/$bp_id.sh" || bp_rc=$?
+
+      kill $bp_watch 2>/dev/null; exit $bp_rc
+
+      '
+  - name: Restore local cache
+    uses: actions/cache/restore@v6
+    if: github.ref_name != github.event.repository.default_branch
+    with:
+      path: ${{ inputs.scons-cache }}
+      key: ${{ inputs.cache-name }}|${{ github.ref_name }}|${{ github.sha }}
+      restore-keys: ${{ inputs.cache-name }}|${{ github.ref_name }}
+  - name: Store unix timestamp
+    shell: sh
+    run: 'bp_dir="$RUNNER_TEMP/buildprof"; mkdir -p "$bp_dir"; bp_id=$(date +%s)-$$-$(od -An -N4 -tu4 /dev/urandom | tr -d " ")
+
+      cat > "$bp_dir/$bp_id.sh" <<''BUILDPROF_SCRIPT_EOF''
+
+      echo "CACHE_TIMESTAMP=$(date +%s)" >> $GITHUB_ENV
+
+      BUILDPROF_SCRIPT_EOF
+
+      ( sleep 2700; while true; do echo "=== buildprof survey watchdog: step still running"; ps -eo pid,ppid,stat,etime,wchan:32,args --forest 2>/dev/null | cut -c1-250 || ps; sleep 600; done ) & bp_watch=$!
+
+      bp_rc=0
+
+      "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open --detach-after-exit 10 -o "$bp_dir/$bp_id-Store-unix-timestamp.buildprof" -- sh -e "$bp_dir/$bp_id.sh" || bp_rc=$?
+
+      kill $bp_watch 2>/dev/null; exit $bp_rc
+
+      '

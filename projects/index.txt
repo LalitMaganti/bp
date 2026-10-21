@@ -27,3 +27,8 @@ fish fish-shell/fish-shell 849fea792a5cefd3299df33f43a8ae98aed10b6f test.yml pus
 whispercpp ggml-org/whisper.cpp 231638a0717b7822784297e5980965ffcec05810 build-cpu.yml push
 oxc oxc-project/oxc f32360093c2ee18096fa14e0f48c48d75ca5a4a4 ci.yml push
 ollama ollama/ollama 2cd63f7a15039ccd790e97b31edc091fa1707c56 test.yaml push
+vim vim/vim b79efe0f40c177fa80262dd9aab9ff7c64a4f8fb ci-linux.yml push
+godot godotengine/godot 679066724352c12673001d692d41dc2dab9314c0 linux_builds.yml push
+mpv mpv-player/mpv a43ab319fdb7aec31874999e5562c9975328cbda build.yml push
+servo servo/servo 24c74eaaee66593bbf812141d83acc17bf91b2dc main.yml push
+deno denoland/deno 9766cc5e3bc958d11f4fdb98ea841a47d13da8e4 ci.generated.yml push

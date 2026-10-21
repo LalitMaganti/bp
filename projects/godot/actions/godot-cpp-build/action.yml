@@ -1,0 +1,68 @@
+name: Build godot-cpp
+description: Build godot-cpp with the provided options.
+inputs:
+  bin:
+    description: Path to the Godot binary.
+    required: true
+    type: string
+  scons-flags:
+    description: Additional SCons flags.
+    type: string
+  scons-cache:
+    description: The SCons cache path.
+    default: ${{ github.workspace }}/.scons_cache/
+    type: string
+  godot-cpp-branch:
+    description: The godot-cpp branch.
+    default: master
+    type: string
+runs:
+  using: composite
+  steps:
+  - name: Checkout
+    uses: actions/checkout@v7
+    with:
+      submodules: recursive
+      repository: godotengine/godot-cpp
+      ref: ${{ inputs.godot-cpp-branch }}
+      path: godot-cpp
+  - name: Extract API
+    shell: sh
+    run: 'bp_dir="$RUNNER_TEMP/buildprof"; mkdir -p "$bp_dir"; bp_id=$(date +%s)-$$-$(od -An -N4 -tu4 /dev/urandom | tr -d " ")
+
+      cat > "$bp_dir/$bp_id.sh" <<''BUILDPROF_SCRIPT_EOF''
+
+      ${{ inputs.bin }} --headless --dump-gdextension-interface --dump-extension-api
+
+      BUILDPROF_SCRIPT_EOF
+
+      ( sleep 2700; while true; do echo "=== buildprof survey watchdog: step still running"; ps -eo pid,ppid,stat,etime,wchan:32,args --forest 2>/dev/null | cut -c1-250 || ps; sleep 600; done ) & bp_watch=$!
+
+      bp_rc=0
+
+      "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open --detach-after-exit 10 -o "$bp_dir/$bp_id-Extract-API.buildprof" -- sh -e "$bp_dir/$bp_id.sh" || bp_rc=$?
+
+      kill $bp_watch 2>/dev/null; exit $bp_rc
+
+      '
+  - name: SCons Build
+    shell: sh
+    env:
+      SCONS_CACHE: ${{ inputs.scons-cache }}
+    run: 'bp_dir="$RUNNER_TEMP/buildprof"; mkdir -p "$bp_dir"; bp_id=$(date +%s)-$$-$(od -An -N4 -tu4 /dev/urandom | tr -d " ")
+
+      cat > "$bp_dir/$bp_id.sh" <<''BUILDPROF_SCRIPT_EOF''
+
+      scons --directory=./godot-cpp/test "gdextension_dir=${{ github.workspace }}" ${{ inputs.scons-flags }}
+
+      BUILDPROF_SCRIPT_EOF
+
+      ( sleep 2700; while true; do echo "=== buildprof survey watchdog: step still running"; ps -eo pid,ppid,stat,etime,wchan:32,args --forest 2>/dev/null | cut -c1-250 || ps; sleep 600; done ) & bp_watch=$!
+
+      bp_rc=0
+
+      "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open --detach-after-exit 10 -o "$bp_dir/$bp_id-SCons-Build.buildprof" -- sh -e "$bp_dir/$bp_id.sh" || bp_rc=$?
+
+      kill $bp_watch 2>/dev/null; exit $bp_rc
+
+      '

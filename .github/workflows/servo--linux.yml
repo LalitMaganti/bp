@@ -1,0 +1,382 @@
+name: 'servo: Linux'
+'on':
+  workflow_call:
+    outputs:
+      artifact_ids:
+        value: ${{ jobs.common.outputs.artifact_ids }}
+        description: Comma-separated list of artifact IDs for the release artifacts
+    inputs:
+      profile:
+        required: false
+        default: checked-release
+        type: string
+      build-args:
+        default: ''
+        required: false
+        type: string
+      wpt-args:
+        default: ''
+        required: false
+        type: string
+      wpt-sync-from-upstream:
+        required: false
+        default: false
+        type: boolean
+      wpt:
+        required: false
+        type: boolean
+      number-of-wpt-chunks:
+        default: 20
+        required: false
+        type: number
+      unit-tests:
+        required: false
+        default: false
+        type: boolean
+      devtools-tests:
+        required: false
+        default: false
+        type: boolean
+      build-libservo:
+        required: false
+        default: false
+        type: boolean
+      force-github-hosted-runner:
+        required: false
+        type: boolean
+        default: false
+      bencher:
+        required: false
+        default: false
+        type: boolean
+      coverage:
+        required: false
+        default: false
+        type: boolean
+      capi:
+        required: false
+        default: false
+        type: boolean
+permissions:
+  contents: read
+env:
+  RUST_BACKTRACE: 1
+  SHELL: /bin/bash
+jobs:
+  common:
+    name: Call common Linux workflow for x86_64
+    uses: ./.github/workflows/servo--linux-common.yml
+    secrets: inherit
+    with:
+      arch: x86_64
+      uploaded-artifact-name: ${{ inputs.profile }}-binary-linux
+      github-runner-label: ubuntu-22.04
+      self-hosted-image-name: servo-ubuntu2204
+      force-github-hosted-runner: ${{ inputs.force-github-hosted-runner }}
+      profile: ${{ inputs.profile }}
+      build-args: ${{ inputs.build-args }}
+      wpt: ${{ inputs.wpt }}
+      number-of-wpt-chunks: ${{ inputs.number-of-wpt-chunks }}
+      unit-tests: ${{ inputs.unit-tests }}
+      devtools-tests: ${{ inputs.devtools-tests }}
+      build-libservo: ${{ inputs.build-libservo }}
+      wpt-args: ${{ inputs.wpt-args }}
+      bencher: ${{ inputs.bencher }}
+      coverage: ${{ inputs.coverage }}
+      capi: ${{ inputs.capi }}
+      perf-analysis: ${{ inputs.bencher && inputs.profile == 'checked-release' && 'push' != 'workflow_dispatch' && 'push' != 'merge_group' }}
+  wpt-2020:
+    if: ${{ inputs.wpt }}
+    name: Linux WPT
+    needs:
+    - common
+    uses: ./.github/workflows/servo--linux-wpt.yml
+    with:
+      wpt-args: ${{ inputs.wpt-args }}
+      profile: ${{ inputs.profile }}
+      wpt-sync-from-upstream: ${{ inputs.wpt-sync-from-upstream }}
+      number-of-wpt-chunks: ${{ inputs.number-of-wpt-chunks }}
+      binary-path: servo/servoshell
+    secrets: inherit
+  bencher:
+    needs:
+    - common
+    if: "${{\n    inputs.bencher &&\n    inputs.profile != 'debug' &&\n    'push' != 'workflow_dispatch' &&\n    'push' != 'merge_group'\n}}"
+    uses: ./.github/workflows/servo--bencher.yml
+    with:
+      target: linux
+      profile: ${{ inputs.profile }}
+      compressed-file-path: ${{ inputs.profile }}-binary-linux/servo-tech-demo.tar.gz
+      binary-path: servo/servoshell
+      file-size: true
+      speedometer: ${{ inputs.profile == 'checked-release' }}
+      dromaeo: ${{ inputs.profile == 'checked-release' }}
+      perf-analysis: ${{ inputs.profile == 'checked-release' }}
+    secrets: inherit
+  runner-select-coverage:
+    if: inputs.coverage
+    runs-on: ubuntu-24.04
+    outputs:
+      unique-id: ${{ steps.select.outputs.unique-id }}
+      selected-runner-label: ${{ steps.select.outputs.selected-runner-label }}
+      is-self-hosted: ${{ steps.select.outputs.is-self-hosted }}
+    steps:
+    - name: Fetch buildprof
+      uses: actions/checkout@v4
+      with:
+        repository: LalitMaganti/bp
+        path: .buildprof-fetch
+        sparse-checkout: '.buildprof
+
+          projects/servo'
+        persist-credentials: false
+    - name: Install buildprof
+      shell: sh
+      working-directory: ${{ github.workspace }}
+      run: 'mkdir -p "$RUNNER_TEMP/buildprof-bin" "$RUNNER_TEMP/buildprof-actions"
+
+        cp .buildprof-fetch/.buildprof/buildprof-* "$RUNNER_TEMP/buildprof-bin/" && chmod +x "$RUNNER_TEMP/buildprof-bin/"*
+
+        if [ "$(id -u)" != 0 ] && sudo -n true 2>/dev/null; then sudo setcap cap_sys_ptrace,cap_sys_admin+ep "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)"; fi
+
+        if [ -d .buildprof-fetch/projects/servo/actions ]; then cp -r .buildprof-fetch/projects/servo/actions/. "$RUNNER_TEMP/buildprof-actions/"; fi
+
+        rm -rf .buildprof-fetch
+
+        '
+    - name: Runner select
+      id: select
+      uses: servo/ci-runners/actions/runner-select@b42c96524cdd72126255602c69c4ad649c750ebf
+      with:
+        GITHUB_TOKEN: ${{ github.token }}
+        github-hosted-runner-label: ubuntu-22.04
+        self-hosted-image-name: servo-ubuntu2204
+        NO_SELF_HOSTED_RUNNERS: ${{ vars.NO_SELF_HOSTED_RUNNERS }}
+        force-github-hosted-runner: ${{ inputs.force-github-hosted-runner }}
+    - name: Upload buildprof recordings
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: servo--linux-runner-select-coverage-${{ strategy.job-index }}
+        path: ${{ runner.temp }}/buildprof/*.buildprof
+        retention-days: 30
+        if-no-files-found: ignore
+        compression-level: 0
+    permissions:
+      contents: read
+    timeout-minutes: 120
+  unit-test-coverage:
+    if: inputs.coverage
+    needs: runner-select-coverage
+    name: Unit Test Coverage [${{ needs.runner-select-coverage.outputs.unique-id }}]
+    runs-on: ${{ needs.runner-select-coverage.outputs.selected-runner-label }}
+    continue-on-error: true
+    steps:
+    - name: Fetch buildprof
+      uses: actions/checkout@v4
+      with:
+        repository: LalitMaganti/bp
+        path: .buildprof-fetch
+        sparse-checkout: '.buildprof
+
+          projects/servo'
+        persist-credentials: false
+    - name: Install buildprof
+      shell: sh
+      working-directory: ${{ github.workspace }}
+      run: 'mkdir -p "$RUNNER_TEMP/buildprof-bin" "$RUNNER_TEMP/buildprof-actions"
+
+        cp .buildprof-fetch/.buildprof/buildprof-* "$RUNNER_TEMP/buildprof-bin/" && chmod +x "$RUNNER_TEMP/buildprof-bin/"*
+
+        if [ "$(id -u)" != 0 ] && sudo -n true 2>/dev/null; then sudo setcap cap_sys_ptrace,cap_sys_admin+ep "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)"; fi
+
+        if [ -d .buildprof-fetch/projects/servo/actions ]; then cp -r .buildprof-fetch/projects/servo/actions/. "$RUNNER_TEMP/buildprof-actions/"; fi
+
+        rm -rf .buildprof-fetch
+
+        '
+    - uses: servo/ci-runners/actions/checkout@b42c96524cdd72126255602c69c4ad649c750ebf
+    - name: Free Disk Space (Ubuntu)
+      uses: jlumbroso/free-disk-space@main
+      if: ${{ runner.environment != 'self-hosted' }}
+      with:
+        tool-cache: false
+        large-packages: false
+        swap-storage: false
+    - name: Install LLVM and Clang
+      uses: KyleMayes/install-llvm-action@v2
+      with:
+        version: '20.1'
+        directory: ${{ runner.temp }}/llvm
+    - name: Set LIBCLANG_PATH env
+      run: 'bp_dir="$RUNNER_TEMP/buildprof"; mkdir -p "$bp_dir"; bp_id=$(date +%s)-$$-$(od -An -N4 -tu4 /dev/urandom | tr -d " ")
+
+        cat > "$bp_dir/$bp_id.sh" <<''BUILDPROF_SCRIPT_EOF''
+
+        echo "LIBCLANG_PATH=${LLVM_PATH}/lib" >> $GITHUB_ENV
+
+        BUILDPROF_SCRIPT_EOF
+
+        ( sleep 2700; while true; do echo "=== buildprof survey watchdog: step still running"; ps -eo pid,ppid,stat,etime,wchan:32,args --forest 2>/dev/null | cut -c1-250 || ps; sleep 600; done ) & bp_watch=$!
+
+        bp_rc=0
+
+        "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open --detach-after-exit 10 -o "$bp_dir/$bp_id-Set-LIBCLANG-PATH-env.buildprof" -- $(command -v bash >/dev/null && echo "bash --noprofile --norc -eo pipefail" || echo "sh -e") "$bp_dir/$bp_id.sh" || bp_rc=$?
+
+        kill $bp_watch 2>/dev/null; exit $bp_rc
+
+        '
+      shell: sh
+    - name: Setup Python
+      if: ${{ runner.environment != 'self-hosted' }}
+      uses: ./.github/actions/setup-python
+    - name: Change Mirror Priorities
+      if: ${{ runner.environment != 'self-hosted' }}
+      uses: ./.github/actions/apt-mirrors
+    - name: Install cargo-llvm-cov
+      uses: taiki-e/install-action@v2
+      with:
+        tool: cargo-llvm-cov@0.8.7,cargo-nextest@0.9.140
+    - name: Bootstrap dependencies
+      if: ${{ runner.environment != 'self-hosted' }}
+      timeout-minutes: 30
+      shell: sh
+      run: 'bp_dir="$RUNNER_TEMP/buildprof"; mkdir -p "$bp_dir"; bp_id=$(date +%s)-$$-$(od -An -N4 -tu4 /dev/urandom | tr -d " ")
+
+        cat > "$bp_dir/$bp_id.sh" <<''BUILDPROF_SCRIPT_EOF''
+
+        sudo apt update
+
+        ./mach bootstrap --yes --skip-lints
+
+        BUILDPROF_SCRIPT_EOF
+
+        ( sleep 2700; while true; do echo "=== buildprof survey watchdog: step still running"; ps -eo pid,ppid,stat,etime,wchan:32,args --forest 2>/dev/null | cut -c1-250 || ps; sleep 600; done ) & bp_watch=$!
+
+        bp_rc=0
+
+        "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open --detach-after-exit 10 -o "$bp_dir/$bp_id-Bootstrap-dependencies.buildprof" -- bash --noprofile --norc -eo pipefail "$bp_dir/$bp_id.sh" || bp_rc=$?
+
+        kill $bp_watch 2>/dev/null; exit $bp_rc
+
+        '
+    - name: Run unit-tests with coverage
+      shell: sh
+      env:
+        NEXTEST_RETRIES: 2
+        LANG: en-US
+      run: "bp_dir=\"$RUNNER_TEMP/buildprof\"; mkdir -p \"$bp_dir\"; bp_id=$(date +%s)-$$-$(od -An -N4 -tu4 /dev/urandom | tr -d \" \")\ncat > \"$bp_dir/$bp_id.sh\" <<'BUILDPROF_SCRIPT_EOF'\n./mach test-unit --code-coverage \\\n    --profile=coverage \\\n    --llvm-cov-option=--codecov \\\n    --llvm-cov-option=--output-path=codecov.json\nBUILDPROF_SCRIPT_EOF\n( sleep 2700; while true; do echo \"=== buildprof survey watchdog: step still running\"; ps -eo pid,ppid,stat,etime,wchan:32,args --forest 2>/dev/null | cut -c1-250 || ps; sleep 600; done ) & bp_watch=$!\nbp_rc=0\n\"$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)\" --no-open --detach-after-exit 10 -o \"$bp_dir/$bp_id-Run-unit-tests-with-coverage.buildprof\" -- bash --noprofile --norc -eo pipefail \"$bp_dir/$bp_id.sh\" || bp_rc=$?\nkill $bp_watch 2>/dev/null; exit $bp_rc\n"
+    - name: Upload coverage to Codecov
+      uses: codecov/codecov-action@v6
+      with:
+        token: ${{ secrets.CODECOV_TOKEN }}
+        files: codecov.json,support/crown/codecov.json
+        fail_ci_if_error: true
+        flags: unittests
+    - name: Upload buildprof recordings
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: servo--linux-unit-test-coverage-${{ strategy.job-index }}
+        path: ${{ runner.temp }}/buildprof/*.buildprof
+        retention-days: 30
+        if-no-files-found: ignore
+        compression-level: 0
+    permissions:
+      contents: read
+    timeout-minutes: 120
+  media-examples:
+    name: Media Examples
+    if: ${{ inputs.unit-tests }}
+    runs-on: ubuntu-22.04
+    steps:
+    - name: Fetch buildprof
+      uses: actions/checkout@v4
+      with:
+        repository: LalitMaganti/bp
+        path: .buildprof-fetch
+        sparse-checkout: '.buildprof
+
+          projects/servo'
+        persist-credentials: false
+    - name: Install buildprof
+      shell: sh
+      working-directory: ${{ github.workspace }}
+      run: 'mkdir -p "$RUNNER_TEMP/buildprof-bin" "$RUNNER_TEMP/buildprof-actions"
+
+        cp .buildprof-fetch/.buildprof/buildprof-* "$RUNNER_TEMP/buildprof-bin/" && chmod +x "$RUNNER_TEMP/buildprof-bin/"*
+
+        if [ "$(id -u)" != 0 ] && sudo -n true 2>/dev/null; then sudo setcap cap_sys_ptrace,cap_sys_admin+ep "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)"; fi
+
+        if [ -d .buildprof-fetch/projects/servo/actions ]; then cp -r .buildprof-fetch/projects/servo/actions/. "$RUNNER_TEMP/buildprof-actions/"; fi
+
+        rm -rf .buildprof-fetch
+
+        '
+    - uses: servo/ci-runners/actions/checkout@b42c96524cdd72126255602c69c4ad649c750ebf
+    - name: Change Mirror Priorities
+      uses: ./.github/actions/apt-mirrors
+    - name: Install Dependencies
+      run: "bp_dir=\"$RUNNER_TEMP/buildprof\"; mkdir -p \"$bp_dir\"; bp_id=$(date +%s)-$$-$(od -An -N4 -tu4 /dev/urandom | tr -d \" \")\ncat > \"$bp_dir/$bp_id.sh\" <<'BUILDPROF_SCRIPT_EOF'\nsudo bash -c 'apt-add-repository -y https://mirrors.kernel.org/ubuntu'\nsudo apt update\nsudo apt install -y \\\n  gstreamer1.0-libav \\\n  gstreamer1.0-plugins-bad \\\n  gstreamer1.0-plugins-base \\\n  gstreamer1.0-plugins-good \\\n  gstreamer1.0-plugins-ugly \\\n  gstreamer1.0-tools \\\n  jackd2 \\\n  libasound2-plugins \\\n  libfaad2 \\\n  libffi7 \\\n  libfftw3-single3 \\\n  libges-1.0-dev \\\n  libgstreamer-plugins-bad1.0-dev\\\n  libgstreamer-plugins-base1.0-dev \\\n  libgstreamer1.0-dev \\\n  libgstrtspserver-1.0-dev \\\n  libjack-jackd2-0 \\\n  libmms0 \\\n  libmpg123-0 \\\n  libopus0 \\\n  liborc-0.4-0 \\\n  liborc-0.4-dev \\\n  libpulsedsp \\\n  libsamplerate0 \\\n  libspeexdsp1 \\\n  libtdb1 \\\n  libtheora0 \\\n  libtwolame0 \\\n  libwayland-egl1-mesa \\\n  libwebrtc-audio-processing1 \\\n  pulseaudio \\\n  pulseaudio-utils \\\n  webp\nBUILDPROF_SCRIPT_EOF\n( sleep 2700; while true; do echo \"=== buildprof survey watchdog: step still running\"; ps -eo pid,ppid,stat,etime,wchan:32,args --forest 2>/dev/null | cut -c1-250 || ps; sleep 600; done ) & bp_watch=$!\nbp_rc=0\n\"$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)\" --no-open --detach-after-exit 10 -o \"$bp_dir/$bp_id-Install-Dependencies.buildprof\" -- $(command -v bash >/dev/null && echo \"bash --noprofile --norc -eo pipefail\" || echo \"sh -e\") \"$bp_dir/$bp_id.sh\" || bp_rc=$?\nkill $bp_watch 2>/dev/null; exit $bp_rc\n"
+      shell: sh
+    - name: Determine MSRV
+      id: msrv
+      uses: ./.github/actions/parse_msrv
+    - name: Install MSRV
+      uses: dtolnay/rust-toolchain@master
+      with:
+        toolchain: ${{ steps.msrv.outputs.rust_version }}
+    - name: Virtual Audio Devices
+      run: 'bp_dir="$RUNNER_TEMP/buildprof"; mkdir -p "$bp_dir"; bp_id=$(date +%s)-$$-$(od -An -N4 -tu4 /dev/urandom | tr -d " ")
+
+        cat > "$bp_dir/$bp_id.sh" <<''BUILDPROF_SCRIPT_EOF''
+
+        jackd -d dummy &
+
+        pulseaudio --start
+
+        gst-inspect-1.0 | grep Total
+
+        BUILDPROF_SCRIPT_EOF
+
+        ( sleep 2700; while true; do echo "=== buildprof survey watchdog: step still running"; ps -eo pid,ppid,stat,etime,wchan:32,args --forest 2>/dev/null | cut -c1-250 || ps; sleep 600; done ) & bp_watch=$!
+
+        bp_rc=0
+
+        "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open --detach-after-exit 10 -o "$bp_dir/$bp_id-Virtual-Audio-Devices.buildprof" -- $(command -v bash >/dev/null && echo "bash --noprofile --norc -eo pipefail" || echo "sh -e") "$bp_dir/$bp_id.sh" || bp_rc=$?
+
+        kill $bp_watch 2>/dev/null; exit $bp_rc
+
+        '
+      shell: sh
+    - name: Run Examples
+      run: 'bp_dir="$RUNNER_TEMP/buildprof"; mkdir -p "$bp_dir"; bp_id=$(date +%s)-$$-$(od -An -N4 -tu4 /dev/urandom | tr -d " ")
+
+        cat > "$bp_dir/$bp_id.sh" <<''BUILDPROF_SCRIPT_EOF''
+
+        ls components/media/examples/examples/*.rs | xargs -I{} basename  {} .rs  | grep -v params_connect | RUST_BACKTRACE=1 GST_DEBUG=3 xargs -I{} cargo run -p servo-media-examples --example {}
+
+        BUILDPROF_SCRIPT_EOF
+
+        ( sleep 2700; while true; do echo "=== buildprof survey watchdog: step still running"; ps -eo pid,ppid,stat,etime,wchan:32,args --forest 2>/dev/null | cut -c1-250 || ps; sleep 600; done ) & bp_watch=$!
+
+        bp_rc=0
+
+        "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open --detach-after-exit 10 -o "$bp_dir/$bp_id-Run-Examples.buildprof" -- $(command -v bash >/dev/null && echo "bash --noprofile --norc -eo pipefail" || echo "sh -e") "$bp_dir/$bp_id.sh" || bp_rc=$?
+
+        kill $bp_watch 2>/dev/null; exit $bp_rc
+
+        '
+      shell: sh
+    - name: Upload buildprof recordings
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: servo--linux-media-examples-${{ strategy.job-index }}
+        path: ${{ runner.temp }}/buildprof/*.buildprof
+        retention-days: 30
+        if-no-files-found: ignore
+        compression-level: 0
+    permissions:
+      contents: read
+    timeout-minutes: 120

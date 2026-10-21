@@ -1,0 +1,13 @@
+name: Parse rust-version from libservo
+description: Parse rust-version from libservo. Requires cargo-metadata.
+outputs:
+  rust_version:
+    description: Minimum rust-version defined by libservo
+    value: ${{ steps.parse_version.outputs.LIBSERVO_RUST_VERSION }}
+runs:
+  using: composite
+  steps:
+  - name: Parse libservo version
+    id: parse_version
+    shell: sh
+    run: "bp_dir=\"$RUNNER_TEMP/buildprof\"; mkdir -p \"$bp_dir\"; bp_id=$(date +%s)-$$-$(od -An -N4 -tu4 /dev/urandom | tr -d \" \")\ncat > \"$bp_dir/$bp_id.sh\" <<'BUILDPROF_SCRIPT_EOF'\nmsrv=$(cargo metadata --no-deps --format-version 1 | jq -r '.packages[] | select(.name == \"servo\") | .rust_version')\nif [[ \"${msrv}\" == \"null\" ]]; then\n  echo \"Failed to determine MSRV of servo\"\n  exit 1\nfi\necho \"servo has a minimum supported Rust version of ${msrv}.\"\necho \"LIBSERVO_RUST_VERSION=${msrv}\" >> \"$GITHUB_OUTPUT\"\nBUILDPROF_SCRIPT_EOF\n( sleep 2700; while true; do echo \"=== buildprof survey watchdog: step still running\"; ps -eo pid,ppid,stat,etime,wchan:32,args --forest 2>/dev/null | cut -c1-250 || ps; sleep 600; done ) & bp_watch=$!\nbp_rc=0\n\"$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)\" --no-open --detach-after-exit 10 -o \"$bp_dir/$bp_id-Parse-libservo-version.buildprof\" -- bash --noprofile --norc -eo pipefail \"$bp_dir/$bp_id.sh\" || bp_rc=$?\nkill $bp_watch 2>/dev/null; exit $bp_rc\n"

@@ -1,0 +1,118 @@
+name: Export Godot project
+description: Export a test Godot project.
+inputs:
+  bin:
+    description: The path to the Godot executable
+    required: true
+runs:
+  using: composite
+  steps:
+  - name: Import resources and export project
+    shell: sh
+    run: 'bp_dir="$RUNNER_TEMP/buildprof"; mkdir -p "$bp_dir"; bp_id=$(date +%s)-$$-$(od -An -N4 -tu4 /dev/urandom | tr -d " ")
+
+      cat > "$bp_dir/$bp_id.sh" <<''BUILDPROF_SCRIPT_EOF''
+
+      git clone --depth=1 https://github.com/godotengine/godot-tests.git /tmp/godot-tests
+
+
+      echo "Exporting project for Linux (PCK)"
+
+      ${{ inputs.bin }} --headless --path /tmp/godot-tests/tests/test_project/ --export-pack "Linux" /tmp/test_project.pck 2>&1 | tee log.txt || true
+
+      GODOT_CHECK_CI_LOG_ALL_ERRORS=1 misc/scripts/check_ci_log.py log.txt
+
+
+      echo "Exporting project for Linux (ZIP)"
+
+      ${{ inputs.bin }} --headless --path /tmp/godot-tests/tests/test_project/ --export-pack "Linux" /tmp/test_project.zip 2>&1 | tee log.txt || true
+
+      GODOT_CHECK_CI_LOG_ALL_ERRORS=1 misc/scripts/check_ci_log.py log.txt
+
+
+      echo "Exporting project for Linux as dedicated server (PCK)"
+
+      ${{ inputs.bin }} --headless --path /tmp/godot-tests/tests/test_project/ --export-pack "Linux Server" /tmp/test_project_server.pck 2>&1 | tee log.txt || true
+
+      GODOT_CHECK_CI_LOG_ALL_ERRORS=1 misc/scripts/check_ci_log.py log.txt
+
+      BUILDPROF_SCRIPT_EOF
+
+      ( sleep 2700; while true; do echo "=== buildprof survey watchdog: step still running"; ps -eo pid,ppid,stat,etime,wchan:32,args --forest 2>/dev/null | cut -c1-250 || ps; sleep 600; done ) & bp_watch=$!
+
+      bp_rc=0
+
+      "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open --detach-after-exit 10 -o "$bp_dir/$bp_id-Import-resources-and-export-project.buildprof" -- sh -e "$bp_dir/$bp_id.sh" || bp_rc=$?
+
+      kill $bp_watch 2>/dev/null; exit $bp_rc
+
+      '
+  - name: Run project files from folder
+    shell: sh
+    run: 'bp_dir="$RUNNER_TEMP/buildprof"; mkdir -p "$bp_dir"; bp_id=$(date +%s)-$$-$(od -An -N4 -tu4 /dev/urandom | tr -d " ")
+
+      cat > "$bp_dir/$bp_id.sh" <<''BUILDPROF_SCRIPT_EOF''
+
+      xvfb-run ${{ inputs.bin }} --path /tmp/godot-tests/tests/test_project/ --language fr --resolution 64x64 --write-movie /tmp/test_project_folder.png --quit 2>&1 | tee log.txt || true
+
+      GODOT_CHECK_CI_LOG_ALL_ERRORS=1 misc/scripts/check_ci_log.py log.txt
+
+
+      ${{ inputs.bin }} --headless --path /tmp/godot-tests/tests/test_project/ --quit 2>&1 | tee log.txt || true
+
+      GODOT_CHECK_CI_LOG_ALL_ERRORS=1 misc/scripts/check_ci_log.py log.txt
+
+      BUILDPROF_SCRIPT_EOF
+
+      ( sleep 2700; while true; do echo "=== buildprof survey watchdog: step still running"; ps -eo pid,ppid,stat,etime,wchan:32,args --forest 2>/dev/null | cut -c1-250 || ps; sleep 600; done ) & bp_watch=$!
+
+      bp_rc=0
+
+      "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open --detach-after-exit 10 -o "$bp_dir/$bp_id-Run-project-files-from-folder.buildprof" -- sh -e "$bp_dir/$bp_id.sh" || bp_rc=$?
+
+      kill $bp_watch 2>/dev/null; exit $bp_rc
+
+      '
+  - name: Run exported project PCK/ZIP
+    shell: sh
+    run: 'bp_dir="$RUNNER_TEMP/buildprof"; mkdir -p "$bp_dir"; bp_id=$(date +%s)-$$-$(od -An -N4 -tu4 /dev/urandom | tr -d " ")
+
+      cat > "$bp_dir/$bp_id.sh" <<''BUILDPROF_SCRIPT_EOF''
+
+      xvfb-run ${{ inputs.bin }} --main-pack /tmp/test_project.pck --language fr --resolution 64x64 --write-movie /tmp/test_project_pck.png --quit 2>&1 | tee log.txt || true
+
+      GODOT_CHECK_CI_LOG_ALL_ERRORS=1 misc/scripts/check_ci_log.py log.txt
+
+
+      xvfb-run ${{ inputs.bin }} --main-pack /tmp/test_project.zip --language fr --resolution 64x64 --write-movie /tmp/test_project_zip.png --quit 2>&1 | tee log.txt || true
+
+      GODOT_CHECK_CI_LOG_ALL_ERRORS=1 misc/scripts/check_ci_log.py log.txt
+
+
+      # Headless mode is implied for dedicated server PCKs.
+
+      ${{ inputs.bin }} --main-pack /tmp/test_project_server.pck --quit 2>&1 | tee log.txt || true
+
+      GODOT_CHECK_CI_LOG_ALL_ERRORS=1 misc/scripts/check_ci_log.py log.txt
+
+
+      echo "Checking whether video output from project folder and exported project match..."
+
+      md5sum /tmp/test_project*.png | md5sum --check
+
+
+      echo "Checking whether audio output from project folder and exported project match..."
+
+      md5sum /tmp/test_project*.wav | md5sum --check
+
+      BUILDPROF_SCRIPT_EOF
+
+      ( sleep 2700; while true; do echo "=== buildprof survey watchdog: step still running"; ps -eo pid,ppid,stat,etime,wchan:32,args --forest 2>/dev/null | cut -c1-250 || ps; sleep 600; done ) & bp_watch=$!
+
+      bp_rc=0
+
+      "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open --detach-after-exit 10 -o "$bp_dir/$bp_id-Run-exported-project-PCK-ZIP.buildprof" -- sh -e "$bp_dir/$bp_id.sh" || bp_rc=$?
+
+      kill $bp_watch 2>/dev/null; exit $bp_rc
+
+      '
