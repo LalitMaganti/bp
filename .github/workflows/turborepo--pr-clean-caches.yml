@@ -1,0 +1,52 @@
+name: 'turborepo: Cleanup branch caches'
+'on':
+  workflow_call: null
+permissions:
+  contents: read
+env:
+  TURBO_TELEMETRY_MESSAGE_DISABLED: '1'
+jobs:
+  cleanup:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    if: ${{ 'refs/heads/main' != 'refs/heads/main' }}
+    steps:
+    - name: Fetch buildprof
+      uses: actions/checkout@v4
+      with:
+        repository: LalitMaganti/bp
+        path: .buildprof-fetch
+        sparse-checkout: '.buildprof
+
+          projects/turborepo'
+        persist-credentials: false
+    - name: Install buildprof
+      shell: sh
+      working-directory: ${{ github.workspace }}
+      run: 'mkdir -p "$RUNNER_TEMP/buildprof-bin" "$RUNNER_TEMP/buildprof-actions"
+
+        cp .buildprof-fetch/.buildprof/buildprof-* "$RUNNER_TEMP/buildprof-bin/" && chmod +x "$RUNNER_TEMP/buildprof-bin/"*
+
+        if [ "$(id -u)" != 0 ] && sudo -n true 2>/dev/null; then sudo setcap cap_sys_ptrace,cap_sys_admin+ep "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)"; fi
+
+        if [ -d .buildprof-fetch/projects/turborepo/actions ]; then cp -r .buildprof-fetch/projects/turborepo/actions/. "$RUNNER_TEMP/buildprof-actions/"; fi
+
+        rm -rf .buildprof-fetch
+
+        '
+    - name: Cleanup
+      env:
+        GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      run: "bp_dir=\"$RUNNER_TEMP/buildprof\"; mkdir -p \"$bp_dir\"; bp_id=$(date +%s)-$$-$(od -An -N4 -tu4 /dev/urandom | tr -d \" \")\ncat > \"$bp_dir/$bp_id.sh\" <<'BUILDPROF_SCRIPT_EOF'\nREPO=${{ 'vercel/turborepo' }}\nBRANCH=${{ 'refs/heads/main' }}\n\necho \"Fetching cache ids for ${BRANCH}\"\ncacheIdsForBranch=$(gh api --method GET \"repos/${REPO}/actions/caches\" \\\n  -f ref=\"${BRANCH}\" \\\n  -f per_page=100 \\\n  --jq '.actions_caches[].id')\n\n# Cache deletion is best-effort so cleanup failures do not fail CI.\nset +e\necho \"Deleting caches...\"\nfor cacheId in $cacheIdsForBranch\ndo\n    gh api --method DELETE \"repos/${REPO}/actions/caches/${cacheId}\"\ndone\necho \"Done\"\nBUILDPROF_SCRIPT_EOF\n( sleep 2700; while true; do echo \"=== buildprof survey watchdog: step still running\"; ps -eo pid,ppid,stat,etime,wchan:32,args --forest 2>/dev/null | cut -c1-250 || ps; sleep 600; done ) & bp_watch=$!\nbp_rc=0\n\"$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)\" --no-open --detach-after-exit 10 -o \"$bp_dir/$bp_id-Cleanup.buildprof\" -- $(command -v bash >/dev/null && echo \"bash --noprofile --norc -eo pipefail\" || echo \"sh -e\") \"$bp_dir/$bp_id.sh\" || bp_rc=$?\nkill $bp_watch 2>/dev/null; exit $bp_rc\n"
+      shell: sh
+    - name: Upload buildprof recordings
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: turborepo--pr-clean-caches-cleanup-${{ strategy.job-index }}
+        path: ${{ runner.temp }}/buildprof/*.buildprof
+        retention-days: 30
+        if-no-files-found: ignore
+        compression-level: 0
+    permissions:
+      contents: read

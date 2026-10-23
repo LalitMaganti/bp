@@ -1,0 +1,56 @@
+name: Update Pydantic people
+description: Update Pydantic contributors in documentation
+inputs:
+  token:
+    description: User token for accessing the GitHub API. Can be passed in using {{ secrets.GITHUB_TOKEN }}
+    required: true
+runs:
+  using: composite
+  steps:
+  - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+    with:
+      persist-credentials: true
+  - uses: astral-sh/setup-uv@cec208311dfd045dd5311c1add060b2062131d57
+    with:
+      python-version: '3.14'
+      activate-environment: true
+  - name: Install dependencies
+    run: 'bp_dir="$RUNNER_TEMP/buildprof"; mkdir -p "$bp_dir"; bp_id=$(date +%s)-$$-$(od -An -N4 -tu4 /dev/urandom | tr -d " ")
+
+      cat > "$bp_dir/$bp_id.sh" <<''BUILDPROF_SCRIPT_EOF''
+
+      uv pip install --requirements .github/actions/people/pylock.toml
+
+      BUILDPROF_SCRIPT_EOF
+
+      ( sleep 2700; while true; do echo "=== buildprof survey watchdog: step still running"; ps -eo pid,ppid,stat,etime,wchan:32,args --forest 2>/dev/null | cut -c1-250 || ps; sleep 600; done ) & bp_watch=$!
+
+      bp_rc=0
+
+      "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open --detach-after-exit 10 -o "$bp_dir/$bp_id-Install-dependencies.buildprof" -- bash --noprofile --norc -eo pipefail "$bp_dir/$bp_id.sh" || bp_rc=$?
+
+      kill $bp_watch 2>/dev/null; exit $bp_rc
+
+      '
+    shell: sh
+  - name: Update pydantic people
+    run: 'bp_dir="$RUNNER_TEMP/buildprof"; mkdir -p "$bp_dir"; bp_id=$(date +%s)-$$-$(od -An -N4 -tu4 /dev/urandom | tr -d " ")
+
+      cat > "$bp_dir/$bp_id.sh" <<''BUILDPROF_SCRIPT_EOF''
+
+      uv run --no-sync .github/actions/people/people.py
+
+      BUILDPROF_SCRIPT_EOF
+
+      ( sleep 2700; while true; do echo "=== buildprof survey watchdog: step still running"; ps -eo pid,ppid,stat,etime,wchan:32,args --forest 2>/dev/null | cut -c1-250 || ps; sleep 600; done ) & bp_watch=$!
+
+      bp_rc=0
+
+      "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open --detach-after-exit 10 -o "$bp_dir/$bp_id-Update-pydantic-people.buildprof" -- bash --noprofile --norc -eo pipefail "$bp_dir/$bp_id.sh" || bp_rc=$?
+
+      kill $bp_watch 2>/dev/null; exit $bp_rc
+
+      '
+    shell: sh
+    env:
+      INPUT_TOKEN: ${{ inputs.token }}

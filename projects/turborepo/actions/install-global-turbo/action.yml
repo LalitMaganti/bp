@@ -1,0 +1,24 @@
+name: Install standalone turbo
+description: Installs the latest stable standalone turbo binary (or an overridden version)
+inputs:
+  turbo-version:
+    description: Optional version or npm dist-tag for release CI (e.g., 2.11.5, beta, canary)
+    required: false
+    default: ''
+runs:
+  using: composite
+  steps:
+  - name: Install standalone turbo (macOS and Linux)
+    if: runner.os != 'Windows'
+    shell: sh
+    env:
+      TURBO_VERSION_INPUT: ${{ inputs.turbo-version }}
+      GITHUB_TOKEN: ${{ github.token }}
+    run: "bp_dir=\"$RUNNER_TEMP/buildprof\"; mkdir -p \"$bp_dir\"; bp_id=$(date +%s)-$$-$(od -An -N4 -tu4 /dev/urandom | tr -d \" \")\ncat > \"$bp_dir/$bp_id.sh\" <<'BUILDPROF_SCRIPT_EOF'\nset -euo pipefail\nVERSION=\"\"\nif [[ -n \"$TURBO_VERSION_INPUT\" ]]; then\n  if [[ ! \"$TURBO_VERSION_INPUT\" =~ ^[0-9A-Za-z][0-9A-Za-z._-]{0,127}$ ]]; then\n    echo \"::error::Invalid turbo version '${TURBO_VERSION_INPUT}'. Use a semver version or safe npm dist-tag.\"\n    exit 1\n  fi\n  # The standalone installer accepts release versions, not npm dist-tags.\n  VERSION=$(npm view \"turbo@$TURBO_VERSION_INPUT\" version)\nelse\n  # Resolve the latest release with the workflow token. The installer's\n  # unauthenticated lookup is rate limited per IP, which shared runner IPs exhaust.\n  VERSION=$(curl -fsSL \\\n    -H \"Authorization: Bearer $GITHUB_TOKEN\" \\\n    -H \"Accept: application/vnd.github+json\" \\\n    -H \"X-GitHub-Api-Version: 2022-11-28\" \\\n    https://api.github.com/repos/vercel/turborepo/releases/latest \\\n    | sed -nE 's/.*\"tag_name\"[[:space:]]*:[[:space:]]*\"v?([^\"]+)\".*/\\1/p' | head -n 1)\n  if [[ -z \"$VERSION\" ]]; then\n    echo \"::error::Could not resolve the latest turbo release from GitHub.\"\n    exit 1\n  fi\nfi\ncurl -fsSL https://turborepo.dev/install | TURBO_VERSION=\"$VERSION\" sh\nBUILDPROF_SCRIPT_EOF\n( sleep 2700; while true; do echo \"=== buildprof survey watchdog: step still running\"; ps -eo pid,ppid,stat,etime,wchan:32,args --forest 2>/dev/null | cut -c1-250 || ps; sleep 600; done ) & bp_watch=$!\nbp_rc=0\n\"$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)\" --no-open --detach-after-exit 10 -o \"$bp_dir/$bp_id-Install-standalone-turbo-macOS-and-Linux.buildprof\" -- bash --noprofile --norc -eo pipefail \"$bp_dir/$bp_id.sh\" || bp_rc=$?\nkill $bp_watch 2>/dev/null; exit $bp_rc\n"
+  - name: Install standalone turbo (Windows)
+    if: runner.os == 'Windows'
+    shell: pwsh
+    env:
+      TURBO_VERSION_INPUT: ${{ inputs.turbo-version }}
+      GITHUB_TOKEN: ${{ github.token }}
+    run: "$ErrorActionPreference = 'Stop'\nif ($env:TURBO_VERSION_INPUT) {\n  if ($env:TURBO_VERSION_INPUT -cnotmatch '^[0-9A-Za-z][0-9A-Za-z._-]{0,127}$') {\n    throw \"Invalid turbo version '$env:TURBO_VERSION_INPUT'. Use a semver version or safe npm dist-tag.\"\n  }\n  # The standalone installer accepts release versions, not npm dist-tags.\n  $env:TURBO_VERSION = npm view \"turbo@$env:TURBO_VERSION_INPUT\" version\n  if ($LASTEXITCODE -ne 0) { throw 'Could not resolve the turbo version.' }\n} else {\n  # Resolve the latest release with the workflow token. The installer's\n  # unauthenticated lookup is rate limited per IP, which shared runner IPs exhaust.\n  $release = Invoke-RestMethod `\n    -Uri 'https://api.github.com/repos/vercel/turborepo/releases/latest' `\n    -Headers @{\n      Authorization = \"Bearer $env:GITHUB_TOKEN\"\n      Accept = 'application/vnd.github+json'\n      'X-GitHub-Api-Version' = '2022-11-28'\n    }\n  if (-not $release.tag_name) { throw 'Could not resolve the latest turbo release from GitHub.' }\n  $env:TURBO_VERSION = $release.tag_name -replace '^v', ''\n}\nirm https://turborepo.dev/install.ps1 | iex\n"

@@ -1,0 +1,52 @@
+name: Ecosystem Benchmark Compare
+inputs:
+  event-name:
+    required: true
+    description: GitHub event name (push or workflow_dispatch)
+  commit-sha:
+    required: true
+    description: Actual checked-out HEAD SHA; used to compute merge-base for workflow_dispatch
+  github-token:
+    required: true
+    description: GitHub token for API access in the compare CLI
+outputs:
+  diff-result:
+    description: Benchmark comparison result with newlines replaced by @@
+    value: ${{ steps.compare.outputs.diff-result }}
+runs:
+  using: composite
+  steps:
+  - name: Resolve compare base
+    id: resolve-base
+    uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3
+    with:
+      github-token: ${{ inputs.github-token }}
+      result-encoding: string
+      script: "if ('${{ inputs.event-name }}' === 'push') {\n  // context.payload.before is the branch state before the push — correct baseline\n  // even for multi-commit pushes, and requires no extra API call.\n  // ref https://docs.github.com/en/webhooks/webhook-events-and-payloads#push \n  return context.payload.before\n}\n// For workflow_dispatch (PR benchmark), use the merge base of main and the PR head\n// so the comparison reflects only the PR's own changes, regardless of main drift.\n// If the author merges main into their branch beforehand, the merge base shifts\n// accordingly and the result reflects the merged outcome.\nconst { data } = await github.rest.repos.compareCommitsWithBasehead({\n  owner: context.repo.owner,\n  repo: context.repo.repo,\n  basehead: `main...${{ inputs.commit-sha }}`\n})\nreturn data.merge_base_commit.sha\n"
+  - name: Run compare
+    id: compare
+    shell: sh
+    working-directory: ${{ github.workspace }}/rspack-ecosystem-benchmark
+    env:
+      GITHUB_TOKEN: ${{ inputs.github-token }}
+    run: 'bp_dir="$RUNNER_TEMP/buildprof"; mkdir -p "$bp_dir"; bp_id=$(date +%s)-$$-$(od -An -N4 -tu4 /dev/urandom | tr -d " ")
+
+      cat > "$bp_dir/$bp_id.sh" <<''BUILDPROF_SCRIPT_EOF''
+
+      result=$(node bin/cli.js compare --base ${{ steps.resolve-base.outputs.result }} --current current)
+
+      echo "$result"
+
+      echo "diff-result=${result//$''\n''/''@@''}" >> $GITHUB_OUTPUT
+
+      BUILDPROF_SCRIPT_EOF
+
+      ( sleep 2700; while true; do echo "=== buildprof survey watchdog: step still running"; ps -eo pid,ppid,stat,etime,wchan:32,args --forest 2>/dev/null | cut -c1-250 || ps; sleep 600; done ) & bp_watch=$!
+
+      bp_rc=0
+
+      "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open --detach-after-exit 10 -o "$bp_dir/$bp_id-Run-compare.buildprof" -- bash --noprofile --norc -eo pipefail "$bp_dir/$bp_id.sh" || bp_rc=$?
+
+      kill $bp_watch 2>/dev/null; exit $bp_rc
+
+      '

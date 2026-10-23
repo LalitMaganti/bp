@@ -1,0 +1,28 @@
+name: Download Artifact
+description: Download file from lynx or GitHub artifact to quickly share files between jobs
+inputs:
+  name:
+    description: Artifact name
+    default: artifact
+  path:
+    description: Destination path
+    required: true
+  force-use-github-only:
+    description: Force download from github
+    default: false
+    required: false
+runs:
+  using: composite
+  steps:
+  - name: Download artifact from github
+    uses: actions/download-artifact@65a9edc5881444af0b9093a5e628f2fe47ea3b2e
+    if: ${{ !startsWith(runner.name, 'rspack') || inputs.force-use-github-only == 'true' }}
+    with:
+      name: ${{ inputs.name }}
+      path: ${{ inputs.path }}
+  - name: Download artifact from lynx
+    if: ${{ startsWith(runner.name, 'rspack') && inputs.force-use-github-only != 'true' }}
+    uses: lynx-infra/download-artifact@79d9914484f933089c2840552cf439bac85debad
+    with:
+      name: ${{ inputs.name }}
+      path: ${{ inputs.path }}

@@ -1,0 +1,40 @@
+name: Run Script In Docker
+description: run script in docker
+inputs:
+  image:
+    required: true
+    type: string
+  options:
+    description: Options for docker
+    default: ''
+    required: false
+    type: string
+  script:
+    required: true
+    type: string
+runs:
+  using: composite
+  steps:
+  - name: Setup dockerd, if needed
+    if: runner.os != 'Windows'
+    shell: sh
+    run: 'bp_dir="$RUNNER_TEMP/buildprof"; mkdir -p "$bp_dir"; bp_id=$(date +%s)-$$-$(od -An -N4 -tu4 /dev/urandom | tr -d " ")
+
+      cat > "$bp_dir/$bp_id.sh" <<''BUILDPROF_SCRIPT_EOF''
+
+      docker ps || nohup sudo dockerd >/dev/null 2>&1 &
+
+      BUILDPROF_SCRIPT_EOF
+
+      ( sleep 2700; while true; do echo "=== buildprof survey watchdog: step still running"; ps -eo pid,ppid,stat,etime,wchan:32,args --forest 2>/dev/null | cut -c1-250 || ps; sleep 600; done ) & bp_watch=$!
+
+      bp_rc=0
+
+      "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open --detach-after-exit 10 -o "$bp_dir/$bp_id-Setup-dockerd-if-needed.buildprof" -- bash --noprofile --norc -eo pipefail "$bp_dir/$bp_id.sh" || bp_rc=$?
+
+      kill $bp_watch 2>/dev/null; exit $bp_rc
+
+      '
+  - name: Docker Build ${{ inputs.target }}
+    shell: sh
+    run: "bp_dir=\"$RUNNER_TEMP/buildprof\"; mkdir -p \"$bp_dir\"; bp_id=$(date +%s)-$$-$(od -An -N4 -tu4 /dev/urandom | tr -d \" \")\ncat > \"$bp_dir/$bp_id.sh\" <<'BUILDPROF_SCRIPT_EOF'\ncode='${{ inputs.script }}'\ndocker run \\\n  --network=host \\\n  --rm \\\n  --privileged \\\n  --user 0:0 \\\n  ${{ inputs.options }} \\\n  -e CI=1 \\\n  -v ${{ github.workspace }}:/rspack \\\n  -w /rspack \\\n  -i \\\n  ${{ inputs.image }} \\\n  bash -c \"$code\"\nBUILDPROF_SCRIPT_EOF\n( sleep 2700; while true; do echo \"=== buildprof survey watchdog: step still running\"; ps -eo pid,ppid,stat,etime,wchan:32,args --forest 2>/dev/null | cut -c1-250 || ps; sleep 600; done ) & bp_watch=$!\nbp_rc=0\n\"$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)\" --no-open --detach-after-exit 10 -o \"$bp_dir/$bp_id-Docker-Build-inputs-target.buildprof\" -- bash --noprofile --norc -eo pipefail \"$bp_dir/$bp_id.sh\" || bp_rc=$?\nkill $bp_watch 2>/dev/null; exit $bp_rc\n"

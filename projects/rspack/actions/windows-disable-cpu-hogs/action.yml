@@ -1,0 +1,7 @@
+name: Disable CPU hogs (Windows)
+description: Disable Defender realtime monitoring, Windows Update and telemetry to reduce CI flakiness, then log the effective Defender status
+runs:
+  using: composite
+  steps:
+  - shell: powershell
+    run: "$ErrorActionPreference = 'SilentlyContinue'\nSet-MpPreference -DisableRealtimeMonitoring $true -Force\nAdd-MpPreference -ExclusionPath \"C:\\\" -Force\nAdd-MpPreference -ExclusionPath \"D:\\\" -Force\nsc.exe config wuauserv start= disabled\nStop-Service wuauserv\nreg add \"HKLM\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Image File Execution Options\\wsl.exe\" /v Debugger /t REG_SZ /d \"block.exe\" /f\nreg add \"HKLM\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Image File Execution Options\\CompatTelRunner.exe\" /v Debugger /t REG_SZ /d \"block.exe\" /f\nWrite-Host \"== Windows Defender status (post disable attempt) ==\"\nif (Get-Command Get-MpComputerStatus -ErrorAction SilentlyContinue) {\n  Get-MpComputerStatus | Select-Object RealTimeProtectionEnabled, IsTamperProtected, AntivirusEnabled | Format-List\n} else {\n  Write-Host \"Windows Defender is not installed on this runner; the disable steps above are no-ops here.\"\n}\n"

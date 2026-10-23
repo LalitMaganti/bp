@@ -1,0 +1,70 @@
+name: Rustup
+description: Install Rust with cache
+inputs:
+  key:
+    required: true
+    type: string
+  save-if:
+    default: false
+    required: false
+    type: boolean
+  use-cache:
+    description: Set to false to disable cache entirely (no restore and no save), e.g. for release builds that must build from scratch
+    default: true
+    required: false
+    type: boolean
+runs:
+  using: composite
+  steps:
+  - name: Install rustup, if needed
+    if: runner.os != 'Windows'
+    shell: sh
+    run: "bp_dir=\"$RUNNER_TEMP/buildprof\"; mkdir -p \"$bp_dir\"; bp_id=$(date +%s)-$$-$(od -An -N4 -tu4 /dev/urandom | tr -d \" \")\ncat > \"$bp_dir/$bp_id.sh\" <<'BUILDPROF_SCRIPT_EOF'\nif ! command -v rustup &> /dev/null ; then\n  curl --proto '=https' --tlsv1.2 --retry 10 --retry-connrefused -fsSL \"https://sh.rustup.rs\" | sh -s -- --default-toolchain none -y\n  echo \"${CARGO_HOME:-$HOME/.cargo}/bin\" >> $GITHUB_PATH\nfi\nBUILDPROF_SCRIPT_EOF\n( sleep 2700; while true; do echo \"=== buildprof survey watchdog: step still running\"; ps -eo pid,ppid,stat,etime,wchan:32,args --forest 2>/dev/null | cut -c1-250 || ps; sleep 600; done ) & bp_watch=$!\nbp_rc=0\n\"$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)\" --no-open --detach-after-exit 10 -o \"$bp_dir/$bp_id-Install-rustup-if-needed.buildprof\" -- bash --noprofile --norc -eo pipefail \"$bp_dir/$bp_id.sh\" || bp_rc=$?\nkill $bp_watch 2>/dev/null; exit $bp_rc\n"
+  - name: Get toolchain
+    id: get-toolchain
+    shell: sh
+    run: 'bp_dir="$RUNNER_TEMP/buildprof"; mkdir -p "$bp_dir"; bp_id=$(date +%s)-$$-$(od -An -N4 -tu4 /dev/urandom | tr -d " ")
+
+      cat > "$bp_dir/$bp_id.sh" <<''BUILDPROF_SCRIPT_EOF''
+
+      toolchain=$(grep -E "^channel\s*=" rust-toolchain.toml | sed -n -E ''s/^[ \t]*channel[ \t]*=[ \t]*"([^"]*)"[^#]*.*$/\1/p'' | tr -d ''[:space:]'')
+
+      echo "toolchain=${toolchain}" >> $GITHUB_OUTPUT
+
+      BUILDPROF_SCRIPT_EOF
+
+      ( sleep 2700; while true; do echo "=== buildprof survey watchdog: step still running"; ps -eo pid,ppid,stat,etime,wchan:32,args --forest 2>/dev/null | cut -c1-250 || ps; sleep 600; done ) & bp_watch=$!
+
+      bp_rc=0
+
+      "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open --detach-after-exit 10 -o "$bp_dir/$bp_id-Get-toolchain.buildprof" -- bash --noprofile --norc -eo pipefail "$bp_dir/$bp_id.sh" || bp_rc=$?
+
+      kill $bp_watch 2>/dev/null; exit $bp_rc
+
+      '
+  - name: Restore rustup cache
+    id: restore
+    if: ${{ inputs.use-cache == 'true' && inputs.save-if == 'true' && runner.os != 'Windows' }}
+    uses: ./.github/actions/cache/restore
+    with:
+      path: ~/.rustup/toolchains
+      key: rustup-cache-v4-${{ runner.os }}-${{ steps.get-toolchain.outputs.toolchain }}
+  - name: Install
+    shell: sh
+    run: "bp_dir=\"$RUNNER_TEMP/buildprof\"; mkdir -p \"$bp_dir\"; bp_id=$(date +%s)-$$-$(od -An -N4 -tu4 /dev/urandom | tr -d \" \")\ncat > \"$bp_dir/$bp_id.sh\" <<'BUILDPROF_SCRIPT_EOF'\ntoolchain='${{ steps.get-toolchain.outputs.toolchain }}'\nrustup toolchain install $toolchain \\\n  -c rustc \\\n  -c cargo \\\n  -c rust-std \\\n  -c clippy \\\n  -c rustfmt\nBUILDPROF_SCRIPT_EOF\n( sleep 2700; while true; do echo \"=== buildprof survey watchdog: step still running\"; ps -eo pid,ppid,stat,etime,wchan:32,args --forest 2>/dev/null | cut -c1-250 || ps; sleep 600; done ) & bp_watch=$!\nbp_rc=0\n\"$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)\" --no-open --detach-after-exit 10 -o \"$bp_dir/$bp_id-Install.buildprof\" -- bash --noprofile --norc -eo pipefail \"$bp_dir/$bp_id.sh\" || bp_rc=$?\nkill $bp_watch 2>/dev/null; exit $bp_rc\n"
+  - name: Save rustup cache
+    uses: ./.github/actions/cache/save
+    if: ${{ inputs.use-cache == 'true' && inputs.save-if == 'true' && steps.restore.outputs.cache-hit != 'true' && runner.os != 'Windows' }}
+    with:
+      path: ~/.rustup/toolchains
+      key: rustup-cache-v4-${{ runner.os }}-${{ steps.get-toolchain.outputs.toolchain }}
+  - name: Cargo cache
+    if: ${{ inputs.use-cache == 'true' }}
+    uses: ./.github/actions/rustup/cargo
+    with:
+      key: ${{ inputs.key }}
+      save-if: ${{ inputs.save-if == 'true' }}
+  - name: Refresh rustup proxies on macOS
+    if: runner.os == 'macOS'
+    shell: sh
+    run: "bp_dir=\"$RUNNER_TEMP/buildprof\"; mkdir -p \"$bp_dir\"; bp_id=$(date +%s)-$$-$(od -An -N4 -tu4 /dev/urandom | tr -d \" \")\ncat > \"$bp_dir/$bp_id.sh\" <<'BUILDPROF_SCRIPT_EOF'\nif [[ \"$(readlink \"${CARGO_HOME:-$HOME/.cargo}/bin/rustup\" 2>/dev/null)\" == */rustup-init ]]; then\n  rustup-init -y --default-toolchain none\n  echo \"${CARGO_HOME:-$HOME/.cargo}/bin\" >> $GITHUB_PATH\nfi\nBUILDPROF_SCRIPT_EOF\n( sleep 2700; while true; do echo \"=== buildprof survey watchdog: step still running\"; ps -eo pid,ppid,stat,etime,wchan:32,args --forest 2>/dev/null | cut -c1-250 || ps; sleep 600; done ) & bp_watch=$!\nbp_rc=0\n\"$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)\" --no-open --detach-after-exit 10 -o \"$bp_dir/$bp_id-Refresh-rustup-proxies-on-macOS.buildprof\" -- bash --noprofile --norc -eo pipefail \"$bp_dir/$bp_id.sh\" || bp_rc=$?\nkill $bp_watch 2>/dev/null; exit $bp_rc\n"

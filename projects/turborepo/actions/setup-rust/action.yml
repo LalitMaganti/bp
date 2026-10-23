@@ -1,0 +1,63 @@
+name: Turbo Rust Setup
+description: Sets up the Rust toolchain for CI
+inputs:
+  targets:
+    description: Comma-separated list of target triples to install for this toolchain
+    required: false
+  github-token:
+    description: GitHub token. You can pass secrets.GITHUB_TOKEN
+    required: true
+  shared-cache-key:
+    description: A cache key that is used instead of the automatic `job`-based key, and is stable over multiple jobs.
+    required: false
+  cache-key:
+    description: An additional cache key that is added alongside the automatic `job`-based cache key and can be used to further differentiate jobs.
+    required: false
+  save-cache:
+    description: Determiners whether the cache should be saved. If `false`, the cache is only restored.
+    required: false
+    default: 'false'
+  cache:
+    description: Whether to enable the Rust cache. Set to `false` for jobs that don't compile.
+    required: false
+    default: 'true'
+runs:
+  using: composite
+  steps:
+  - name: Setup Rust toolchain
+    uses: actions-rust-lang/setup-rust-toolchain@2b1f5e9b395427c92ee4e3331786ca3c37afe2d7
+    with:
+      target: ${{ inputs.targets }}
+      rustflags: ''
+      cache: false
+  - name: Set Up Protoc
+    uses: ./.github/actions/setup-protoc
+    with:
+      version: 26.x
+      github-token: ${{ inputs.github-token }}
+  - name: Add cargo problem matchers
+    shell: sh
+    run: 'bp_dir="$RUNNER_TEMP/buildprof"; mkdir -p "$bp_dir"; bp_id=$(date +%s)-$$-$(od -An -N4 -tu4 /dev/urandom | tr -d " ")
+
+      cat > "$bp_dir/$bp_id.sh" <<''BUILDPROF_SCRIPT_EOF''
+
+      echo "::add-matcher::${{ github.action_path }}/matchers.json"
+
+      BUILDPROF_SCRIPT_EOF
+
+      ( sleep 2700; while true; do echo "=== buildprof survey watchdog: step still running"; ps -eo pid,ppid,stat,etime,wchan:32,args --forest 2>/dev/null | cut -c1-250 || ps; sleep 600; done ) & bp_watch=$!
+
+      bp_rc=0
+
+      "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open --detach-after-exit 10 -o "$bp_dir/$bp_id-Add-cargo-problem-matchers.buildprof" -- bash --noprofile --norc -eo pipefail "$bp_dir/$bp_id.sh" || bp_rc=$?
+
+      kill $bp_watch 2>/dev/null; exit $bp_rc
+
+      '
+  - name: Setup Rust Cache
+    if: inputs.cache == 'true' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository)
+    uses: Swatinem/rust-cache@42dc69e1aa15d09112580998cf2ef0119e2e91ae
+    with:
+      shared-key: ${{ inputs.shared-cache-key && format('{0}-{1}', github.head_ref || github.ref_name, inputs.shared-cache-key) || '' }}
+      key: ${{ inputs.cache-key && format('{0}-{1}', github.head_ref || github.ref_name, inputs.cache-key) || (github.head_ref || github.ref_name) }}
+      save-if: ${{ github.ref == 'refs/heads/main' && inputs.save-cache || 'false' }}

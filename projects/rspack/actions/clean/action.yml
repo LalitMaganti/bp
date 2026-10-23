@@ -1,0 +1,41 @@
+name: Clean Repository
+inputs:
+  target:
+    required: true
+    type: string
+runs:
+  using: composite
+  steps:
+  - name: Git Clean
+    shell: sh
+    run: 'bp_dir="$RUNNER_TEMP/buildprof"; mkdir -p "$bp_dir"; bp_id=$(date +%s)-$$-$(od -An -N4 -tu4 /dev/urandom | tr -d " ")
+
+      cat > "$bp_dir/$bp_id.sh" <<''BUILDPROF_SCRIPT_EOF''
+
+      git config --system core.longpaths true
+
+      rm -rf node_modules
+
+      git clean -ffdx -e target
+
+      git reset --hard HEAD
+
+      BUILDPROF_SCRIPT_EOF
+
+      ( sleep 2700; while true; do echo "=== buildprof survey watchdog: step still running"; ps -eo pid,ppid,stat,etime,wchan:32,args --forest 2>/dev/null | cut -c1-250 || ps; sleep 600; done ) & bp_watch=$!
+
+      bp_rc=0
+
+      "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open --detach-after-exit 10 -o "$bp_dir/$bp_id-Git-Clean.buildprof" -- bash --noprofile --norc -eo pipefail "$bp_dir/$bp_id.sh" || bp_rc=$?
+
+      kill $bp_watch 2>/dev/null; exit $bp_rc
+
+      '
+  - name: Clean Large Directories by Size
+    if: ${{ !contains(inputs.target, 'windows') }}
+    shell: sh
+    run: "bp_dir=\"$RUNNER_TEMP/buildprof\"; mkdir -p \"$bp_dir\"; bp_id=$(date +%s)-$$-$(od -An -N4 -tu4 /dev/urandom | tr -d \" \")\ncat > \"$bp_dir/$bp_id.sh\" <<'BUILDPROF_SCRIPT_EOF'\nif [ -d \"target\" ]; then\n  TARGET_SIZE=$(du -s target | awk '{print $1}')\n  MAX_SIZE=$((50 * 1024 * 1024))\n\n  echo \"MAX_SIZE = $MAX_SIZE\"\n  if [ \"$TARGET_SIZE\" -gt \"$MAX_SIZE\" ]; then\n    echo \"`target` directory size is greater than 50GB, deleting...\"\n    rm -rf target\n  else\n    echo \"`target` directory size is within limits.\"\n  fi\nfi\nBUILDPROF_SCRIPT_EOF\n( sleep 2700; while true; do echo \"=== buildprof survey watchdog: step still running\"; ps -eo pid,ppid,stat,etime,wchan:32,args --forest 2>/dev/null | cut -c1-250 || ps; sleep 600; done ) & bp_watch=$!\nbp_rc=0\n\"$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)\" --no-open --detach-after-exit 10 -o \"$bp_dir/$bp_id-Clean-Large-Directories-by-Size.buildprof\" -- bash --noprofile --norc -eo pipefail \"$bp_dir/$bp_id.sh\" || bp_rc=$?\nkill $bp_watch 2>/dev/null; exit $bp_rc\n"
+  - name: Clean Large Directories by Time
+    if: ${{ contains(inputs.target, 'windows') }}
+    shell: sh
+    run: "bp_dir=\"$RUNNER_TEMP/buildprof\"; mkdir -p \"$bp_dir\"; bp_id=$(date +%s)-$$-$(od -An -N4 -tu4 /dev/urandom | tr -d \" \")\ncat > \"$bp_dir/$bp_id.sh\" <<'BUILDPROF_SCRIPT_EOF'\nif [ -d \"target\" ]; then\n  TARGET_CREATION_TIME=$(powershell -Command \"(Get-Item 'target').CreationTime\")\n  TWO_WEEKS_AGO=$(date -d '2 weeks ago' +%s)\n\n  echo \"TARGET_CREATION_TIME = $TARGET_CREATION_TIME\"\n\n  if [ \"$TARGET_CREATION_TIME\" -lt \"$TWO_WEEKS_AGO\" ]; then\n    echo \"'target' directory is older than 2 weeks, deleting...\"\n    rm -rf target\n  else\n    echo \"'target' directory is within 2 weeks.\"\n  fi\nfi\nBUILDPROF_SCRIPT_EOF\n( sleep 2700; while true; do echo \"=== buildprof survey watchdog: step still running\"; ps -eo pid,ppid,stat,etime,wchan:32,args --forest 2>/dev/null | cut -c1-250 || ps; sleep 600; done ) & bp_watch=$!\nbp_rc=0\n\"$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)\" --no-open --detach-after-exit 10 -o \"$bp_dir/$bp_id-Clean-Large-Directories-by-Time.buildprof\" -- bash --noprofile --norc -eo pipefail \"$bp_dir/$bp_id.sh\" || bp_rc=$?\nkill $bp_watch 2>/dev/null; exit $bp_rc\n"

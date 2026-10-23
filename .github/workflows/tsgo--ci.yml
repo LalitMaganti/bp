@@ -1,0 +1,1571 @@
+name: 'tsgo: CI'
+'on':
+  workflow_dispatch: null
+permissions:
+  contents: read
+defaults:
+  run:
+    shell: bash
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Fetch buildprof
+      uses: actions/checkout@v4
+      with:
+        repository: LalitMaganti/bp
+        path: .buildprof-fetch
+        sparse-checkout: '.buildprof
+
+          projects/tsgo'
+        persist-credentials: false
+    - name: Install buildprof
+      shell: sh
+      working-directory: ${{ github.workspace }}
+      run: 'mkdir -p "$RUNNER_TEMP/buildprof-bin" "$RUNNER_TEMP/buildprof-actions"
+
+        cp .buildprof-fetch/.buildprof/buildprof-* "$RUNNER_TEMP/buildprof-bin/" && chmod +x "$RUNNER_TEMP/buildprof-bin/"*
+
+        if [ "$(id -u)" != 0 ] && sudo -n true 2>/dev/null; then sudo setcap cap_sys_ptrace,cap_sys_admin+ep "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)"; fi
+
+        if [ -d .buildprof-fetch/projects/tsgo/actions ]; then cp -r .buildprof-fetch/projects/tsgo/actions/. "$RUNNER_TEMP/buildprof-actions/"; fi
+
+        rm -rf .buildprof-fetch
+
+        '
+    - uses: jlumbroso/free-disk-space@54081f138730dfa15788a46383842cd2f914a1be
+      with:
+        large-packages: false
+        docker-images: false
+        swap-storage: false
+        dotnet: false
+    - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0
+      with:
+        repository: microsoft/typescript-go
+        ref: 89d5d5b2849a0db0957065889ca58536fa6d2e4a
+    - name: Wrap upstream composite actions
+      shell: sh
+      working-directory: ${{ github.workspace }}
+      run: "if [ -n \"$(ls -A \"$RUNNER_TEMP/buildprof-actions\" 2>/dev/null)\" ]; then\n  cp -r \"$RUNNER_TEMP/buildprof-actions/.\" \"./.github/actions/\"\n  (cd \".\" && git ls-files -m .github/actions | xargs -r git update-index --assume-unchanged) 2>/dev/null || true\nfi\n"
+    - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e
+    - uses: ./.github/actions/setup-go
+    - name: Disable PR annotations
+      run: 'bp_dir="$RUNNER_TEMP/buildprof"; mkdir -p "$bp_dir"; bp_id=$(date +%s)-$$-$(od -An -N4 -tu4 /dev/urandom | tr -d " ")
+
+        cat > "$bp_dir/$bp_id.sh" <<''BUILDPROF_SCRIPT_EOF''
+
+        echo "::remove-matcher owner=eslint-compact::"
+
+        echo "::remove-matcher owner=eslint-stylish::"
+
+        echo "::remove-matcher owner=tsc::"
+
+        echo "::remove-matcher owner=go::"
+
+        BUILDPROF_SCRIPT_EOF
+
+        ( sleep 2700; while true; do echo "=== buildprof survey watchdog: step still running"; ps -eo pid,ppid,stat,etime,wchan:32,args --forest 2>/dev/null | cut -c1-250 || ps; sleep 600; done ) & bp_watch=$!
+
+        bp_rc=0
+
+        "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open --detach-after-exit 10 -o "$bp_dir/$bp_id-Disable-PR-annotations.buildprof" -- $(command -v bash >/dev/null && echo "bash --noprofile --norc -eo pipefail" || echo "sh -e") "$bp_dir/$bp_id.sh" || bp_rc=$?
+
+        kill $bp_watch 2>/dev/null; exit $bp_rc
+
+        '
+      shell: sh
+    - run: 'bp_dir="$RUNNER_TEMP/buildprof"; mkdir -p "$bp_dir"; bp_id=$(date +%s)-$$-$(od -An -N4 -tu4 /dev/urandom | tr -d " ")
+
+        cat > "$bp_dir/$bp_id.sh" <<''BUILDPROF_SCRIPT_EOF''
+
+        npm ci
+
+        BUILDPROF_SCRIPT_EOF
+
+        ( sleep 2700; while true; do echo "=== buildprof survey watchdog: step still running"; ps -eo pid,ppid,stat,etime,wchan:32,args --forest 2>/dev/null | cut -c1-250 || ps; sleep 600; done ) & bp_watch=$!
+
+        bp_rc=0
+
+        "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open --detach-after-exit 10 -o "$bp_dir/$bp_id-npm-ci.buildprof" -- $(command -v bash >/dev/null && echo "bash --noprofile --norc -eo pipefail" || echo "sh -e") "$bp_dir/$bp_id.sh" || bp_rc=$?
+
+        kill $bp_watch 2>/dev/null; exit $bp_rc
+
+        '
+      shell: sh
+    - run: 'bp_dir="$RUNNER_TEMP/buildprof"; mkdir -p "$bp_dir"; bp_id=$(date +%s)-$$-$(od -An -N4 -tu4 /dev/urandom | tr -d " ")
+
+        cat > "$bp_dir/$bp_id.sh" <<''BUILDPROF_SCRIPT_EOF''
+
+        npx hereby build
+
+        BUILDPROF_SCRIPT_EOF
+
+        ( sleep 2700; while true; do echo "=== buildprof survey watchdog: step still running"; ps -eo pid,ppid,stat,etime,wchan:32,args --forest 2>/dev/null | cut -c1-250 || ps; sleep 600; done ) & bp_watch=$!
+
+        bp_rc=0
+
+        "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open --detach-after-exit 10 -o "$bp_dir/$bp_id-npx-hereby-build.buildprof" -- $(command -v bash >/dev/null && echo "bash --noprofile --norc -eo pipefail" || echo "sh -e") "$bp_dir/$bp_id.sh" || bp_rc=$?
+
+        kill $bp_watch 2>/dev/null; exit $bp_rc
+
+        '
+      shell: sh
+    - name: Upload buildprof recordings
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: tsgo--ci-build-${{ strategy.job-index }}
+        path: ${{ runner.temp }}/buildprof/*.buildprof
+        retention-days: 30
+        if-no-files-found: ignore
+        compression-level: 0
+    permissions:
+      contents: read
+    timeout-minutes: 120
+  release-build:
+    if: ${{ 'microsoft/typescript-go' == 'microsoft/typescript-go' && 'push' != 'merge_group' }}
+    runs-on: TypeScript-1ES-GitHub-XL-2
+    steps:
+    - name: Fetch buildprof
+      uses: actions/checkout@v4
+      with:
+        repository: LalitMaganti/bp
+        path: .buildprof-fetch
+        sparse-checkout: '.buildprof
+
+          projects/tsgo'
+        persist-credentials: false
+    - name: Install buildprof
+      shell: sh
+      working-directory: ${{ github.workspace }}
+      run: 'mkdir -p "$RUNNER_TEMP/buildprof-bin" "$RUNNER_TEMP/buildprof-actions"
+
+        cp .buildprof-fetch/.buildprof/buildprof-* "$RUNNER_TEMP/buildprof-bin/" && chmod +x "$RUNNER_TEMP/buildprof-bin/"*
+
+        if [ "$(id -u)" != 0 ] && sudo -n true 2>/dev/null; then sudo setcap cap_sys_ptrace,cap_sys_admin+ep "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)"; fi
+
+        if [ -d .buildprof-fetch/projects/tsgo/actions ]; then cp -r .buildprof-fetch/projects/tsgo/actions/. "$RUNNER_TEMP/buildprof-actions/"; fi
+
+        rm -rf .buildprof-fetch
+
+        '
+    - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0
+      with:
+        repository: microsoft/typescript-go
+        ref: 89d5d5b2849a0db0957065889ca58536fa6d2e4a
+    - name: Wrap upstream composite actions
+      shell: sh
+      working-directory: ${{ github.workspace }}
+      run: "if [ -n \"$(ls -A \"$RUNNER_TEMP/buildprof-actions\" 2>/dev/null)\" ]; then\n  cp -r \"$RUNNER_TEMP/buildprof-actions/.\" \"./.github/actions/\"\n  (cd \".\" && git ls-files -m .github/actions | xargs -r git update-index --assume-unchanged) 2>/dev/null || true\nfi\n"
+    - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e
+      with:
+        node-version: lts/*
+    - uses: dtolnay/rust-toolchain@fcf085fcb4b4b8f63f96906cd713eb52181b5ea4
+    - uses: ./.github/actions/setup-go
+    - name: Disable PR annotations
+      run: 'bp_dir="$RUNNER_TEMP/buildprof"; mkdir -p "$bp_dir"; bp_id=$(date +%s)-$$-$(od -An -N4 -tu4 /dev/urandom | tr -d " ")
+
+        cat > "$bp_dir/$bp_id.sh" <<''BUILDPROF_SCRIPT_EOF''
+
+        echo "::remove-matcher owner=eslint-compact::"
+
+        echo "::remove-matcher owner=eslint-stylish::"
+
+        echo "::remove-matcher owner=tsc::"
+
+        echo "::remove-matcher owner=go::"
+
+        BUILDPROF_SCRIPT_EOF
+
+        ( sleep 2700; while true; do echo "=== buildprof survey watchdog: step still running"; ps -eo pid,ppid,stat,etime,wchan:32,args --forest 2>/dev/null | cut -c1-250 || ps; sleep 600; done ) & bp_watch=$!
+
+        bp_rc=0
+
+        "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open --detach-after-exit 10 -o "$bp_dir/$bp_id-Disable-PR-annotations.buildprof" -- $(command -v bash >/dev/null && echo "bash --noprofile --norc -eo pipefail" || echo "sh -e") "$bp_dir/$bp_id.sh" || bp_rc=$?
+
+        kill $bp_watch 2>/dev/null; exit $bp_rc
+
+        '
+      shell: sh
+    - run: 'bp_dir="$RUNNER_TEMP/buildprof"; mkdir -p "$bp_dir"; bp_id=$(date +%s)-$$-$(od -An -N4 -tu4 /dev/urandom | tr -d " ")
+
+        cat > "$bp_dir/$bp_id.sh" <<''BUILDPROF_SCRIPT_EOF''
+
+        npm ci
+
+        BUILDPROF_SCRIPT_EOF
+
+        ( sleep 2700; while true; do echo "=== buildprof survey watchdog: step still running"; ps -eo pid,ppid,stat,etime,wchan:32,args --forest 2>/dev/null | cut -c1-250 || ps; sleep 600; done ) & bp_watch=$!
+
+        bp_rc=0
+
+        "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open --detach-after-exit 10 -o "$bp_dir/$bp_id-npm-ci.buildprof" -- $(command -v bash >/dev/null && echo "bash --noprofile --norc -eo pipefail" || echo "sh -e") "$bp_dir/$bp_id.sh" || bp_rc=$?
+
+        kill $bp_watch 2>/dev/null; exit $bp_rc
+
+        '
+      shell: sh
+    - run: 'bp_dir="$RUNNER_TEMP/buildprof"; mkdir -p "$bp_dir"; bp_id=$(date +%s)-$$-$(od -An -N4 -tu4 /dev/urandom | tr -d " ")
+
+        cat > "$bp_dir/$bp_id.sh" <<''BUILDPROF_SCRIPT_EOF''
+
+        npx hereby native-preview:release --forRelease --setPrerelease dev.0.0
+
+        BUILDPROF_SCRIPT_EOF
+
+        ( sleep 2700; while true; do echo "=== buildprof survey watchdog: step still running"; ps -eo pid,ppid,stat,etime,wchan:32,args --forest 2>/dev/null | cut -c1-250 || ps; sleep 600; done ) & bp_watch=$!
+
+        bp_rc=0
+
+        "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open --detach-after-exit 10 -o "$bp_dir/$bp_id-npx-hereby-native-preview-release-forRel.buildprof" -- $(command -v bash >/dev/null && echo "bash --noprofile --norc -eo pipefail" || echo "sh -e") "$bp_dir/$bp_id.sh" || bp_rc=$?
+
+        kill $bp_watch 2>/dev/null; exit $bp_rc
+
+        '
+      shell: sh
+    - name: Upload buildprof recordings
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: tsgo--ci-release-build-${{ strategy.job-index }}
+        path: ${{ runner.temp }}/buildprof/*.buildprof
+        retention-days: 30
+        if-no-files-found: ignore
+        compression-level: 0
+    permissions:
+      contents: read
+    timeout-minutes: 120
+  extension:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Fetch buildprof
+      uses: actions/checkout@v4
+      with:
+        repository: LalitMaganti/bp
+        path: .buildprof-fetch
+        sparse-checkout: '.buildprof
+
+          projects/tsgo'
+        persist-credentials: false
+    - name: Install buildprof
+      shell: sh
+      working-directory: ${{ github.workspace }}
+      run: 'mkdir -p "$RUNNER_TEMP/buildprof-bin" "$RUNNER_TEMP/buildprof-actions"
+
+        cp .buildprof-fetch/.buildprof/buildprof-* "$RUNNER_TEMP/buildprof-bin/" && chmod +x "$RUNNER_TEMP/buildprof-bin/"*
+
+        if [ "$(id -u)" != 0 ] && sudo -n true 2>/dev/null; then sudo setcap cap_sys_ptrace,cap_sys_admin+ep "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)"; fi
+
+        if [ -d .buildprof-fetch/projects/tsgo/actions ]; then cp -r .buildprof-fetch/projects/tsgo/actions/. "$RUNNER_TEMP/buildprof-actions/"; fi
+
+        rm -rf .buildprof-fetch
+
+        '
+    - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0
+      with:
+        repository: microsoft/typescript-go
+        ref: 89d5d5b2849a0db0957065889ca58536fa6d2e4a
+    - name: Wrap upstream composite actions
+      shell: sh
+      working-directory: ${{ github.workspace }}
+      run: "if [ -n \"$(ls -A \"$RUNNER_TEMP/buildprof-actions\" 2>/dev/null)\" ]; then\n  cp -r \"$RUNNER_TEMP/buildprof-actions/.\" \"./.github/actions/\"\n  (cd \".\" && git ls-files -m .github/actions | xargs -r git update-index --assume-unchanged) 2>/dev/null || true\nfi\n"
+    - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e
+    - run: 'bp_dir="$RUNNER_TEMP/buildprof"; mkdir -p "$bp_dir"; bp_id=$(date +%s)-$$-$(od -An -N4 -tu4 /dev/urandom | tr -d " ")
+
+        cat > "$bp_dir/$bp_id.sh" <<''BUILDPROF_SCRIPT_EOF''
+
+        npm ci
+
+        BUILDPROF_SCRIPT_EOF
+
+        ( sleep 2700; while true; do echo "=== buildprof survey watchdog: step still running"; ps -eo pid,ppid,stat,etime,wchan:32,args --forest 2>/dev/null | cut -c1-250 || ps; sleep 600; done ) & bp_watch=$!
+
+        bp_rc=0
+
+        "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open --detach-after-exit 10 -o "$bp_dir/$bp_id-npm-ci.buildprof" -- $(command -v bash >/dev/null && echo "bash --noprofile --norc -eo pipefail" || echo "sh -e") "$bp_dir/$bp_id.sh" || bp_rc=$?
+
+        kill $bp_watch 2>/dev/null; exit $bp_rc
+
+        '
+      shell: sh
+    - run: 'bp_dir="$RUNNER_TEMP/buildprof"; mkdir -p "$bp_dir"; bp_id=$(date +%s)-$$-$(od -An -N4 -tu4 /dev/urandom | tr -d " ")
+
+        cat > "$bp_dir/$bp_id.sh" <<''BUILDPROF_SCRIPT_EOF''
+
+        npm run extension:build
+
+        BUILDPROF_SCRIPT_EOF
+
+        ( sleep 2700; while true; do echo "=== buildprof survey watchdog: step still running"; ps -eo pid,ppid,stat,etime,wchan:32,args --forest 2>/dev/null | cut -c1-250 || ps; sleep 600; done ) & bp_watch=$!
+
+        bp_rc=0
+
+        "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open --detach-after-exit 10 -o "$bp_dir/$bp_id-npm-run-extension-build.buildprof" -- $(command -v bash >/dev/null && echo "bash --noprofile --norc -eo pipefail" || echo "sh -e") "$bp_dir/$bp_id.sh" || bp_rc=$?
+
+        kill $bp_watch 2>/dev/null; exit $bp_rc
+
+        '
+      shell: sh
+    - name: Upload buildprof recordings
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: tsgo--ci-extension-${{ strategy.job-index }}
+        path: ${{ runner.temp }}/buildprof/*.buildprof
+        retention-days: 30
+        if-no-files-found: ignore
+        compression-level: 0
+    permissions:
+      contents: read
+    timeout-minutes: 120
+  test:
+    strategy:
+      fail-fast: ${{ 'push' == 'merge_group' }}
+      matrix:
+        config:
+        - os: ubuntu-latest
+          coverage: true
+          main: true
+        - os: ubuntu-latest
+          name: no submodules
+          no-submodules: true
+        - os: TypeScript-1ES-GitHub-XL-2
+          name: race mode
+          race: true
+          skip: ${{ 'push' == 'merge_group' || 'microsoft/typescript-go' != 'microsoft/typescript-go' }}
+        - os: ubuntu-latest
+          name: noembed
+          noembed: true
+        - os: ubuntu-latest
+          name: concurrent test programs
+          concurrent-test-programs: true
+          coverage: true
+        exclude:
+        - config:
+            skip: true
+    name: test (${{ matrix.config.name || matrix.config.os }})
+    runs-on: ${{ matrix.config.os }}
+    permissions:
+      contents: read
+    env:
+      TSGO_HEREBY_RACE: ${{ (matrix.config.race && 'true') || 'false' }}
+      TSGO_HEREBY_NOEMBED: ${{ (matrix.config.noembed && 'true') || 'false' }}
+      TSGO_HEREBY_CONCURRENT_TEST_PROGRAMS: ${{ (matrix.config.concurrent-test-programs && 'true') || 'false' }}
+      TSGO_HEREBY_COVERAGE: ${{ (matrix.config.coverage && 'true') || 'false' }}
+    steps:
+    - name: Fetch buildprof
+      uses: actions/checkout@v4
+      with:
+        repository: LalitMaganti/bp
+        path: .buildprof-fetch
+        sparse-checkout: '.buildprof
+
+          projects/tsgo'
+        persist-credentials: false
+    - name: Install buildprof
+      shell: sh
+      working-directory: ${{ github.workspace }}
+      run: 'mkdir -p "$RUNNER_TEMP/buildprof-bin" "$RUNNER_TEMP/buildprof-actions"
+
+        cp .buildprof-fetch/.buildprof/buildprof-* "$RUNNER_TEMP/buildprof-bin/" && chmod +x "$RUNNER_TEMP/buildprof-bin/"*
+
+        if [ "$(id -u)" != 0 ] && sudo -n true 2>/dev/null; then sudo setcap cap_sys_ptrace,cap_sys_admin+ep "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)"; fi
+
+        if [ -d .buildprof-fetch/projects/tsgo/actions ]; then cp -r .buildprof-fetch/projects/tsgo/actions/. "$RUNNER_TEMP/buildprof-actions/"; fi
+
+        rm -rf .buildprof-fetch
+
+        '
+    - uses: jlumbroso/free-disk-space@54081f138730dfa15788a46383842cd2f914a1be
+      with:
+        large-packages: false
+        docker-images: false
+        swap-storage: false
+        dotnet: false
+    - run: 'bp_dir="$RUNNER_TEMP/buildprof"; mkdir -p "$bp_dir"; bp_id=$(date +%s)-$$-$(od -An -N4 -tu4 /dev/urandom | tr -d " ")
+
+        cat > "$bp_dir/$bp_id.sh" <<''BUILDPROF_SCRIPT_EOF''
+
+        git config --system core.longpaths true
+
+        BUILDPROF_SCRIPT_EOF
+
+        ( sleep 2700; while true; do echo "=== buildprof survey watchdog: step still running"; ps -eo pid,ppid,stat,etime,wchan:32,args --forest 2>/dev/null | cut -c1-250 || ps; sleep 600; done ) & bp_watch=$!
+
+        bp_rc=0
+
+        "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open --detach-after-exit 10 -o "$bp_dir/$bp_id-git-config-system-core-longpaths-true.buildprof" -- $(command -v bash >/dev/null && echo "bash --noprofile --norc -eo pipefail" || echo "sh -e") "$bp_dir/$bp_id.sh" || bp_rc=$?
+
+        kill $bp_watch 2>/dev/null; exit $bp_rc
+
+        '
+      if: ${{ matrix.config.os == 'windows-latest' }}
+      shell: sh
+    - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0
+      with:
+        submodules: ${{ !matrix.config.no-submodules }}
+        repository: microsoft/typescript-go
+        ref: 89d5d5b2849a0db0957065889ca58536fa6d2e4a
+    - name: Wrap upstream composite actions
+      shell: sh
+      working-directory: ${{ github.workspace }}
+      run: "if [ -n \"$(ls -A \"$RUNNER_TEMP/buildprof-actions\" 2>/dev/null)\" ]; then\n  cp -r \"$RUNNER_TEMP/buildprof-actions/.\" \"./.github/actions/\"\n  (cd \".\" && git ls-files -m .github/actions | xargs -r git update-index --assume-unchanged) 2>/dev/null || true\nfi\n"
+    - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e
+      with:
+        node-version: lts/*
+    - uses: ./.github/actions/setup-go
+    - if: ${{ ! matrix.config.main }}
+      name: Disable PR annotations
+      run: 'bp_dir="$RUNNER_TEMP/buildprof"; mkdir -p "$bp_dir"; bp_id=$(date +%s)-$$-$(od -An -N4 -tu4 /dev/urandom | tr -d " ")
+
+        cat > "$bp_dir/$bp_id.sh" <<''BUILDPROF_SCRIPT_EOF''
+
+        echo "::remove-matcher owner=eslint-compact::"
+
+        echo "::remove-matcher owner=eslint-stylish::"
+
+        echo "::remove-matcher owner=tsc::"
+
+        echo "::remove-matcher owner=go::"
+
+        BUILDPROF_SCRIPT_EOF
+
+        ( sleep 2700; while true; do echo "=== buildprof survey watchdog: step still running"; ps -eo pid,ppid,stat,etime,wchan:32,args --forest 2>/dev/null | cut -c1-250 || ps; sleep 600; done ) & bp_watch=$!
+
+        bp_rc=0
+
+        "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open --detach-after-exit 10 -o "$bp_dir/$bp_id-Disable-PR-annotations.buildprof" -- $(command -v bash >/dev/null && echo "bash --noprofile --norc -eo pipefail" || echo "sh -e") "$bp_dir/$bp_id.sh" || bp_rc=$?
+
+        kill $bp_watch 2>/dev/null; exit $bp_rc
+
+        '
+      shell: sh
+    - run: 'bp_dir="$RUNNER_TEMP/buildprof"; mkdir -p "$bp_dir"; bp_id=$(date +%s)-$$-$(od -An -N4 -tu4 /dev/urandom | tr -d " ")
+
+        cat > "$bp_dir/$bp_id.sh" <<''BUILDPROF_SCRIPT_EOF''
+
+        npm ci
+
+        BUILDPROF_SCRIPT_EOF
+
+        ( sleep 2700; while true; do echo "=== buildprof survey watchdog: step still running"; ps -eo pid,ppid,stat,etime,wchan:32,args --forest 2>/dev/null | cut -c1-250 || ps; sleep 600; done ) & bp_watch=$!
+
+        bp_rc=0
+
+        "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open --detach-after-exit 10 -o "$bp_dir/$bp_id-npm-ci.buildprof" -- $(command -v bash >/dev/null && echo "bash --noprofile --norc -eo pipefail" || echo "sh -e") "$bp_dir/$bp_id.sh" || bp_rc=$?
+
+        kill $bp_watch 2>/dev/null; exit $bp_rc
+
+        '
+      shell: sh
+    - run: 'bp_dir="$RUNNER_TEMP/buildprof"; mkdir -p "$bp_dir"; bp_id=$(date +%s)-$$-$(od -An -N4 -tu4 /dev/urandom | tr -d " ")
+
+        cat > "$bp_dir/$bp_id.sh" <<''BUILDPROF_SCRIPT_EOF''
+
+        go install gotest.tools/gotestsum@latest
+
+        BUILDPROF_SCRIPT_EOF
+
+        ( sleep 2700; while true; do echo "=== buildprof survey watchdog: step still running"; ps -eo pid,ppid,stat,etime,wchan:32,args --forest 2>/dev/null | cut -c1-250 || ps; sleep 600; done ) & bp_watch=$!
+
+        bp_rc=0
+
+        "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open --detach-after-exit 10 -o "$bp_dir/$bp_id-go-install-gotest-tools-gotestsum-latest.buildprof" -- $(command -v bash >/dev/null && echo "bash --noprofile --norc -eo pipefail" || echo "sh -e") "$bp_dir/$bp_id.sh" || bp_rc=$?
+
+        kill $bp_watch 2>/dev/null; exit $bp_rc
+
+        '
+      if: ${{ matrix.config.os != 'windows-latest' && !matrix.config.race }}
+      shell: sh
+    - name: Tests
+      id: test
+      run: 'bp_dir="$RUNNER_TEMP/buildprof"; mkdir -p "$bp_dir"; bp_id=$(date +%s)-$$-$(od -An -N4 -tu4 /dev/urandom | tr -d " ")
+
+        cat > "$bp_dir/$bp_id.sh" <<''BUILDPROF_SCRIPT_EOF''
+
+        npx hereby test
+
+        BUILDPROF_SCRIPT_EOF
+
+        ( sleep 2700; while true; do echo "=== buildprof survey watchdog: step still running"; ps -eo pid,ppid,stat,etime,wchan:32,args --forest 2>/dev/null | cut -c1-250 || ps; sleep 600; done ) & bp_watch=$!
+
+        bp_rc=0
+
+        "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open --detach-after-exit 10 -o "$bp_dir/$bp_id-Tests.buildprof" -- $(command -v bash >/dev/null && echo "bash --noprofile --norc -eo pipefail" || echo "sh -e") "$bp_dir/$bp_id.sh" || bp_rc=$?
+
+        kill $bp_watch 2>/dev/null; exit $bp_rc
+
+        '
+      shell: sh
+    - name: Benchmarks
+      run: 'bp_dir="$RUNNER_TEMP/buildprof"; mkdir -p "$bp_dir"; bp_id=$(date +%s)-$$-$(od -An -N4 -tu4 /dev/urandom | tr -d " ")
+
+        cat > "$bp_dir/$bp_id.sh" <<''BUILDPROF_SCRIPT_EOF''
+
+        npx hereby test:benchmarks
+
+        BUILDPROF_SCRIPT_EOF
+
+        ( sleep 2700; while true; do echo "=== buildprof survey watchdog: step still running"; ps -eo pid,ppid,stat,etime,wchan:32,args --forest 2>/dev/null | cut -c1-250 || ps; sleep 600; done ) & bp_watch=$!
+
+        bp_rc=0
+
+        "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open --detach-after-exit 10 -o "$bp_dir/$bp_id-Benchmarks.buildprof" -- $(command -v bash >/dev/null && echo "bash --noprofile --norc -eo pipefail" || echo "sh -e") "$bp_dir/$bp_id.sh" || bp_rc=$?
+
+        kill $bp_watch 2>/dev/null; exit $bp_rc
+
+        '
+      shell: sh
+    - name: Tools Tests
+      run: 'bp_dir="$RUNNER_TEMP/buildprof"; mkdir -p "$bp_dir"; bp_id=$(date +%s)-$$-$(od -An -N4 -tu4 /dev/urandom | tr -d " ")
+
+        cat > "$bp_dir/$bp_id.sh" <<''BUILDPROF_SCRIPT_EOF''
+
+        npx hereby test:tools
+
+        BUILDPROF_SCRIPT_EOF
+
+        ( sleep 2700; while true; do echo "=== buildprof survey watchdog: step still running"; ps -eo pid,ppid,stat,etime,wchan:32,args --forest 2>/dev/null | cut -c1-250 || ps; sleep 600; done ) & bp_watch=$!
+
+        bp_rc=0
+
+        "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open --detach-after-exit 10 -o "$bp_dir/$bp_id-Tools-Tests.buildprof" -- $(command -v bash >/dev/null && echo "bash --noprofile --norc -eo pipefail" || echo "sh -e") "$bp_dir/$bp_id.sh" || bp_rc=$?
+
+        kill $bp_watch 2>/dev/null; exit $bp_rc
+
+        '
+      shell: sh
+    - name: API Tests
+      run: 'bp_dir="$RUNNER_TEMP/buildprof"; mkdir -p "$bp_dir"; bp_id=$(date +%s)-$$-$(od -An -N4 -tu4 /dev/urandom | tr -d " ")
+
+        cat > "$bp_dir/$bp_id.sh" <<''BUILDPROF_SCRIPT_EOF''
+
+        npx hereby test:api
+
+        BUILDPROF_SCRIPT_EOF
+
+        ( sleep 2700; while true; do echo "=== buildprof survey watchdog: step still running"; ps -eo pid,ppid,stat,etime,wchan:32,args --forest 2>/dev/null | cut -c1-250 || ps; sleep 600; done ) & bp_watch=$!
+
+        bp_rc=0
+
+        "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open --detach-after-exit 10 -o "$bp_dir/$bp_id-API-Tests.buildprof" -- $(command -v bash >/dev/null && echo "bash --noprofile --norc -eo pipefail" || echo "sh -e") "$bp_dir/$bp_id.sh" || bp_rc=$?
+
+        kill $bp_watch 2>/dev/null; exit $bp_rc
+
+        '
+      shell: sh
+    - run: 'bp_dir="$RUNNER_TEMP/buildprof"; mkdir -p "$bp_dir"; bp_id=$(date +%s)-$$-$(od -An -N4 -tu4 /dev/urandom | tr -d " ")
+
+        cat > "$bp_dir/$bp_id.sh" <<''BUILDPROF_SCRIPT_EOF''
+
+        git add .
+
+        BUILDPROF_SCRIPT_EOF
+
+        ( sleep 2700; while true; do echo "=== buildprof survey watchdog: step still running"; ps -eo pid,ppid,stat,etime,wchan:32,args --forest 2>/dev/null | cut -c1-250 || ps; sleep 600; done ) & bp_watch=$!
+
+        bp_rc=0
+
+        "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open --detach-after-exit 10 -o "$bp_dir/$bp_id-git-add.buildprof" -- $(command -v bash >/dev/null && echo "bash --noprofile --norc -eo pipefail" || echo "sh -e") "$bp_dir/$bp_id.sh" || bp_rc=$?
+
+        kill $bp_watch 2>/dev/null; exit $bp_rc
+
+        '
+      shell: sh
+    - uses: codecov/codecov-action@fb8b3582c8e4def4969c97caa2f19720cb33a72f
+      if: ${{ always() && matrix.config.coverage && 'push' != 'merge_group' }}
+      with:
+        use_oidc: ${{ !('push' == 'pull_request' && github.event.pull_request.head.repo.fork) }}
+        name: ${{ matrix.config.name || matrix.config.os }}
+        directory: ./coverage
+    - run: 'bp_dir="$RUNNER_TEMP/buildprof"; mkdir -p "$bp_dir"; bp_id=$(date +%s)-$$-$(od -An -N4 -tu4 /dev/urandom | tr -d " ")
+
+        cat > "$bp_dir/$bp_id.sh" <<''BUILDPROF_SCRIPT_EOF''
+
+        git diff --staged --exit-code --stat
+
+        BUILDPROF_SCRIPT_EOF
+
+        ( sleep 2700; while true; do echo "=== buildprof survey watchdog: step still running"; ps -eo pid,ppid,stat,etime,wchan:32,args --forest 2>/dev/null | cut -c1-250 || ps; sleep 600; done ) & bp_watch=$!
+
+        bp_rc=0
+
+        "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open --detach-after-exit 10 -o "$bp_dir/$bp_id-git-diff-staged-exit-code-stat.buildprof" -- $(command -v bash >/dev/null && echo "bash --noprofile --norc -eo pipefail" || echo "sh -e") "$bp_dir/$bp_id.sh" || bp_rc=$?
+
+        kill $bp_watch 2>/dev/null; exit $bp_rc
+
+        '
+      shell: sh
+    - name: Print baseline diff on failure
+      if: ${{ failure() && steps.test.conclusion == 'failure' }}
+      run: 'bp_dir="$RUNNER_TEMP/buildprof"; mkdir -p "$bp_dir"; bp_id=$(date +%s)-$$-$(od -An -N4 -tu4 /dev/urandom | tr -d " ")
+
+        cat > "$bp_dir/$bp_id.sh" <<''BUILDPROF_SCRIPT_EOF''
+
+        npx hereby baseline-accept
+
+        git add testdata/baselines/reference
+
+        git diff --staged --exit-code
+
+        BUILDPROF_SCRIPT_EOF
+
+        ( sleep 2700; while true; do echo "=== buildprof survey watchdog: step still running"; ps -eo pid,ppid,stat,etime,wchan:32,args --forest 2>/dev/null | cut -c1-250 || ps; sleep 600; done ) & bp_watch=$!
+
+        bp_rc=0
+
+        "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open --detach-after-exit 10 -o "$bp_dir/$bp_id-Print-baseline-diff-on-failure.buildprof" -- $(command -v bash >/dev/null && echo "bash --noprofile --norc -eo pipefail" || echo "sh -e") "$bp_dir/$bp_id.sh" || bp_rc=$?
+
+        kill $bp_watch 2>/dev/null; exit $bp_rc
+
+        '
+      shell: sh
+    - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+      if: ${{ failure() && steps.test.conclusion == 'failure' }}
+      with:
+        name: ${{ matrix.config.os }}-${{ (matrix.config.race && 'race') || 'norace' }}-new-baselines-artifact
+        path: testdata/baselines/local
+    - name: Upload buildprof recordings
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: tsgo--ci-test-${{ strategy.job-index }}
+        path: ${{ runner.temp }}/buildprof/*.buildprof
+        retention-days: 30
+        if-no-files-found: ignore
+        compression-level: 0
+    timeout-minutes: 120
+  lint:
+    strategy:
+      fail-fast: ${{ 'push' == 'merge_group' }}
+      matrix:
+        config:
+        - os: ubuntu-latest
+          main: true
+        - os: ubuntu-latest
+          name: noembed
+          noembed: true
+          skip: ${{ 'push' == 'merge_group' }}
+        exclude:
+        - config:
+            skip: true
+    name: lint (${{ matrix.config.name || matrix.config.os }})
+    runs-on: ${{ matrix.config.os }}
+    env:
+      TSGO_HEREBY_NOEMBED: ${{ (matrix.config.noembed && 'true') || 'false' }}
+    steps:
+    - name: Fetch buildprof
+      uses: actions/checkout@v4
+      with:
+        repository: LalitMaganti/bp
+        path: .buildprof-fetch
+        sparse-checkout: '.buildprof
+
+          projects/tsgo'
+        persist-credentials: false
+    - name: Install buildprof
+      shell: sh
+      working-directory: ${{ github.workspace }}
+      run: 'mkdir -p "$RUNNER_TEMP/buildprof-bin" "$RUNNER_TEMP/buildprof-actions"
+
+        cp .buildprof-fetch/.buildprof/buildprof-* "$RUNNER_TEMP/buildprof-bin/" && chmod +x "$RUNNER_TEMP/buildprof-bin/"*
+
+        if [ "$(id -u)" != 0 ] && sudo -n true 2>/dev/null; then sudo setcap cap_sys_ptrace,cap_sys_admin+ep "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)"; fi
+
+        if [ -d .buildprof-fetch/projects/tsgo/actions ]; then cp -r .buildprof-fetch/projects/tsgo/actions/. "$RUNNER_TEMP/buildprof-actions/"; fi
+
+        rm -rf .buildprof-fetch
+
+        '
+    - uses: jlumbroso/free-disk-space@54081f138730dfa15788a46383842cd2f914a1be
+      with:
+        large-packages: false
+        docker-images: false
+        swap-storage: false
+        dotnet: false
+    - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0
+      with:
+        repository: microsoft/typescript-go
+        ref: 89d5d5b2849a0db0957065889ca58536fa6d2e4a
+    - name: Wrap upstream composite actions
+      shell: sh
+      working-directory: ${{ github.workspace }}
+      run: "if [ -n \"$(ls -A \"$RUNNER_TEMP/buildprof-actions\" 2>/dev/null)\" ]; then\n  cp -r \"$RUNNER_TEMP/buildprof-actions/.\" \"./.github/actions/\"\n  (cd \".\" && git ls-files -m .github/actions | xargs -r git update-index --assume-unchanged) 2>/dev/null || true\nfi\n"
+    - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e
+    - uses: ./.github/actions/setup-go
+    - if: ${{ ! matrix.config.main }}
+      name: Disable PR annotations
+      run: 'bp_dir="$RUNNER_TEMP/buildprof"; mkdir -p "$bp_dir"; bp_id=$(date +%s)-$$-$(od -An -N4 -tu4 /dev/urandom | tr -d " ")
+
+        cat > "$bp_dir/$bp_id.sh" <<''BUILDPROF_SCRIPT_EOF''
+
+        echo "::remove-matcher owner=eslint-compact::"
+
+        echo "::remove-matcher owner=eslint-stylish::"
+
+        echo "::remove-matcher owner=tsc::"
+
+        echo "::remove-matcher owner=go::"
+
+        BUILDPROF_SCRIPT_EOF
+
+        ( sleep 2700; while true; do echo "=== buildprof survey watchdog: step still running"; ps -eo pid,ppid,stat,etime,wchan:32,args --forest 2>/dev/null | cut -c1-250 || ps; sleep 600; done ) & bp_watch=$!
+
+        bp_rc=0
+
+        "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open --detach-after-exit 10 -o "$bp_dir/$bp_id-Disable-PR-annotations.buildprof" -- $(command -v bash >/dev/null && echo "bash --noprofile --norc -eo pipefail" || echo "sh -e") "$bp_dir/$bp_id.sh" || bp_rc=$?
+
+        kill $bp_watch 2>/dev/null; exit $bp_rc
+
+        '
+      shell: sh
+    - run: 'bp_dir="$RUNNER_TEMP/buildprof"; mkdir -p "$bp_dir"; bp_id=$(date +%s)-$$-$(od -An -N4 -tu4 /dev/urandom | tr -d " ")
+
+        cat > "$bp_dir/$bp_id.sh" <<''BUILDPROF_SCRIPT_EOF''
+
+        npm ci
+
+        BUILDPROF_SCRIPT_EOF
+
+        ( sleep 2700; while true; do echo "=== buildprof survey watchdog: step still running"; ps -eo pid,ppid,stat,etime,wchan:32,args --forest 2>/dev/null | cut -c1-250 || ps; sleep 600; done ) & bp_watch=$!
+
+        bp_rc=0
+
+        "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open --detach-after-exit 10 -o "$bp_dir/$bp_id-npm-ci.buildprof" -- $(command -v bash >/dev/null && echo "bash --noprofile --norc -eo pipefail" || echo "sh -e") "$bp_dir/$bp_id.sh" || bp_rc=$?
+
+        kill $bp_watch 2>/dev/null; exit $bp_rc
+
+        '
+      shell: sh
+    - run: 'bp_dir="$RUNNER_TEMP/buildprof"; mkdir -p "$bp_dir"; bp_id=$(date +%s)-$$-$(od -An -N4 -tu4 /dev/urandom | tr -d " ")
+
+        cat > "$bp_dir/$bp_id.sh" <<''BUILDPROF_SCRIPT_EOF''
+
+        npx hereby lint
+
+        BUILDPROF_SCRIPT_EOF
+
+        ( sleep 2700; while true; do echo "=== buildprof survey watchdog: step still running"; ps -eo pid,ppid,stat,etime,wchan:32,args --forest 2>/dev/null | cut -c1-250 || ps; sleep 600; done ) & bp_watch=$!
+
+        bp_rc=0
+
+        "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open --detach-after-exit 10 -o "$bp_dir/$bp_id-npx-hereby-lint.buildprof" -- $(command -v bash >/dev/null && echo "bash --noprofile --norc -eo pipefail" || echo "sh -e") "$bp_dir/$bp_id.sh" || bp_rc=$?
+
+        kill $bp_watch 2>/dev/null; exit $bp_rc
+
+        '
+      shell: sh
+    - name: Upload buildprof recordings
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: tsgo--ci-lint-${{ strategy.job-index }}
+        path: ${{ runner.temp }}/buildprof/*.buildprof
+        retention-days: 30
+        if-no-files-found: ignore
+        compression-level: 0
+    permissions:
+      contents: read
+    timeout-minutes: 120
+  format:
+    runs-on: ubuntu-slim
+    steps:
+    - name: Fetch buildprof
+      uses: actions/checkout@v4
+      with:
+        repository: LalitMaganti/bp
+        path: .buildprof-fetch
+        sparse-checkout: '.buildprof
+
+          projects/tsgo'
+        persist-credentials: false
+    - name: Install buildprof
+      shell: sh
+      working-directory: ${{ github.workspace }}
+      run: 'mkdir -p "$RUNNER_TEMP/buildprof-bin" "$RUNNER_TEMP/buildprof-actions"
+
+        cp .buildprof-fetch/.buildprof/buildprof-* "$RUNNER_TEMP/buildprof-bin/" && chmod +x "$RUNNER_TEMP/buildprof-bin/"*
+
+        if [ "$(id -u)" != 0 ] && sudo -n true 2>/dev/null; then sudo setcap cap_sys_ptrace,cap_sys_admin+ep "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)"; fi
+
+        if [ -d .buildprof-fetch/projects/tsgo/actions ]; then cp -r .buildprof-fetch/projects/tsgo/actions/. "$RUNNER_TEMP/buildprof-actions/"; fi
+
+        rm -rf .buildprof-fetch
+
+        '
+    - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0
+      with:
+        repository: microsoft/typescript-go
+        ref: 89d5d5b2849a0db0957065889ca58536fa6d2e4a
+    - name: Wrap upstream composite actions
+      shell: sh
+      working-directory: ${{ github.workspace }}
+      run: "if [ -n \"$(ls -A \"$RUNNER_TEMP/buildprof-actions\" 2>/dev/null)\" ]; then\n  cp -r \"$RUNNER_TEMP/buildprof-actions/.\" \"./.github/actions/\"\n  (cd \".\" && git ls-files -m .github/actions | xargs -r git update-index --assume-unchanged) 2>/dev/null || true\nfi\n"
+    - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e
+    - uses: ./.github/actions/setup-go
+    - run: 'bp_dir="$RUNNER_TEMP/buildprof"; mkdir -p "$bp_dir"; bp_id=$(date +%s)-$$-$(od -An -N4 -tu4 /dev/urandom | tr -d " ")
+
+        cat > "$bp_dir/$bp_id.sh" <<''BUILDPROF_SCRIPT_EOF''
+
+        npm ci
+
+        BUILDPROF_SCRIPT_EOF
+
+        ( sleep 2700; while true; do echo "=== buildprof survey watchdog: step still running"; ps -eo pid,ppid,stat,etime,wchan:32,args --forest 2>/dev/null | cut -c1-250 || ps; sleep 600; done ) & bp_watch=$!
+
+        bp_rc=0
+
+        "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open --detach-after-exit 10 -o "$bp_dir/$bp_id-npm-ci.buildprof" -- $(command -v bash >/dev/null && echo "bash --noprofile --norc -eo pipefail" || echo "sh -e") "$bp_dir/$bp_id.sh" || bp_rc=$?
+
+        kill $bp_watch 2>/dev/null; exit $bp_rc
+
+        '
+      shell: sh
+    - run: 'bp_dir="$RUNNER_TEMP/buildprof"; mkdir -p "$bp_dir"; bp_id=$(date +%s)-$$-$(od -An -N4 -tu4 /dev/urandom | tr -d " ")
+
+        cat > "$bp_dir/$bp_id.sh" <<''BUILDPROF_SCRIPT_EOF''
+
+        npx hereby check:format
+
+        BUILDPROF_SCRIPT_EOF
+
+        ( sleep 2700; while true; do echo "=== buildprof survey watchdog: step still running"; ps -eo pid,ppid,stat,etime,wchan:32,args --forest 2>/dev/null | cut -c1-250 || ps; sleep 600; done ) & bp_watch=$!
+
+        bp_rc=0
+
+        "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open --detach-after-exit 10 -o "$bp_dir/$bp_id-npx-hereby-check-format.buildprof" -- $(command -v bash >/dev/null && echo "bash --noprofile --norc -eo pipefail" || echo "sh -e") "$bp_dir/$bp_id.sh" || bp_rc=$?
+
+        kill $bp_watch 2>/dev/null; exit $bp_rc
+
+        '
+      shell: sh
+    - name: Upload buildprof recordings
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: tsgo--ci-format-${{ strategy.job-index }}
+        path: ${{ runner.temp }}/buildprof/*.buildprof
+        retention-days: 30
+        if-no-files-found: ignore
+        compression-level: 0
+    permissions:
+      contents: read
+    timeout-minutes: 120
+  generate:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Fetch buildprof
+      uses: actions/checkout@v4
+      with:
+        repository: LalitMaganti/bp
+        path: .buildprof-fetch
+        sparse-checkout: '.buildprof
+
+          projects/tsgo'
+        persist-credentials: false
+    - name: Install buildprof
+      shell: sh
+      working-directory: ${{ github.workspace }}
+      run: 'mkdir -p "$RUNNER_TEMP/buildprof-bin" "$RUNNER_TEMP/buildprof-actions"
+
+        cp .buildprof-fetch/.buildprof/buildprof-* "$RUNNER_TEMP/buildprof-bin/" && chmod +x "$RUNNER_TEMP/buildprof-bin/"*
+
+        if [ "$(id -u)" != 0 ] && sudo -n true 2>/dev/null; then sudo setcap cap_sys_ptrace,cap_sys_admin+ep "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)"; fi
+
+        if [ -d .buildprof-fetch/projects/tsgo/actions ]; then cp -r .buildprof-fetch/projects/tsgo/actions/. "$RUNNER_TEMP/buildprof-actions/"; fi
+
+        rm -rf .buildprof-fetch
+
+        '
+    - uses: jlumbroso/free-disk-space@54081f138730dfa15788a46383842cd2f914a1be
+      with:
+        large-packages: false
+        docker-images: false
+        swap-storage: false
+        dotnet: false
+    - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0
+      with:
+        submodules: true
+        repository: microsoft/typescript-go
+        ref: 89d5d5b2849a0db0957065889ca58536fa6d2e4a
+    - name: Wrap upstream composite actions
+      shell: sh
+      working-directory: ${{ github.workspace }}
+      run: "if [ -n \"$(ls -A \"$RUNNER_TEMP/buildprof-actions\" 2>/dev/null)\" ]; then\n  cp -r \"$RUNNER_TEMP/buildprof-actions/.\" \"./.github/actions/\"\n  (cd \".\" && git ls-files -m .github/actions | xargs -r git update-index --assume-unchanged) 2>/dev/null || true\nfi\n"
+    - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e
+      with:
+        node-version: '>=22.16.0'
+    - uses: ./.github/actions/setup-go
+    - run: 'bp_dir="$RUNNER_TEMP/buildprof"; mkdir -p "$bp_dir"; bp_id=$(date +%s)-$$-$(od -An -N4 -tu4 /dev/urandom | tr -d " ")
+
+        cat > "$bp_dir/$bp_id.sh" <<''BUILDPROF_SCRIPT_EOF''
+
+        npm ci
+
+        BUILDPROF_SCRIPT_EOF
+
+        ( sleep 2700; while true; do echo "=== buildprof survey watchdog: step still running"; ps -eo pid,ppid,stat,etime,wchan:32,args --forest 2>/dev/null | cut -c1-250 || ps; sleep 600; done ) & bp_watch=$!
+
+        bp_rc=0
+
+        "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open --detach-after-exit 10 -o "$bp_dir/$bp_id-npm-ci.buildprof" -- $(command -v bash >/dev/null && echo "bash --noprofile --norc -eo pipefail" || echo "sh -e") "$bp_dir/$bp_id.sh" || bp_rc=$?
+
+        kill $bp_watch 2>/dev/null; exit $bp_rc
+
+        '
+      shell: sh
+    - run: 'bp_dir="$RUNNER_TEMP/buildprof"; mkdir -p "$bp_dir"; bp_id=$(date +%s)-$$-$(od -An -N4 -tu4 /dev/urandom | tr -d " ")
+
+        cat > "$bp_dir/$bp_id.sh" <<''BUILDPROF_SCRIPT_EOF''
+
+        npx hereby generate
+
+        BUILDPROF_SCRIPT_EOF
+
+        ( sleep 2700; while true; do echo "=== buildprof survey watchdog: step still running"; ps -eo pid,ppid,stat,etime,wchan:32,args --forest 2>/dev/null | cut -c1-250 || ps; sleep 600; done ) & bp_watch=$!
+
+        bp_rc=0
+
+        "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open --detach-after-exit 10 -o "$bp_dir/$bp_id-npx-hereby-generate.buildprof" -- $(command -v bash >/dev/null && echo "bash --noprofile --norc -eo pipefail" || echo "sh -e") "$bp_dir/$bp_id.sh" || bp_rc=$?
+
+        kill $bp_watch 2>/dev/null; exit $bp_rc
+
+        '
+      shell: sh
+    - run: 'bp_dir="$RUNNER_TEMP/buildprof"; mkdir -p "$bp_dir"; bp_id=$(date +%s)-$$-$(od -An -N4 -tu4 /dev/urandom | tr -d " ")
+
+        cat > "$bp_dir/$bp_id.sh" <<''BUILDPROF_SCRIPT_EOF''
+
+        npx hereby generate:enums
+
+        BUILDPROF_SCRIPT_EOF
+
+        ( sleep 2700; while true; do echo "=== buildprof survey watchdog: step still running"; ps -eo pid,ppid,stat,etime,wchan:32,args --forest 2>/dev/null | cut -c1-250 || ps; sleep 600; done ) & bp_watch=$!
+
+        bp_rc=0
+
+        "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open --detach-after-exit 10 -o "$bp_dir/$bp_id-npx-hereby-generate-enums.buildprof" -- $(command -v bash >/dev/null && echo "bash --noprofile --norc -eo pipefail" || echo "sh -e") "$bp_dir/$bp_id.sh" || bp_rc=$?
+
+        kill $bp_watch 2>/dev/null; exit $bp_rc
+
+        '
+      shell: sh
+    - run: 'bp_dir="$RUNNER_TEMP/buildprof"; mkdir -p "$bp_dir"; bp_id=$(date +%s)-$$-$(od -An -N4 -tu4 /dev/urandom | tr -d " ")
+
+        cat > "$bp_dir/$bp_id.sh" <<''BUILDPROF_SCRIPT_EOF''
+
+        npx hereby generate:ast
+
+        BUILDPROF_SCRIPT_EOF
+
+        ( sleep 2700; while true; do echo "=== buildprof survey watchdog: step still running"; ps -eo pid,ppid,stat,etime,wchan:32,args --forest 2>/dev/null | cut -c1-250 || ps; sleep 600; done ) & bp_watch=$!
+
+        bp_rc=0
+
+        "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open --detach-after-exit 10 -o "$bp_dir/$bp_id-npx-hereby-generate-ast.buildprof" -- $(command -v bash >/dev/null && echo "bash --noprofile --norc -eo pipefail" || echo "sh -e") "$bp_dir/$bp_id.sh" || bp_rc=$?
+
+        kill $bp_watch 2>/dev/null; exit $bp_rc
+
+        '
+      shell: sh
+    - run: 'bp_dir="$RUNNER_TEMP/buildprof"; mkdir -p "$bp_dir"; bp_id=$(date +%s)-$$-$(od -An -N4 -tu4 /dev/urandom | tr -d " ")
+
+        cat > "$bp_dir/$bp_id.sh" <<''BUILDPROF_SCRIPT_EOF''
+
+        npx hereby generate:vendor
+
+        BUILDPROF_SCRIPT_EOF
+
+        ( sleep 2700; while true; do echo "=== buildprof survey watchdog: step still running"; ps -eo pid,ppid,stat,etime,wchan:32,args --forest 2>/dev/null | cut -c1-250 || ps; sleep 600; done ) & bp_watch=$!
+
+        bp_rc=0
+
+        "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open --detach-after-exit 10 -o "$bp_dir/$bp_id-npx-hereby-generate-vendor.buildprof" -- $(command -v bash >/dev/null && echo "bash --noprofile --norc -eo pipefail" || echo "sh -e") "$bp_dir/$bp_id.sh" || bp_rc=$?
+
+        kill $bp_watch 2>/dev/null; exit $bp_rc
+
+        '
+      shell: sh
+    - run: 'bp_dir="$RUNNER_TEMP/buildprof"; mkdir -p "$bp_dir"; bp_id=$(date +%s)-$$-$(od -An -N4 -tu4 /dev/urandom | tr -d " ")
+
+        cat > "$bp_dir/$bp_id.sh" <<''BUILDPROF_SCRIPT_EOF''
+
+        node --experimental-strip-types ./internal/lsp/lsproto/_generate/fetchModel.mts
+
+        BUILDPROF_SCRIPT_EOF
+
+        ( sleep 2700; while true; do echo "=== buildprof survey watchdog: step still running"; ps -eo pid,ppid,stat,etime,wchan:32,args --forest 2>/dev/null | cut -c1-250 || ps; sleep 600; done ) & bp_watch=$!
+
+        bp_rc=0
+
+        "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open --detach-after-exit 10 -o "$bp_dir/$bp_id-node-experimental-strip-types-internal-l.buildprof" -- $(command -v bash >/dev/null && echo "bash --noprofile --norc -eo pipefail" || echo "sh -e") "$bp_dir/$bp_id.sh" || bp_rc=$?
+
+        kill $bp_watch 2>/dev/null; exit $bp_rc
+
+        '
+      shell: sh
+    - run: 'bp_dir="$RUNNER_TEMP/buildprof"; mkdir -p "$bp_dir"; bp_id=$(date +%s)-$$-$(od -An -N4 -tu4 /dev/urandom | tr -d " ")
+
+        cat > "$bp_dir/$bp_id.sh" <<''BUILDPROF_SCRIPT_EOF''
+
+        node --experimental-strip-types ./internal/lsp/lsproto/_generate/generate.mts
+
+        BUILDPROF_SCRIPT_EOF
+
+        ( sleep 2700; while true; do echo "=== buildprof survey watchdog: step still running"; ps -eo pid,ppid,stat,etime,wchan:32,args --forest 2>/dev/null | cut -c1-250 || ps; sleep 600; done ) & bp_watch=$!
+
+        bp_rc=0
+
+        "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open --detach-after-exit 10 -o "$bp_dir/$bp_id-node-experimental-strip-types-internal-l.buildprof" -- $(command -v bash >/dev/null && echo "bash --noprofile --norc -eo pipefail" || echo "sh -e") "$bp_dir/$bp_id.sh" || bp_rc=$?
+
+        kill $bp_watch 2>/dev/null; exit $bp_rc
+
+        '
+      shell: sh
+    - name: generate files for extension
+      run: 'bp_dir="$RUNNER_TEMP/buildprof"; mkdir -p "$bp_dir"; bp_id=$(date +%s)-$$-$(od -An -N4 -tu4 /dev/urandom | tr -d " ")
+
+        cat > "$bp_dir/$bp_id.sh" <<''BUILDPROF_SCRIPT_EOF''
+
+        npx hereby generate:extension
+
+        BUILDPROF_SCRIPT_EOF
+
+        ( sleep 2700; while true; do echo "=== buildprof survey watchdog: step still running"; ps -eo pid,ppid,stat,etime,wchan:32,args --forest 2>/dev/null | cut -c1-250 || ps; sleep 600; done ) & bp_watch=$!
+
+        bp_rc=0
+
+        "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open --detach-after-exit 10 -o "$bp_dir/$bp_id-generate-files-for-extension.buildprof" -- $(command -v bash >/dev/null && echo "bash --noprofile --norc -eo pipefail" || echo "sh -e") "$bp_dir/$bp_id.sh" || bp_rc=$?
+
+        kill $bp_watch 2>/dev/null; exit $bp_rc
+
+        '
+      shell: sh
+    - name: Regenerate fourslash tests and update failing test list
+      run: 'bp_dir="$RUNNER_TEMP/buildprof"; mkdir -p "$bp_dir"; bp_id=$(date +%s)-$$-$(od -An -N4 -tu4 /dev/urandom | tr -d " ")
+
+        cat > "$bp_dir/$bp_id.sh" <<''BUILDPROF_SCRIPT_EOF''
+
+        set -x
+
+        npm run convertfourslash >/dev/null 2>&1 || true
+
+        npm run updatefailing >/dev/null 2>&1 || true
+
+        rm -rf testdata/baselines/reference/fourslash || true
+
+        npx hereby test >/dev/null || true
+
+        npx hereby baseline-accept || true
+
+        npx hereby test || true
+
+        npx hereby baseline-accept || true
+
+        npx hereby test
+
+        BUILDPROF_SCRIPT_EOF
+
+        ( sleep 2700; while true; do echo "=== buildprof survey watchdog: step still running"; ps -eo pid,ppid,stat,etime,wchan:32,args --forest 2>/dev/null | cut -c1-250 || ps; sleep 600; done ) & bp_watch=$!
+
+        bp_rc=0
+
+        "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open --detach-after-exit 10 -o "$bp_dir/$bp_id-Regenerate-fourslash-tests-and-update-fa.buildprof" -- $(command -v bash >/dev/null && echo "bash --noprofile --norc -eo pipefail" || echo "sh -e") "$bp_dir/$bp_id.sh" || bp_rc=$?
+
+        kill $bp_watch 2>/dev/null; exit $bp_rc
+
+        '
+      shell: sh
+    - run: 'bp_dir="$RUNNER_TEMP/buildprof"; mkdir -p "$bp_dir"; bp_id=$(date +%s)-$$-$(od -An -N4 -tu4 /dev/urandom | tr -d " ")
+
+        cat > "$bp_dir/$bp_id.sh" <<''BUILDPROF_SCRIPT_EOF''
+
+        git add .
+
+        BUILDPROF_SCRIPT_EOF
+
+        ( sleep 2700; while true; do echo "=== buildprof survey watchdog: step still running"; ps -eo pid,ppid,stat,etime,wchan:32,args --forest 2>/dev/null | cut -c1-250 || ps; sleep 600; done ) & bp_watch=$!
+
+        bp_rc=0
+
+        "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open --detach-after-exit 10 -o "$bp_dir/$bp_id-git-add.buildprof" -- $(command -v bash >/dev/null && echo "bash --noprofile --norc -eo pipefail" || echo "sh -e") "$bp_dir/$bp_id.sh" || bp_rc=$?
+
+        kill $bp_watch 2>/dev/null; exit $bp_rc
+
+        '
+      shell: sh
+    - run: 'bp_dir="$RUNNER_TEMP/buildprof"; mkdir -p "$bp_dir"; bp_id=$(date +%s)-$$-$(od -An -N4 -tu4 /dev/urandom | tr -d " ")
+
+        cat > "$bp_dir/$bp_id.sh" <<''BUILDPROF_SCRIPT_EOF''
+
+        git diff --staged --exit-code --stat
+
+        BUILDPROF_SCRIPT_EOF
+
+        ( sleep 2700; while true; do echo "=== buildprof survey watchdog: step still running"; ps -eo pid,ppid,stat,etime,wchan:32,args --forest 2>/dev/null | cut -c1-250 || ps; sleep 600; done ) & bp_watch=$!
+
+        bp_rc=0
+
+        "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open --detach-after-exit 10 -o "$bp_dir/$bp_id-git-diff-staged-exit-code-stat.buildprof" -- $(command -v bash >/dev/null && echo "bash --noprofile --norc -eo pipefail" || echo "sh -e") "$bp_dir/$bp_id.sh" || bp_rc=$?
+
+        kill $bp_watch 2>/dev/null; exit $bp_rc
+
+        '
+      shell: sh
+    - name: Upload buildprof recordings
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: tsgo--ci-generate-${{ strategy.job-index }}
+        path: ${{ runner.temp }}/buildprof/*.buildprof
+        retention-days: 30
+        if-no-files-found: ignore
+        compression-level: 0
+    permissions:
+      contents: read
+    timeout-minutes: 120
+  tidy:
+    runs-on: ubuntu-slim
+    steps:
+    - name: Fetch buildprof
+      uses: actions/checkout@v4
+      with:
+        repository: LalitMaganti/bp
+        path: .buildprof-fetch
+        sparse-checkout: '.buildprof
+
+          projects/tsgo'
+        persist-credentials: false
+    - name: Install buildprof
+      shell: sh
+      working-directory: ${{ github.workspace }}
+      run: 'mkdir -p "$RUNNER_TEMP/buildprof-bin" "$RUNNER_TEMP/buildprof-actions"
+
+        cp .buildprof-fetch/.buildprof/buildprof-* "$RUNNER_TEMP/buildprof-bin/" && chmod +x "$RUNNER_TEMP/buildprof-bin/"*
+
+        if [ "$(id -u)" != 0 ] && sudo -n true 2>/dev/null; then sudo setcap cap_sys_ptrace,cap_sys_admin+ep "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)"; fi
+
+        if [ -d .buildprof-fetch/projects/tsgo/actions ]; then cp -r .buildprof-fetch/projects/tsgo/actions/. "$RUNNER_TEMP/buildprof-actions/"; fi
+
+        rm -rf .buildprof-fetch
+
+        '
+    - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0
+      with:
+        repository: microsoft/typescript-go
+        ref: 89d5d5b2849a0db0957065889ca58536fa6d2e4a
+    - name: Wrap upstream composite actions
+      shell: sh
+      working-directory: ${{ github.workspace }}
+      run: "if [ -n \"$(ls -A \"$RUNNER_TEMP/buildprof-actions\" 2>/dev/null)\" ]; then\n  cp -r \"$RUNNER_TEMP/buildprof-actions/.\" \"./.github/actions/\"\n  (cd \".\" && git ls-files -m .github/actions | xargs -r git update-index --assume-unchanged) 2>/dev/null || true\nfi\n"
+    - uses: ./.github/actions/setup-go
+    - run: 'bp_dir="$RUNNER_TEMP/buildprof"; mkdir -p "$bp_dir"; bp_id=$(date +%s)-$$-$(od -An -N4 -tu4 /dev/urandom | tr -d " ")
+
+        cat > "$bp_dir/$bp_id.sh" <<''BUILDPROF_SCRIPT_EOF''
+
+        go mod tidy -diff
+
+        BUILDPROF_SCRIPT_EOF
+
+        ( sleep 2700; while true; do echo "=== buildprof survey watchdog: step still running"; ps -eo pid,ppid,stat,etime,wchan:32,args --forest 2>/dev/null | cut -c1-250 || ps; sleep 600; done ) & bp_watch=$!
+
+        bp_rc=0
+
+        "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open --detach-after-exit 10 -o "$bp_dir/$bp_id-go-mod-tidy-diff.buildprof" -- $(command -v bash >/dev/null && echo "bash --noprofile --norc -eo pipefail" || echo "sh -e") "$bp_dir/$bp_id.sh" || bp_rc=$?
+
+        kill $bp_watch 2>/dev/null; exit $bp_rc
+
+        '
+      shell: sh
+    - run: 'bp_dir="$RUNNER_TEMP/buildprof"; mkdir -p "$bp_dir"; bp_id=$(date +%s)-$$-$(od -An -N4 -tu4 /dev/urandom | tr -d " ")
+
+        cat > "$bp_dir/$bp_id.sh" <<''BUILDPROF_SCRIPT_EOF''
+
+        go -C ./_tools mod tidy -diff
+
+        BUILDPROF_SCRIPT_EOF
+
+        ( sleep 2700; while true; do echo "=== buildprof survey watchdog: step still running"; ps -eo pid,ppid,stat,etime,wchan:32,args --forest 2>/dev/null | cut -c1-250 || ps; sleep 600; done ) & bp_watch=$!
+
+        bp_rc=0
+
+        "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open --detach-after-exit 10 -o "$bp_dir/$bp_id-go-C-tools-mod-tidy-diff.buildprof" -- $(command -v bash >/dev/null && echo "bash --noprofile --norc -eo pipefail" || echo "sh -e") "$bp_dir/$bp_id.sh" || bp_rc=$?
+
+        kill $bp_watch 2>/dev/null; exit $bp_rc
+
+        '
+      shell: sh
+    - name: Upload buildprof recordings
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: tsgo--ci-tidy-${{ strategy.job-index }}
+        path: ${{ runner.temp }}/buildprof/*.buildprof
+        retention-days: 30
+        if-no-files-found: ignore
+        compression-level: 0
+    permissions:
+      contents: read
+    timeout-minutes: 120
+  smoke:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Fetch buildprof
+      uses: actions/checkout@v4
+      with:
+        repository: LalitMaganti/bp
+        path: .buildprof-fetch
+        sparse-checkout: '.buildprof
+
+          projects/tsgo'
+        persist-credentials: false
+    - name: Install buildprof
+      shell: sh
+      working-directory: ${{ github.workspace }}
+      run: 'mkdir -p "$RUNNER_TEMP/buildprof-bin" "$RUNNER_TEMP/buildprof-actions"
+
+        cp .buildprof-fetch/.buildprof/buildprof-* "$RUNNER_TEMP/buildprof-bin/" && chmod +x "$RUNNER_TEMP/buildprof-bin/"*
+
+        if [ "$(id -u)" != 0 ] && sudo -n true 2>/dev/null; then sudo setcap cap_sys_ptrace,cap_sys_admin+ep "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)"; fi
+
+        if [ -d .buildprof-fetch/projects/tsgo/actions ]; then cp -r .buildprof-fetch/projects/tsgo/actions/. "$RUNNER_TEMP/buildprof-actions/"; fi
+
+        rm -rf .buildprof-fetch
+
+        '
+    - uses: jlumbroso/free-disk-space@54081f138730dfa15788a46383842cd2f914a1be
+      with:
+        large-packages: false
+        docker-images: false
+        swap-storage: false
+        dotnet: false
+    - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0
+      with:
+        submodules: true
+        repository: microsoft/typescript-go
+        ref: 89d5d5b2849a0db0957065889ca58536fa6d2e4a
+    - name: Wrap upstream composite actions
+      shell: sh
+      working-directory: ${{ github.workspace }}
+      run: "if [ -n \"$(ls -A \"$RUNNER_TEMP/buildprof-actions\" 2>/dev/null)\" ]; then\n  cp -r \"$RUNNER_TEMP/buildprof-actions/.\" \"./.github/actions/\"\n  (cd \".\" && git ls-files -m .github/actions | xargs -r git update-index --assume-unchanged) 2>/dev/null || true\nfi\n"
+    - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e
+    - uses: ./.github/actions/setup-go
+    - name: Disable PR annotations
+      run: 'bp_dir="$RUNNER_TEMP/buildprof"; mkdir -p "$bp_dir"; bp_id=$(date +%s)-$$-$(od -An -N4 -tu4 /dev/urandom | tr -d " ")
+
+        cat > "$bp_dir/$bp_id.sh" <<''BUILDPROF_SCRIPT_EOF''
+
+        echo "::remove-matcher owner=eslint-compact::"
+
+        echo "::remove-matcher owner=eslint-stylish::"
+
+        echo "::remove-matcher owner=tsc::"
+
+        echo "::remove-matcher owner=go::"
+
+        BUILDPROF_SCRIPT_EOF
+
+        ( sleep 2700; while true; do echo "=== buildprof survey watchdog: step still running"; ps -eo pid,ppid,stat,etime,wchan:32,args --forest 2>/dev/null | cut -c1-250 || ps; sleep 600; done ) & bp_watch=$!
+
+        bp_rc=0
+
+        "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open --detach-after-exit 10 -o "$bp_dir/$bp_id-Disable-PR-annotations.buildprof" -- $(command -v bash >/dev/null && echo "bash --noprofile --norc -eo pipefail" || echo "sh -e") "$bp_dir/$bp_id.sh" || bp_rc=$?
+
+        kill $bp_watch 2>/dev/null; exit $bp_rc
+
+        '
+      shell: sh
+    - run: 'bp_dir="$RUNNER_TEMP/buildprof"; mkdir -p "$bp_dir"; bp_id=$(date +%s)-$$-$(od -An -N4 -tu4 /dev/urandom | tr -d " ")
+
+        cat > "$bp_dir/$bp_id.sh" <<''BUILDPROF_SCRIPT_EOF''
+
+        npm ci
+
+        BUILDPROF_SCRIPT_EOF
+
+        ( sleep 2700; while true; do echo "=== buildprof survey watchdog: step still running"; ps -eo pid,ppid,stat,etime,wchan:32,args --forest 2>/dev/null | cut -c1-250 || ps; sleep 600; done ) & bp_watch=$!
+
+        bp_rc=0
+
+        "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open --detach-after-exit 10 -o "$bp_dir/$bp_id-npm-ci.buildprof" -- $(command -v bash >/dev/null && echo "bash --noprofile --norc -eo pipefail" || echo "sh -e") "$bp_dir/$bp_id.sh" || bp_rc=$?
+
+        kill $bp_watch 2>/dev/null; exit $bp_rc
+
+        '
+      shell: sh
+    - run: 'bp_dir="$RUNNER_TEMP/buildprof"; mkdir -p "$bp_dir"; bp_id=$(date +%s)-$$-$(od -An -N4 -tu4 /dev/urandom | tr -d " ")
+
+        cat > "$bp_dir/$bp_id.sh" <<''BUILDPROF_SCRIPT_EOF''
+
+        npx hereby build --race
+
+        BUILDPROF_SCRIPT_EOF
+
+        ( sleep 2700; while true; do echo "=== buildprof survey watchdog: step still running"; ps -eo pid,ppid,stat,etime,wchan:32,args --forest 2>/dev/null | cut -c1-250 || ps; sleep 600; done ) & bp_watch=$!
+
+        bp_rc=0
+
+        "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open --detach-after-exit 10 -o "$bp_dir/$bp_id-npx-hereby-build-race.buildprof" -- $(command -v bash >/dev/null && echo "bash --noprofile --norc -eo pipefail" || echo "sh -e") "$bp_dir/$bp_id.sh" || bp_rc=$?
+
+        kill $bp_watch 2>/dev/null; exit $bp_rc
+
+        '
+      shell: sh
+    - run: 'bp_dir="$RUNNER_TEMP/buildprof"; mkdir -p "$bp_dir"; bp_id=$(date +%s)-$$-$(od -An -N4 -tu4 /dev/urandom | tr -d " ")
+
+        cat > "$bp_dir/$bp_id.sh" <<''BUILDPROF_SCRIPT_EOF''
+
+        npm ci && npx hereby generate-diagnostics
+
+        BUILDPROF_SCRIPT_EOF
+
+        ( sleep 2700; while true; do echo "=== buildprof survey watchdog: step still running"; ps -eo pid,ppid,stat,etime,wchan:32,args --forest 2>/dev/null | cut -c1-250 || ps; sleep 600; done ) & bp_watch=$!
+
+        bp_rc=0
+
+        "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open --detach-after-exit 10 -o "$bp_dir/$bp_id-npm-ci-npx-hereby-generate-diagnostics.buildprof" -- $(command -v bash >/dev/null && echo "bash --noprofile --norc -eo pipefail" || echo "sh -e") "$bp_dir/$bp_id.sh" || bp_rc=$?
+
+        kill $bp_watch 2>/dev/null; exit $bp_rc
+
+        '
+      working-directory: ./_submodules/TypeScript
+      shell: sh
+    - run: 'bp_dir="$RUNNER_TEMP/buildprof"; mkdir -p "$bp_dir"; bp_id=$(date +%s)-$$-$(od -An -N4 -tu4 /dev/urandom | tr -d " ")
+
+        cat > "$bp_dir/$bp_id.sh" <<''BUILDPROF_SCRIPT_EOF''
+
+        ./built/local/tsgo -p ./_submodules/TypeScript/src/compiler --singleThreaded
+
+        BUILDPROF_SCRIPT_EOF
+
+        ( sleep 2700; while true; do echo "=== buildprof survey watchdog: step still running"; ps -eo pid,ppid,stat,etime,wchan:32,args --forest 2>/dev/null | cut -c1-250 || ps; sleep 600; done ) & bp_watch=$!
+
+        bp_rc=0
+
+        "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open --detach-after-exit 10 -o "$bp_dir/$bp_id-built-local-tsgo-p-submodules-TypeScrip.buildprof" -- $(command -v bash >/dev/null && echo "bash --noprofile --norc -eo pipefail" || echo "sh -e") "$bp_dir/$bp_id.sh" || bp_rc=$?
+
+        kill $bp_watch 2>/dev/null; exit $bp_rc
+
+        '
+      shell: sh
+    - run: 'bp_dir="$RUNNER_TEMP/buildprof"; mkdir -p "$bp_dir"; bp_id=$(date +%s)-$$-$(od -An -N4 -tu4 /dev/urandom | tr -d " ")
+
+        cat > "$bp_dir/$bp_id.sh" <<''BUILDPROF_SCRIPT_EOF''
+
+        ./built/local/tsgo -p ./_submodules/TypeScript/src/compiler
+
+        BUILDPROF_SCRIPT_EOF
+
+        ( sleep 2700; while true; do echo "=== buildprof survey watchdog: step still running"; ps -eo pid,ppid,stat,etime,wchan:32,args --forest 2>/dev/null | cut -c1-250 || ps; sleep 600; done ) & bp_watch=$!
+
+        bp_rc=0
+
+        "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open --detach-after-exit 10 -o "$bp_dir/$bp_id-built-local-tsgo-p-submodules-TypeScrip.buildprof" -- $(command -v bash >/dev/null && echo "bash --noprofile --norc -eo pipefail" || echo "sh -e") "$bp_dir/$bp_id.sh" || bp_rc=$?
+
+        kill $bp_watch 2>/dev/null; exit $bp_rc
+
+        '
+      shell: sh
+    - name: Upload buildprof recordings
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: tsgo--ci-smoke-${{ strategy.job-index }}
+        path: ${{ runner.temp }}/buildprof/*.buildprof
+        retention-days: 30
+        if-no-files-found: ignore
+        compression-level: 0
+    permissions:
+      contents: read
+    timeout-minutes: 120
+  misc:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Fetch buildprof
+      uses: actions/checkout@v4
+      with:
+        repository: LalitMaganti/bp
+        path: .buildprof-fetch
+        sparse-checkout: '.buildprof
+
+          projects/tsgo'
+        persist-credentials: false
+    - name: Install buildprof
+      shell: sh
+      working-directory: ${{ github.workspace }}
+      run: 'mkdir -p "$RUNNER_TEMP/buildprof-bin" "$RUNNER_TEMP/buildprof-actions"
+
+        cp .buildprof-fetch/.buildprof/buildprof-* "$RUNNER_TEMP/buildprof-bin/" && chmod +x "$RUNNER_TEMP/buildprof-bin/"*
+
+        if [ "$(id -u)" != 0 ] && sudo -n true 2>/dev/null; then sudo setcap cap_sys_ptrace,cap_sys_admin+ep "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)"; fi
+
+        if [ -d .buildprof-fetch/projects/tsgo/actions ]; then cp -r .buildprof-fetch/projects/tsgo/actions/. "$RUNNER_TEMP/buildprof-actions/"; fi
+
+        rm -rf .buildprof-fetch
+
+        '
+    - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0
+      with:
+        repository: microsoft/typescript-go
+        ref: 89d5d5b2849a0db0957065889ca58536fa6d2e4a
+    - name: Wrap upstream composite actions
+      shell: sh
+      working-directory: ${{ github.workspace }}
+      run: "if [ -n \"$(ls -A \"$RUNNER_TEMP/buildprof-actions\" 2>/dev/null)\" ]; then\n  cp -r \"$RUNNER_TEMP/buildprof-actions/.\" \"./.github/actions/\"\n  (cd \".\" && git ls-files -m .github/actions | xargs -r git update-index --assume-unchanged) 2>/dev/null || true\nfi\n"
+    - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e
+    - uses: ./.github/actions/setup-go
+    - run: 'bp_dir="$RUNNER_TEMP/buildprof"; mkdir -p "$bp_dir"; bp_id=$(date +%s)-$$-$(od -An -N4 -tu4 /dev/urandom | tr -d " ")
+
+        cat > "$bp_dir/$bp_id.sh" <<''BUILDPROF_SCRIPT_EOF''
+
+        npm ci
+
+        BUILDPROF_SCRIPT_EOF
+
+        ( sleep 2700; while true; do echo "=== buildprof survey watchdog: step still running"; ps -eo pid,ppid,stat,etime,wchan:32,args --forest 2>/dev/null | cut -c1-250 || ps; sleep 600; done ) & bp_watch=$!
+
+        bp_rc=0
+
+        "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open --detach-after-exit 10 -o "$bp_dir/$bp_id-npm-ci.buildprof" -- $(command -v bash >/dev/null && echo "bash --noprofile --norc -eo pipefail" || echo "sh -e") "$bp_dir/$bp_id.sh" || bp_rc=$?
+
+        kill $bp_watch 2>/dev/null; exit $bp_rc
+
+        '
+      shell: sh
+    - run: 'bp_dir="$RUNNER_TEMP/buildprof"; mkdir -p "$bp_dir"; bp_id=$(date +%s)-$$-$(od -An -N4 -tu4 /dev/urandom | tr -d " ")
+
+        cat > "$bp_dir/$bp_id.sh" <<''BUILDPROF_SCRIPT_EOF''
+
+        go -C ./_tools run ./cmd/checkmodpaths $PWD
+
+        BUILDPROF_SCRIPT_EOF
+
+        ( sleep 2700; while true; do echo "=== buildprof survey watchdog: step still running"; ps -eo pid,ppid,stat,etime,wchan:32,args --forest 2>/dev/null | cut -c1-250 || ps; sleep 600; done ) & bp_watch=$!
+
+        bp_rc=0
+
+        "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open --detach-after-exit 10 -o "$bp_dir/$bp_id-go-C-tools-run-cmd-checkmodpaths-PWD.buildprof" -- $(command -v bash >/dev/null && echo "bash --noprofile --norc -eo pipefail" || echo "sh -e") "$bp_dir/$bp_id.sh" || bp_rc=$?
+
+        kill $bp_watch 2>/dev/null; exit $bp_rc
+
+        '
+      shell: sh
+    - run: 'bp_dir="$RUNNER_TEMP/buildprof"; mkdir -p "$bp_dir"; bp_id=$(date +%s)-$$-$(od -An -N4 -tu4 /dev/urandom | tr -d " ")
+
+        cat > "$bp_dir/$bp_id.sh" <<''BUILDPROF_SCRIPT_EOF''
+
+        npx hereby check:scripts
+
+        BUILDPROF_SCRIPT_EOF
+
+        ( sleep 2700; while true; do echo "=== buildprof survey watchdog: step still running"; ps -eo pid,ppid,stat,etime,wchan:32,args --forest 2>/dev/null | cut -c1-250 || ps; sleep 600; done ) & bp_watch=$!
+
+        bp_rc=0
+
+        "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open --detach-after-exit 10 -o "$bp_dir/$bp_id-npx-hereby-check-scripts.buildprof" -- $(command -v bash >/dev/null && echo "bash --noprofile --norc -eo pipefail" || echo "sh -e") "$bp_dir/$bp_id.sh" || bp_rc=$?
+
+        kill $bp_watch 2>/dev/null; exit $bp_rc
+
+        '
+      shell: sh
+    - run: 'bp_dir="$RUNNER_TEMP/buildprof"; mkdir -p "$bp_dir"; bp_id=$(date +%s)-$$-$(od -An -N4 -tu4 /dev/urandom | tr -d " ")
+
+        cat > "$bp_dir/$bp_id.sh" <<''BUILDPROF_SCRIPT_EOF''
+
+        npx hereby native-preview:check-platforms
+
+        BUILDPROF_SCRIPT_EOF
+
+        ( sleep 2700; while true; do echo "=== buildprof survey watchdog: step still running"; ps -eo pid,ppid,stat,etime,wchan:32,args --forest 2>/dev/null | cut -c1-250 || ps; sleep 600; done ) & bp_watch=$!
+
+        bp_rc=0
+
+        "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open --detach-after-exit 10 -o "$bp_dir/$bp_id-npx-hereby-native-preview-check-platform.buildprof" -- $(command -v bash >/dev/null && echo "bash --noprofile --norc -eo pipefail" || echo "sh -e") "$bp_dir/$bp_id.sh" || bp_rc=$?
+
+        kill $bp_watch 2>/dev/null; exit $bp_rc
+
+        '
+      shell: sh
+    - name: Upload buildprof recordings
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: tsgo--ci-misc-${{ strategy.job-index }}
+        path: ${{ runner.temp }}/buildprof/*.buildprof
+        retention-days: 30
+        if-no-files-found: ignore
+        compression-level: 0
+    permissions:
+      contents: read
+    timeout-minutes: 120
+  required:
+    runs-on: ubuntu-slim
+    if: ${{ always() }}
+    needs:
+    - build
+    - release-build
+    - extension
+    - format
+    - generate
+    - lint
+    - misc
+    - smoke
+    - test
+    - tidy
+    steps:
+    - name: Fetch buildprof
+      uses: actions/checkout@v4
+      with:
+        repository: LalitMaganti/bp
+        path: .buildprof-fetch
+        sparse-checkout: '.buildprof
+
+          projects/tsgo'
+        persist-credentials: false
+    - name: Install buildprof
+      shell: sh
+      working-directory: ${{ github.workspace }}
+      run: 'mkdir -p "$RUNNER_TEMP/buildprof-bin" "$RUNNER_TEMP/buildprof-actions"
+
+        cp .buildprof-fetch/.buildprof/buildprof-* "$RUNNER_TEMP/buildprof-bin/" && chmod +x "$RUNNER_TEMP/buildprof-bin/"*
+
+        if [ "$(id -u)" != 0 ] && sudo -n true 2>/dev/null; then sudo setcap cap_sys_ptrace,cap_sys_admin+ep "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)"; fi
+
+        if [ -d .buildprof-fetch/projects/tsgo/actions ]; then cp -r .buildprof-fetch/projects/tsgo/actions/. "$RUNNER_TEMP/buildprof-actions/"; fi
+
+        rm -rf .buildprof-fetch
+
+        '
+    - name: Check required jobs
+      env:
+        NEEDS: ${{ toJson(needs) }}
+      run: 'bp_dir="$RUNNER_TEMP/buildprof"; mkdir -p "$bp_dir"; bp_id=$(date +%s)-$$-$(od -An -N4 -tu4 /dev/urandom | tr -d " ")
+
+        cat > "$bp_dir/$bp_id.sh" <<''BUILDPROF_SCRIPT_EOF''
+
+        ! echo $NEEDS | jq -e ''to_entries[] | { job: .key, result: .value.result } | select((.result == "success" or .result == "skipped") | not)''
+
+        BUILDPROF_SCRIPT_EOF
+
+        ( sleep 2700; while true; do echo "=== buildprof survey watchdog: step still running"; ps -eo pid,ppid,stat,etime,wchan:32,args --forest 2>/dev/null | cut -c1-250 || ps; sleep 600; done ) & bp_watch=$!
+
+        bp_rc=0
+
+        "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open --detach-after-exit 10 -o "$bp_dir/$bp_id-Check-required-jobs.buildprof" -- $(command -v bash >/dev/null && echo "bash --noprofile --norc -eo pipefail" || echo "sh -e") "$bp_dir/$bp_id.sh" || bp_rc=$?
+
+        kill $bp_watch 2>/dev/null; exit $bp_rc
+
+        '
+      shell: sh
+    - name: Upload buildprof recordings
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: tsgo--ci-required-${{ strategy.job-index }}
+        path: ${{ runner.temp }}/buildprof/*.buildprof
+        retention-days: 30
+        if-no-files-found: ignore
+        compression-level: 0
+    permissions:
+      contents: read
+    timeout-minutes: 120

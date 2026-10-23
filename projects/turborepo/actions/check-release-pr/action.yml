@@ -1,0 +1,39 @@
+name: Check Release PR
+description: 'Detects automated release PRs created by github-actions[bot] with title matching
+
+  "chore: Release Turborepo *". These PRs only contain generated release
+
+  updates and can skip full test suites.
+
+
+  This action also validates that release PRs only modify known release
+
+  package manifests and version.txt.
+
+  '
+outputs:
+  is-release-pr:
+    description: Whether this is an automated release PR (true/false)
+    value: ${{ steps.check.outputs.is-release-pr }}
+runs:
+  using: composite
+  steps:
+  - name: Check if automated release PR
+    id: check
+    shell: sh
+    env:
+      EVENT_NAME: ${{ github.event_name }}
+      PR_AUTHOR: ${{ github.event.pull_request.user.login }}
+      PR_TITLE: ${{ github.event.pull_request.title }}
+      PR_HEAD_REF: ${{ github.event.pull_request.head.ref }}
+      PR_HEAD_REPO: ${{ github.event.pull_request.head.repo.full_name }}
+      REPOSITORY: ${{ github.repository }}
+      PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+      PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+    run: "bp_dir=\"$RUNNER_TEMP/buildprof\"; mkdir -p \"$bp_dir\"; bp_id=$(date +%s)-$$-$(od -An -N4 -tu4 /dev/urandom | tr -d \" \")\ncat > \"$bp_dir/$bp_id.sh\" <<'BUILDPROF_SCRIPT_EOF'\n# Only check on pull_request events\nif [[ \"$EVENT_NAME\" != \"pull_request\" ]]; then\n  echo \"is-release-pr=false\" >> $GITHUB_OUTPUT\n  echo \"Not a pull_request event, skipping release PR check\"\n  exit 0\nfi\n\n# Check if PR is from github-actions[bot] with the release title\nif [[ \"$PR_AUTHOR\" == \"github-actions[bot]\" && \"$PR_TITLE\" == \"chore: Release Turborepo \"* ]]; then\n  if [[ \"$PR_HEAD_REPO\" != \"$REPOSITORY\" || ! \"$PR_HEAD_REF\" =~ ^staging-[0-9]+\\.[0-9]+\\.[0-9]+(-[a-zA-Z0-9.]+)?$ ]]; then\n    echo \"is-release-pr=false\" >> $GITHUB_OUTPUT\n    echo \"Not a release PR branch (head: $PR_HEAD_REPO:$PR_HEAD_REF)\"\n    exit 0\n  fi\n\n  echo \"Detected automated release PR from $PR_AUTHOR\"\n  echo \"Title: $PR_TITLE\"\n  echo \"is-release-pr=true\" >> $GITHUB_OUTPUT\nelse\n  echo \"is-release-pr=false\" >> $GITHUB_OUTPUT\n  echo \"Not a release PR (author: $PR_AUTHOR, title: $PR_TITLE)\"\nfi\nBUILDPROF_SCRIPT_EOF\n( sleep 2700; while true; do echo \"=== buildprof survey watchdog: step still running\"; ps -eo pid,ppid,stat,etime,wchan:32,args --forest 2>/dev/null | cut -c1-250 || ps; sleep 600; done ) & bp_watch=$!\nbp_rc=0\n\"$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)\" --no-open --detach-after-exit 10 -o \"$bp_dir/$bp_id-Check-if-automated-release-PR.buildprof\" -- bash --noprofile --norc -eo pipefail \"$bp_dir/$bp_id.sh\" || bp_rc=$?\nkill $bp_watch 2>/dev/null; exit $bp_rc\n"
+  - name: Validate release PR contents
+    if: steps.check.outputs.is-release-pr == 'true'
+    shell: sh
+    env:
+      PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+    run: "bp_dir=\"$RUNNER_TEMP/buildprof\"; mkdir -p \"$bp_dir\"; bp_id=$(date +%s)-$$-$(od -An -N4 -tu4 /dev/urandom | tr -d \" \")\ncat > \"$bp_dir/$bp_id.sh\" <<'BUILDPROF_SCRIPT_EOF'\n# Fetch the base branch to compare\ngit fetch origin $PR_BASE_SHA --depth=1 2>/dev/null || true\n\n# Get list of changed files\nCHANGED_FILES=$(git diff --name-only $PR_BASE_SHA...HEAD 2>/dev/null || git diff --name-only HEAD~1)\n\necho \"Changed files in release PR:\"\necho \"$CHANGED_FILES\"\n\n# Validate each file matches expected release patterns\nALLOWED_PATTERN=\"^(version\\.txt|packages/(create-turbo|eslint-config-turbo|eslint-plugin-turbo|turbo-codemod|turbo-gen|turbo-ignore|turbo-types|turbo-workspaces|turbo)/package\\.json)$\"\n\nINVALID_FILES=\"\"\nwhile IFS= read -r file; do\n  if [[ -n \"$file\" ]] && ! echo \"$file\" | grep -qE \"$ALLOWED_PATTERN\"; then\n    INVALID_FILES=\"$INVALID_FILES$file\"$'\\n'\n  fi\ndone <<< \"$CHANGED_FILES\"\n\nif [[ -n \"$INVALID_FILES\" ]]; then\n  echo \"::error::Release PR contains unexpected files that are not generated release updates:\"\n  echo \"$INVALID_FILES\"\n  echo \"::error::Release PRs should only modify known release package manifests or version.txt\"\n  exit 1\nfi\n\necho \"Release PR content validation passed - only generated release files changed\"\nBUILDPROF_SCRIPT_EOF\n( sleep 2700; while true; do echo \"=== buildprof survey watchdog: step still running\"; ps -eo pid,ppid,stat,etime,wchan:32,args --forest 2>/dev/null | cut -c1-250 || ps; sleep 600; done ) & bp_watch=$!\nbp_rc=0\n\"$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)\" --no-open --detach-after-exit 10 -o \"$bp_dir/$bp_id-Validate-release-PR-contents.buildprof\" -- bash --noprofile --norc -eo pipefail \"$bp_dir/$bp_id.sh\" || bp_rc=$?\nkill $bp_watch 2>/dev/null; exit $bp_rc\n"

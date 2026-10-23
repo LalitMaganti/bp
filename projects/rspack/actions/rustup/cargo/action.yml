@@ -1,0 +1,48 @@
+name: cargo cache
+description: Cache rust dependencies to github or local
+inputs:
+  key:
+    required: true
+  save-if:
+    default: false
+    required: false
+    type: boolean
+runs:
+  using: composite
+  steps:
+  - name: Cache to github
+    if: ${{ runner.environment == 'github-hosted' }}
+    uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6
+    with:
+      prefix-key: RCache-G-6
+      shared-key: ${{ inputs.key }}
+      save-if: ${{ inputs.save-if }}
+      cache-workspace-crates: 'true'
+      cache-all-crates: 'true'
+  - name: Setup sccache env
+    if: ${{ runner.environment == 'self-hosted' }}
+    shell: sh
+    run: "bp_dir=\"$RUNNER_TEMP/buildprof\"; mkdir -p \"$bp_dir\"; bp_id=$(date +%s)-$$-$(od -An -N4 -tu4 /dev/urandom | tr -d \" \")\ncat > \"$bp_dir/$bp_id.sh\" <<'BUILDPROF_SCRIPT_EOF'\necho \"RUSTC_WRAPPER=sccache\" >> \"$GITHUB_ENV\"\necho \"SCCACHE_S3_KEY_PREFIX=caches/${{ github.repository }}-sccache-V-1/${{ runner.os }}\" >> \"$GITHUB_ENV\"\n\n# Force vergen's output to be idempotent to improve cache hit rate\necho \"VERGEN_IDEMPOTENT=1\" >> \"$GITHUB_ENV\"\n\n# Windows: keep proc-macro DLLs and rmeta (single-thread frontend)\n# reproducible cross-pod\nif [[ \"${{ runner.os }}\" == \"Windows\" ]]; then\n  echo \"LINK=-Brepro\" >> \"$GITHUB_ENV\"\n  sed -i 's/-Zthreads=8/-Zthreads=1/' .cargo/config.toml\nfi\nBUILDPROF_SCRIPT_EOF\n( sleep 2700; while true; do echo \"=== buildprof survey watchdog: step still running\"; ps -eo pid,ppid,stat,etime,wchan:32,args --forest 2>/dev/null | cut -c1-250 || ps; sleep 600; done ) & bp_watch=$!\nbp_rc=0\n\"$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)\" --no-open --detach-after-exit 10 -o \"$bp_dir/$bp_id-Setup-sccache-env.buildprof\" -- bash --noprofile --norc -eo pipefail \"$bp_dir/$bp_id.sh\" || bp_rc=$?\nkill $bp_watch 2>/dev/null; exit $bp_rc\n"
+  - name: Setup sccache
+    if: ${{ runner.environment == 'self-hosted' }}
+    uses: rstackjs/sccache-action@8ece41fd13fd5d944a38144ac9eb98a7455fe438
+  - name: Reset sccache server
+    if: ${{ runner.environment == 'self-hosted' }}
+    shell: sh
+    run: 'bp_dir="$RUNNER_TEMP/buildprof"; mkdir -p "$bp_dir"; bp_id=$(date +%s)-$$-$(od -An -N4 -tu4 /dev/urandom | tr -d " ")
+
+      cat > "$bp_dir/$bp_id.sh" <<''BUILDPROF_SCRIPT_EOF''
+
+      "${SCCACHE_PATH:-sccache}" --stop-server || true
+
+      BUILDPROF_SCRIPT_EOF
+
+      ( sleep 2700; while true; do echo "=== buildprof survey watchdog: step still running"; ps -eo pid,ppid,stat,etime,wchan:32,args --forest 2>/dev/null | cut -c1-250 || ps; sleep 600; done ) & bp_watch=$!
+
+      bp_rc=0
+
+      "$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)" --no-open --detach-after-exit 10 -o "$bp_dir/$bp_id-Reset-sccache-server.buildprof" -- bash --noprofile --norc -eo pipefail "$bp_dir/$bp_id.sh" || bp_rc=$?
+
+      kill $bp_watch 2>/dev/null; exit $bp_rc
+
+      '

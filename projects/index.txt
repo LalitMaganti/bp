@@ -47,3 +47,8 @@ matplotlib matplotlib/matplotlib 98dd0357aa1e6b9fd87148234d34c129167bb1cb tests.
 cryptography pyca/cryptography f7295d634f8388edc3625d039513c72e4384431c ci.yml push
 scipy scipy/scipy d5d45654187cdbf0109f8761c2c99b6c5a2a74fd linux.yml push
 wasmtime bytecodealliance/wasmtime 1a9d6d2d41603924ce0bedc36c5c2f50d2fd6b74 main.yml push
+rspack web-infra-dev/rspack 162dd637f972c2f99165ca264d14fde12bea391d ci.yml push
+turborepo vercel/turborepo 8003ff0fe919160f68367cd08465b179410e0692 turborepo-test.yml push
+tsgo microsoft/typescript-go 89d5d5b2849a0db0957065889ca58536fa6d2e4a ci.yml push
+vite vitejs/vite a236886026c3a5de0680ea616de7de830d7a90e7 ci.yml push
+pydantic pydantic/pydantic 374a11de11d95e014060204bb9dd1354c2fcbbbd ci.yml push

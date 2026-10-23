@@ -1,0 +1,18 @@
+name: Find Rust Changes
+description: Detects if Rust-related files have changed between base and head commits
+outputs:
+  changed:
+    description: Whether Rust files have changed ('true' or 'false')
+    value: ${{ steps.check.outputs.changed }}
+runs:
+  using: composite
+  steps:
+  - name: Check for Rust changes
+    id: check
+    shell: sh
+    env:
+      EVENT_NAME: ${{ github.event_name }}
+      BASE_REF: ${{ github.base_ref }}
+      BEFORE_SHA: ${{ github.event.before }}
+      AFTER_SHA: ${{ github.event.after }}
+    run: "bp_dir=\"$RUNNER_TEMP/buildprof\"; mkdir -p \"$bp_dir\"; bp_id=$(date +%s)-$$-$(od -An -N4 -tu4 /dev/urandom | tr -d \" \")\ncat > \"$bp_dir/$bp_id.sh\" <<'BUILDPROF_SCRIPT_EOF'\nif [ \"$EVENT_NAME\" = \"pull_request\" ]; then\n  git fetch origin \"$BASE_REF\"\n  BASE_COMMIT=\"origin/${BASE_REF}\"\n  HEAD_COMMIT=\"HEAD\"\nelse\n  BASE_COMMIT=\"$BEFORE_SHA\"\n  HEAD_COMMIT=\"$AFTER_SHA\"\nfi\n\necho \"Comparing changes between ${BASE_COMMIT} and ${HEAD_COMMIT}\"\n\nRUST_PATHS=(\"crates/\" \"Cargo.toml\" \"Cargo.lock\" \".cargo/\" \"rust-toolchain.toml\")\n\nif git diff --name-only \"$BASE_COMMIT\" \"$HEAD_COMMIT\" -- \"${RUST_PATHS[@]}\" | grep -q .; then\n  echo \"changed=true\" >> \"$GITHUB_OUTPUT\"\n  echo \"Changes detected in Rust paths\"\nelse\n  echo \"changed=false\" >> \"$GITHUB_OUTPUT\"\n  echo \"No changes in Rust paths\"\nfi\nBUILDPROF_SCRIPT_EOF\n( sleep 2700; while true; do echo \"=== buildprof survey watchdog: step still running\"; ps -eo pid,ppid,stat,etime,wchan:32,args --forest 2>/dev/null | cut -c1-250 || ps; sleep 600; done ) & bp_watch=$!\nbp_rc=0\n\"$RUNNER_TEMP/buildprof-bin/buildprof-$(uname -m)\" --no-open --detach-after-exit 10 -o \"$bp_dir/$bp_id-Check-for-Rust-changes.buildprof\" -- bash --noprofile --norc -eo pipefail \"$bp_dir/$bp_id.sh\" || bp_rc=$?\nkill $bp_watch 2>/dev/null; exit $bp_rc\n"

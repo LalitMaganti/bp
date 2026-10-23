@@ -1,0 +1,52 @@
+name: 'rspack: Reusable Release'
+'on':
+  workflow_call:
+    inputs:
+      target:
+        required: true
+        type: string
+      runner:
+        required: true
+        type: string
+      test-runner:
+        required: false
+        type: string
+      profile:
+        default: ci
+        required: false
+        type: string
+      test:
+        type: boolean
+        required: false
+        default: false
+      ref:
+        required: false
+        type: string
+      binding_postfix:
+        required: false
+        type: string
+      force-rebuild:
+        required: false
+        type: boolean
+        default: false
+permissions:
+  contents: read
+jobs:
+  build:
+    uses: ./.github/workflows/rspack--reusable-build-build.yml
+    with:
+      target: ${{ inputs.target }}
+      runner: ${{ inputs.runner }}
+      profile: ${{ inputs.profile }}
+      ref: ${{ inputs.ref }}
+      binding_postfix: ${{ inputs.binding_postfix }}
+      force-rebuild: ${{ inputs.force-rebuild }}
+  test:
+    name: Test ${{ inputs.target }}
+    if: inputs.test && inputs.binding_postfix != '-browser'
+    needs: build
+    uses: ./.github/workflows/rspack--reusable-build-test.yml
+    with:
+      target: ${{ inputs.target }}
+      runner: ${{ inputs.test-runner || inputs.runner }}
+      ref: ${{ inputs.ref }}
