@@ -124,7 +124,7 @@ jobs:
     timeout-minutes: 120
   release-build:
     if: ${{ 'microsoft/typescript-go' == 'microsoft/typescript-go' && 'push' != 'merge_group' }}
-    runs-on: TypeScript-1ES-GitHub-XL-2
+    runs-on: ubuntu-latest
     steps:
     - name: Fetch buildprof
       uses: actions/checkout@v4
