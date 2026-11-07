@@ -1,0 +1,24 @@
+name: 'gyp-next fix: GNU make 3.81 hang test (nodejs/node#23255)'
+on:
+  push:
+    branches: [hangtest]
+permissions:
+  contents: read
+jobs:
+  hang:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-latest, macos-15-intel]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 355
+    steps:
+      - uses: actions/checkout@v4
+      - name: Hang test
+        run: W=$HOME/hangtest bash hangtest/hangtest.sh
+      - name: Upload logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: logs-${{ matrix.os }}
+          path: ~/hangtest/logs
