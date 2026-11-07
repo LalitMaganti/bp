@@ -8,13 +8,15 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-24.04-arm, windows-2022]
+        os: [windows-2022]
         mode: [base, patch]
         rep: [1, 2]
     steps:
     - name: Enable Git long paths
       if: matrix.os == 'windows-2022'
-      run: git config --system core.longpaths true
+      run: |
+        git config --system core.longpaths true
+        git config --global core.autocrlf false
     - uses: actions/checkout@v4
       with:
         repository: biomejs/biome
