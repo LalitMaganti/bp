@@ -1,0 +1,47 @@
+From fed26a0f6f5f12032290e31179549caf856b27cd Mon Sep 17 00:00:00 2001
+From: Lalit Maganti <lalitmaganti@gmail.com>
+Date: Fri, 6 Nov 2026 22:49:38 -0800
+Subject: [PATCH] CI: proto check generates the proto files serially
+
+Problem:  CI: The proto check runs "make protoclean proto" without -j,
+          so it generates the proto files one at a time.
+Solution: Remove the proto files at the end of the build action and run
+          "make -j proto" in the Test step (Lalit Maganti).
+
+protoclean cannot simply be run in the same "make -j" call as proto, as
+the two goals would run concurrently.  With -j the Test step goes from
+38-39 s to 20 s and generates the same files.
+---
+ .github/actions/build_vim_on_linux/action.yml | 12 +++++++++++-
+ 1 file changed, 11 insertions(+), 1 deletion(-)
+
+diff --git a/.github/actions/build_vim_on_linux/action.yml b/.github/actions/build_vim_on_linux/action.yml
+index 7fc8aec..0775df9 100644
+--- a/.github/actions/build_vim_on_linux/action.yml
++++ b/.github/actions/build_vim_on_linux/action.yml
+@@ -252,7 +252,7 @@ runs:
+           echo "TEST=-C runtime/doc vimtags VIMEXE=../../${SRCDIR}/vim"
+         fi
+         if ${{ contains(fromJSON(inputs.extra), 'proto') }}; then
+-          echo "TEST=-C src protoclean proto"
++          echo "TEST=-C src -j$(getconf _NPROCESSORS_ONLN) proto"
+         fi
+         echo "CFLAGS=${CFLAGS}"
+         echo "CONFOPT=${CONFOPT}"
+@@ -332,3 +332,13 @@ runs:
+             -S ci/if_feat_check.vim -c quit
+         fi
+         echo '::endgroup::'
++
++    - name: Remove proto files
++      if: contains(fromJSON(inputs.extra), 'proto')
++      shell: bash
++      run: |
++        echo '::group::Remove proto files'
++        # Done here and not in TEST, so that "make -j proto" in the Test
++        # step does not race with protoclean.
++        make -C src protoclean
++        echo '::endgroup::'
+-- 
+2.50.1 (Apple Git-155)
+

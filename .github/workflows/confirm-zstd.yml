@@ -1,0 +1,39 @@
+name: 'confirm: zstd -j patch'
+on: workflow_dispatch
+permissions:
+  contents: read
+jobs:
+  compat:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        mode: [base, patch]
+        job: [gnu90-c99, clangbuild]
+        rep: [1, 2]
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        repository: facebook/zstd
+        ref: 825bfe82c22888a54681595b26d67c74716c6aa2
+    - uses: actions/checkout@v4
+      with:
+        path: .bp
+        sparse-checkout: confirm-patches
+    - if: matrix.mode == 'patch'
+      run: git apply .bp/confirm-patches/zstd.patch
+    - run: lscpu | grep 'Model name'
+    - shell: bash
+      run: |
+        rm -rf .bp
+        # Run the job's own commands from the (patched or base) workflow file.
+        job=${{ matrix.job }}; [ $job = gnu90-c99 ] && job=cpp-gnu90-c99-compatibility
+        python3 - "$job" > cmds.sh <<'PY'
+        import sys, yaml
+        d = yaml.safe_load(open('.github/workflows/dev-short-tests.yml'))
+        steps = d['jobs'][sys.argv[1]]['steps']
+        print('\n'.join(s['run'] for s in steps if 'run' in s))
+        PY
+        cat cmds.sh
+        start=$(date +%s); bash -e cmds.sh > build.log 2>&1 || { tail -40 build.log; exit 1; }
+        echo "CONFIRM zstd ${{ matrix.job }} ${{ matrix.mode }} $(( $(date +%s) - start )) s"

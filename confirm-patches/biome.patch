@@ -1,0 +1,47 @@
+From 6029ed5104c0b7a7e480988bcf1ce599bf85767f Mon Sep 17 00:00:00 2001
+From: Lalit Maganti <lalitmaganti@gmail.com>
+Date: Fri, 6 Nov 2026 22:50:26 -0800
+Subject: [PATCH] ci: set INSTA_WORKSPACE_ROOT to skip cargo metadata in
+ snapshot tests
+
+When INSTA_WORKSPACE_ROOT is unset, insta runs `cargo metadata
+--format-version=1 --no-deps` to find the workspace root. It caches the
+result, but only within one process, and cargo-nextest runs every test in
+its own process. A `cargo nextest run --workspace` therefore spawns about
+10,400 `cargo metadata` processes.
+
+Set the variable in .cargo/config.toml, relative to the workspace root.
+insta reads it with option_env! when the test crate is compiled and with
+env::var when the test runs; putting it in the cargo config covers both,
+for the CI jobs in main.yml and pull_request.yml and for local runs. Setting
+it only in the test step's environment would also work at runtime, but
+would change the compile-time environment and rebuild the crates that use
+insta. A value already present in the environment still takes precedence.
+
+On CI with this set for the whole job, `cargo nextest run` in the test job
+went from 332-361 s to 129-139 s on Linux arm64 and from 701 s to 221 s on
+Windows, with all tests passing.
+---
+ .cargo/config.toml | 6 ++++++
+ 1 file changed, 6 insertions(+)
+
+diff --git a/.cargo/config.toml b/.cargo/config.toml
+index 9c782a23..a517e617 100644
+--- a/.cargo/config.toml
++++ b/.cargo/config.toml
+@@ -37,6 +37,12 @@ format                 = "fmt --all --verbose"
+ lint                   = "clippy --workspace --all-features --all-targets -- --deny warnings"
+ new-crate              = "run -p xtask_codegen -- new-crate"
+ 
++# insta looks up the workspace root by running `cargo metadata` in every test
++# process, and cargo-nextest runs each test in its own process. Setting the
++# root here skips that lookup.
++[env]
++INSTA_WORKSPACE_ROOT = { value = "", relative = true }
++
+ [profile.release]
+ lto = true
+ 
+-- 
+2.50.1 (Apple Git-155)
+

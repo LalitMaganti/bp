@@ -1,0 +1,50 @@
+From 7c797887d36a694aeddbbfd927a0164994865f12 Mon Sep 17 00:00:00 2001
+From: Lalit Maganti <lalitmaganti@gmail.com>
+Date: Fri, 6 Nov 2026 22:48:02 -0800
+Subject: [PATCH] ci: run cpp-gnu90-c99-compatibility and clangbuild with make
+ -j
+
+These two dev-short-tests jobs build zstd several times over with a
+plain `make`, so each build compiles one file at a time. Most other
+make calls in the workflow already pass -j.
+
+With -j, on an ubuntu-latest runner, cpp-gnu90-c99-compatibility goes
+from 236-242 s to 119 s, and clangbuild from 146 s to 86 s.
+---
+ .github/workflows/dev-short-tests.yml | 10 +++++-----
+ 1 file changed, 5 insertions(+), 5 deletions(-)
+
+diff --git a/.github/workflows/dev-short-tests.yml b/.github/workflows/dev-short-tests.yml
+index c4db0a4..039b74f 100644
+--- a/.github/workflows/dev-short-tests.yml
++++ b/.github/workflows/dev-short-tests.yml
+@@ -78,13 +78,13 @@ jobs:
+     - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # tag=v7.0.1
+     - name: C++, gnu90 and c99 compatibility
+       run: |
+-        make cxxtest
++        make -j cxxtest
+         make clean
+-        make gnu90build
++        make -j gnu90build
+         make clean
+-        make c99build
++        make -j c99build
+         make clean
+-        make travis-install   # just ensures `make install` works
++        make -j travis-install   # just ensures `make install` works
+ 
+   mingw-cross-compilation:
+     runs-on: ubuntu-latest
+@@ -602,7 +602,7 @@ jobs:
+     - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # tag=v7.0.1
+     - name: make clangbuild
+       run: |
+-        make clangbuild
++        make -j clangbuild
+ 
+   gcc-pgo:
+     runs-on: ubuntu-latest
+-- 
+2.50.1 (Apple Git-155)
+

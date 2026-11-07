@@ -1,0 +1,120 @@
+name: 'confirm: vim proto patch'
+'on':
+  workflow_dispatch: 
+permissions:
+  contents: read
+jobs:
+  linux:
+    runs-on: "${{ matrix.architecture == 'arm64' && 'ubuntu-26.04-arm' || 'ubuntu-26.04' }}"
+    env:
+      CC: "${{ matrix.compiler }}"
+      GCC_VER: 16
+      CLANG_VER: 22
+      TEST: test
+      SRCDIR: "./src"
+      LEAK_CFLAGS: "-DEXITFREE"
+      LOG_DIR: "${{ github.workspace }}/logs"
+      TERM: xterm
+      DISPLAY: ":99"
+      WAYLAND_DISPLAY: "/tmp/weston_sock"
+      GTK_A11Y: none
+      GDK_DEBUG: no-portals
+      DEBIAN_FRONTEND: noninteractive
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+        - features: normal
+          compiler: gcc
+          extra:
+          - vimtags
+          - proto
+          - preproc_indent
+          - encoding
+          - codestyle
+          mode: base
+          rep: 1
+        - features: normal
+          compiler: gcc
+          extra:
+          - vimtags
+          - proto
+          - preproc_indent
+          - encoding
+          - codestyle
+          mode: base
+          rep: 2
+        - features: normal
+          compiler: gcc
+          extra:
+          - vimtags
+          - proto
+          - preproc_indent
+          - encoding
+          - codestyle
+          mode: patch
+          rep: 1
+        - features: normal
+          compiler: gcc
+          extra:
+          - vimtags
+          - proto
+          - preproc_indent
+          - encoding
+          - codestyle
+          mode: patch
+          rep: 2
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        repository: vim/vim
+        ref: 88d96a15f99851faca0cacbbbdcede3f8c25149b
+    - uses: actions/checkout@v4
+      with:
+        path: ".bp"
+        sparse-checkout: confirm-patches
+    - if: matrix.mode == 'patch'
+      run: git apply .bp/confirm-patches/vim-proto.patch && git diff --stat
+    - run: rm -rf .bp; lscpu | grep "Model name"
+    - name: Build
+      timeout-minutes: 15
+      uses: "./.github/actions/build_vim_on_linux"
+      with:
+        features: "${{ matrix.features }}"
+        compiler: "${{ matrix.compiler }}"
+        architecture: "${{ matrix.architecture }}"
+        extra: "${{ toJSON(matrix.extra) }}"
+        shadow: "${{ matrix.shadow }}"
+        interface: "${{ matrix.interface }}"
+        lua_ver: "${{ matrix.lua_ver }}"
+        python3: "${{ matrix.python3 }}"
+        coverage: "${{ matrix.coverage }}"
+    - name: Test
+      timeout-minutes: 20
+      continue-on-error: "${{ contains(matrix.extra, 'use_gtk4') }}"
+      run: |
+        start=$(date +%s)
+        make ${SHADOWOPT} ${TEST}
+        echo "CONFIRM vim proto ${{ matrix.mode }} $(( $(date +%s) - start )) s"
+    - name: Upload failed test artifacts
+      if: "${{ !cancelled() }}"
+      uses: "./.github/actions/test_artifacts"
+    - name: Vim tags
+      if: contains(matrix.extra, 'vimtags')
+      run: |
+        # This will exit with an error code if the generated vim tags differs from source.
+        (
+          cd runtime/doc
+          git diff --exit-code -- tags
+          make html; rm *.html tags.ref;
+          test -f errors.log && exit 3;
+          true
+        )
+    - name: Generate Proto files
+      if: contains(matrix.extra, 'proto')
+      run: |
+        # This will exit with an error code if the generated proto files differ from source
+        (
+          git diff --exit-code -- src/proto/
+          true
+        )
