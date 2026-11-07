@@ -1,0 +1,31 @@
+name: 'buildprof: macOS conformance on a branch'
+on:
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: buildprof branch or commit
+        required: true
+      tests:
+        description: pytest selection
+        default: tests/conformance/test_cli.py
+permissions:
+  contents: read
+jobs:
+  test:
+    strategy:
+      fail-fast: false
+      matrix:
+        runner: [macos-latest, macos-15-intel]
+    runs-on: ${{ matrix.runner }}
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        repository: LalitMaganti/buildprof
+        ref: ${{ inputs.ref }}
+    - uses: astral-sh/setup-uv@v6
+    - run: sw_vers; uname -m; sudo -n true && echo "passwordless sudo"
+    - run: cargo build --locked 2>&1 | tail -3
+    - run: cargo test --locked --bin buildprof 2>&1 | grep -E 'test result|FAILED|panicked'
+    - run: uv sync --frozen
+    - run: BUILDPROF_BIN=target/debug/buildprof uv run pytest -v ${{ inputs.tests }} 2>&1 | tail -60
+      shell: bash
